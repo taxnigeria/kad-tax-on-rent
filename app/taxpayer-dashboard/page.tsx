@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { TaxpayerSidebar } from "@/components/taxpayer-sidebar"
-import { SiteHeader } from "@/components/site-header"
+import { TaxpayerHeader } from "@/components/taxpayer-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -55,7 +55,7 @@ export default function TaxpayerDashboardPage() {
     >
       <TaxpayerSidebar variant="inset" />
       <SidebarInset>
-        <SiteHeader />
+        <TaxpayerHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">

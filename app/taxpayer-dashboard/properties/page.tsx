@@ -1,12 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
 import { TaxpayerSidebar } from "@/components/taxpayer-sidebar"
-import { SiteHeader } from "@/components/site-header"
+import { TaxpayerHeader } from "@/components/taxpayer-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AIAssistantSidebar } from "@/components/ai-assistant-sidebar"
 import { Button } from "@/components/ui/button"
@@ -52,35 +52,31 @@ export default function PropertiesPage() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
   const supabase = createClient()
 
+  console.log("[v0] PropertiesPage render - authLoading:", authLoading, "user:", user?.id, "loading:", loading)
+
   useEffect(() => {
+    console.log("[v0] Auth check effect - authLoading:", authLoading, "user:", user?.id, "userRole:", userRole)
     if (!authLoading) {
       if (!user) {
+        console.log("[v0] No user, redirecting to login")
         router.push("/login")
       } else if (userRole && !["taxpayer", "property_manager"].includes(userRole)) {
+        console.log("[v0] Wrong role, redirecting to dashboard")
         router.push("/dashboard")
       }
     }
   }, [user, userRole, authLoading, router])
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchProperties()
-    }
-  }, [user?.id])
-
-  useEffect(() => {
-    filterProperties()
-  }, [searchQuery, typeFilter, statusFilter, properties])
-
-  async function fetchProperties() {
+  const fetchProperties = useCallback(async () => {
+    console.log("[v0] fetchProperties called - user.id:", user?.id)
     if (!user?.id) {
-      console.log("[v0] Cannot fetch properties: user ID is undefined")
+      console.log("[v0] No user.id, setting loading to false")
       setLoading(false)
       return
     }
 
     try {
-      console.log("[v0] Fetching properties for user:", user.id)
+      console.log("[v0] Fetching properties from Supabase...")
       const { data, error } = await supabase
         .from("properties")
         .select(`
@@ -95,15 +91,31 @@ export default function PropertiesPage() {
         .eq("owner_id", user.id)
         .order("created_at", { ascending: false })
 
-      if (error) throw error
-      console.log("[v0] Fetched properties:", data?.length || 0)
+      if (error) {
+        console.error("[v0] Error fetching properties:", error)
+        throw error
+      }
+      console.log("[v0] Properties fetched successfully:", data?.length, "properties")
       setProperties(data || [])
     } catch (error) {
-      console.error("Error fetching properties:", error)
+      console.error("[v0] Error in fetchProperties:", error)
+      setProperties([])
     } finally {
+      console.log("[v0] Setting loading to false")
       setLoading(false)
     }
-  }
+  }, [user?.id])
+
+  useEffect(() => {
+    console.log("[v0] Fetch properties effect - user?.id:", user?.id)
+    if (user?.id) {
+      fetchProperties()
+    }
+  }, [user?.id, fetchProperties])
+
+  useEffect(() => {
+    filterProperties()
+  }, [searchQuery, typeFilter, statusFilter, properties])
 
   function filterProperties() {
     let filtered = properties
@@ -177,7 +189,7 @@ export default function PropertiesPage() {
       >
         <TaxpayerSidebar variant="inset" />
         <SidebarInset>
-          <SiteHeader />
+          <TaxpayerHeader />
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
@@ -201,7 +213,7 @@ export default function PropertiesPage() {
     >
       <TaxpayerSidebar variant="inset" />
       <SidebarInset>
-        <SiteHeader />
+        <TaxpayerHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-6 p-4 md:p-6">
