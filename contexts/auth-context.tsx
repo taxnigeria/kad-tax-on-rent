@@ -1,0 +1,56 @@
+"use client"
+
+import type React from "react"
+import { createContext, useContext, useEffect, useState } from "react"
+import type { User } from "firebase/auth"
+import { onAuthStateChange, logout as firebaseLogout } from "@/lib/auth"
+import { getUserRole } from "@/app/actions/get-user-role"
+
+interface AuthContextType {
+  user: User | null
+  userRole: string | null
+  loading: boolean
+  logout: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange(async (firebaseUser) => {
+      setUser(firebaseUser)
+
+      if (firebaseUser) {
+        try {
+          const role = await getUserRole(firebaseUser.uid)
+          setUserRole(role)
+        } catch (error) {
+          console.error("[v0] Error fetching user role:", error)
+          setUserRole(null)
+        }
+      } else {
+        setUserRole(null)
+      }
+
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  return (
+    <AuthContext.Provider value={{ user, userRole, loading, logout: firebaseLogout }}>{children}</AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}
