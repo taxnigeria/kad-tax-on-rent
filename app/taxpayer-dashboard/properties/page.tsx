@@ -4,7 +4,6 @@ import type React from "react"
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { createClient } from "@/lib/supabase/client"
 import { TaxpayerSidebar } from "@/components/taxpayer-sidebar"
 import { TaxpayerHeader } from "@/components/taxpayer-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -17,6 +16,7 @@ import { Building2, Search, Plus, MapPin, Calendar, DollarSign, Home, Filter } f
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RegisterPropertyModal } from "@/components/register-property-modal"
+import { getPropertiesByFirebaseUid } from "@/app/actions/get-properties"
 
 type Property = {
   id: string
@@ -50,53 +50,43 @@ export default function PropertiesPage() {
   const [typeFilter, setTypeFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
-  const supabase = createClient()
 
-  console.log("[v0] PropertiesPage render - authLoading:", authLoading, "user:", user?.id, "loading:", loading)
+  console.log("[v0] PropertiesPage render - authLoading:", authLoading, "user:", user?.uid, "loading:", loading)
 
   useEffect(() => {
-    console.log("[v0] Auth check effect - authLoading:", authLoading, "user:", user?.id, "userRole:", userRole)
+    console.log("[v0] Auth check effect - authLoading:", authLoading, "user:", user?.uid, "userRole:", userRole)
     if (!authLoading) {
       if (!user) {
         console.log("[v0] No user, redirecting to login")
+        setLoading(false)
         router.push("/login")
       } else if (userRole && !["taxpayer", "property_manager"].includes(userRole)) {
         console.log("[v0] Wrong role, redirecting to dashboard")
+        setLoading(false)
         router.push("/dashboard")
       }
     }
   }, [user, userRole, authLoading, router])
 
   const fetchProperties = useCallback(async () => {
-    console.log("[v0] fetchProperties called - user.id:", user?.id)
-    if (!user?.id) {
-      console.log("[v0] No user.id, setting loading to false")
+    console.log("[v0] fetchProperties called - user.uid:", user?.uid)
+    if (!user?.uid) {
+      console.log("[v0] No user.uid, setting loading to false")
       setLoading(false)
       return
     }
 
     try {
-      console.log("[v0] Fetching properties from Supabase...")
-      const { data, error } = await supabase
-        .from("properties")
-        .select(`
-          *,
-          addresses (
-            street_address,
-            city,
-            state,
-            lga
-          )
-        `)
-        .eq("owner_id", user.id)
-        .order("created_at", { ascending: false })
+      console.log("[v0] Fetching properties via server action...")
+      const { properties: data, error } = await getPropertiesByFirebaseUid(user.uid)
 
       if (error) {
         console.error("[v0] Error fetching properties:", error)
-        throw error
+        setProperties([])
+      } else {
+        console.log("[v0] Properties fetched successfully:", data?.length, "properties")
+        setProperties(data || [])
       }
-      console.log("[v0] Properties fetched successfully:", data?.length, "properties")
-      setProperties(data || [])
     } catch (error) {
       console.error("[v0] Error in fetchProperties:", error)
       setProperties([])
@@ -104,14 +94,14 @@ export default function PropertiesPage() {
       console.log("[v0] Setting loading to false")
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user?.uid])
 
   useEffect(() => {
-    console.log("[v0] Fetch properties effect - user?.id:", user?.id)
-    if (user?.id) {
+    console.log("[v0] Fetch properties effect - user?.uid:", user?.uid)
+    if (user?.uid) {
       fetchProperties()
     }
-  }, [user?.id, fetchProperties])
+  }, [user?.uid, fetchProperties])
 
   useEffect(() => {
     filterProperties()
