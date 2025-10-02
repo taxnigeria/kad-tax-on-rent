@@ -238,7 +238,7 @@ export function RegisterPropertyModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[85vw] max-w-[85vw] sm:max-w-7xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-[75vw] max-w-[75vw] sm:max-w-7xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{taxpayerId ? "Register Property for Taxpayer" : "Register New Property"}</DialogTitle>
             <DialogDescription>

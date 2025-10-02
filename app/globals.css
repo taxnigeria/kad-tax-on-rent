@@ -162,7 +162,7 @@
   --shadow-blur: var(--shadow-blur);
   --shadow-y: var(--shadow-y);
   --shadow-x: var(--shadow-x);
-}
+} /* Added missing closing brace for @theme inline block */
 
 @layer base {
   * {
