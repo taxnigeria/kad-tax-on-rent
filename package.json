@@ -48,6 +48,7 @@
     "@tabler/icons-react": "latest",
     "@tanstack/react-table": "latest",
     "@vercel/analytics": "latest",
+    "@vercel/blob": "latest",
     "ai": "latest",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
