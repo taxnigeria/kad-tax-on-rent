@@ -479,8 +479,8 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                   </div>
                 ) : (
                   <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-8">
-                      <FileText className="h-12 w-12 text-muted-foreground/50 mb-2" />
+                    <CardContent className="flex flex-col items-center justify-center py-3">
+                      <FileText className="h-6 w-12 text-muted-foreground/50 mb-2" />
                       <p className="text-sm text-muted-foreground">No invoices found</p>
                     </CardContent>
                   </Card>
