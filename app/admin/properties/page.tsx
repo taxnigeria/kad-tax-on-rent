@@ -1,0 +1,541 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
+import { AppSidebar } from "@/components/app-sidebar"
+import { SiteHeader } from "@/components/site-header"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Building2, Plus, Search, Filter, Download, CheckCircle, Clock, Home } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { createBrowserClient } from "@supabase/ssr"
+import { AddPropertyModal } from "@/components/admin/add-property-modal"
+import { PropertyDetailsSheet } from "@/components/admin/property-details-sheet"
+
+type Property = {
+  id: string
+  property_reference: string
+  registered_property_name: string
+  property_type: string
+  total_annual_rent: number
+  verification_status: string
+  status: string
+  created_at: string
+  street_name: string
+  house_number: string
+  owner_id: string
+  users: {
+    id: string
+    first_name: string
+    last_name: string
+    email: string
+    taxpayer_profiles: Array<{
+      kadirs_id: string
+    }>
+  }
+}
+
+export default function AdminPropertiesPage() {
+  const router = useRouter()
+  const { user, userRole, loading: authLoading } = useAuth()
+  const [properties, setProperties] = useState<Property[]>([])
+  const [filteredProperties, setFilteredProperties] = useState<Property[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [propertyTypeFilter, setPropertyTypeFilter] = useState("all")
+  const [verificationStatusFilter, setVerificationStatusFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [selectedProperties, setSelectedProperties] = useState<string[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [rowsPerPage, setRowsPerPage] = useState(50)
+  const [showAddPropertyModal, setShowAddPropertyModal] = useState(false)
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
+  const [showPropertyDetails, setShowPropertyDetails] = useState(false)
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        router.push("/login")
+      } else if (userRole && !["admin", "super_admin", "staff"].includes(userRole)) {
+        router.push("/taxpayer-dashboard")
+      }
+    }
+  }, [user, userRole, authLoading, router])
+
+  useEffect(() => {
+    if (user && userRole && ["admin", "super_admin", "staff"].includes(userRole)) {
+      fetchProperties()
+    }
+  }, [user, userRole])
+
+  useEffect(() => {
+    filterProperties()
+  }, [searchQuery, propertyTypeFilter, verificationStatusFilter, statusFilter, properties])
+
+  async function fetchProperties() {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from("properties")
+        .select(
+          `
+          id,
+          property_reference,
+          registered_property_name,
+          property_type,
+          total_annual_rent,
+          verification_status,
+          status,
+          created_at,
+          street_name,
+          house_number,
+          owner_id,
+          users!properties_owner_id_fkey (
+            id,
+            first_name,
+            last_name,
+            email,
+            taxpayer_profiles (
+              kadirs_id
+            )
+          )
+        `,
+        )
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Error fetching properties:", error)
+        setProperties([])
+      } else {
+        setProperties((data as any) || [])
+      }
+    } catch (error) {
+      console.error("Error in fetchProperties:", error)
+      setProperties([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function filterProperties() {
+    let filtered = properties
+
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (p) =>
+          p.registered_property_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.property_reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.users?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.users?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.users?.taxpayer_profiles?.[0]?.kadirs_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.street_name?.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    }
+
+    if (propertyTypeFilter !== "all") {
+      filtered = filtered.filter((p) => p.property_type === propertyTypeFilter)
+    }
+
+    if (verificationStatusFilter !== "all") {
+      filtered = filtered.filter((p) => p.verification_status === verificationStatusFilter)
+    }
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((p) => p.status === statusFilter)
+    }
+
+    setFilteredProperties(filtered)
+    setCurrentPage(1)
+  }
+
+  function handleSelectAll(checked: boolean) {
+    if (checked) {
+      setSelectedProperties(paginatedProperties.map((p) => p.id))
+    } else {
+      setSelectedProperties([])
+    }
+  }
+
+  function handleSelectProperty(propertyId: string, checked: boolean) {
+    if (checked) {
+      setSelectedProperties([...selectedProperties, propertyId])
+    } else {
+      setSelectedProperties(selectedProperties.filter((id) => id !== propertyId))
+    }
+  }
+
+  function handleViewDetails(propertyId: string) {
+    setSelectedPropertyId(propertyId)
+    setShowPropertyDetails(true)
+  }
+
+  function handleExport() {
+    console.log("Exporting properties:", selectedProperties.length > 0 ? selectedProperties : "all")
+  }
+
+  function handleAddProperty() {
+    setShowAddPropertyModal(true)
+  }
+
+  const totalPages = Math.ceil(filteredProperties.length / rowsPerPage)
+  const startIndex = (currentPage - 1) * rowsPerPage
+  const endIndex = startIndex + rowsPerPage
+  const paginatedProperties = filteredProperties.slice(startIndex, endIndex)
+
+  const stats = {
+    total: properties.length,
+    verified: properties.filter((p) => p.verification_status === "approved").length,
+    pending: properties.filter((p) => p.verification_status === "pending").length,
+    totalRent: properties.reduce((sum, p) => sum + (p.total_annual_rent || 0), 0),
+  }
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user || (userRole && !["admin", "super_admin", "staff"].includes(userRole))) {
+    return null
+  }
+
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+          {/* Header */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Properties Management</h1>
+              <p className="text-muted-foreground mt-1">Manage all registered properties across taxpayers</p>
+            </div>
+            <Button className="gap-2" onClick={handleAddProperty}>
+              <Plus className="h-4 w-4" />
+              Add Property
+            </Button>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.total}</div>
+                <p className="text-xs text-muted-foreground mt-1">Registered properties</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Verified Properties</CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.verified}</div>
+                <p className="text-xs text-muted-foreground mt-1">Approved properties</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Pending Verification</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.pending}</div>
+                <p className="text-xs text-muted-foreground mt-1">Awaiting review</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Annual Rent</CardTitle>
+                <Home className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ₦{stats.totalRent.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Combined annual rent</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by property name, reference, owner, or address..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Select value={propertyTypeFilter} onValueChange={setPropertyTypeFilter}>
+                    <SelectTrigger className="w-[160px]">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Property Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="residential">Residential</SelectItem>
+                      <SelectItem value="commercial">Commercial</SelectItem>
+                      <SelectItem value="industrial">Industrial</SelectItem>
+                      <SelectItem value="mixed">Mixed Use</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={verificationStatusFilter} onValueChange={setVerificationStatusFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Verification" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Verification</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="needs_info">Needs Info</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {selectedProperties.length > 0 && (
+                    <Button variant="outline" className="gap-2 bg-transparent" onClick={handleExport}>
+                      <Download className="h-4 w-4" />
+                      Export ({selectedProperties.length})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Properties Table */}
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted hover:bg-muted">
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={
+                            paginatedProperties.length > 0 && selectedProperties.length === paginatedProperties.length
+                          }
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
+                      <TableHead>Property Name</TableHead>
+                      <TableHead>Owner/Taxpayer</TableHead>
+                      <TableHead>Address</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Annual Rent</TableHead>
+                      <TableHead>Verification</TableHead>
+                      <TableHead>Registered</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedProperties.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-12">
+                          <Building2 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                          <p className="text-muted-foreground">
+                            {properties.length === 0
+                              ? "No properties found. Add your first property to get started."
+                              : "No properties match your search criteria."}
+                          </p>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedProperties.map((property) => (
+                        <TableRow key={property.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedProperties.includes(property.id)}
+                              onCheckedChange={(checked) => handleSelectProperty(property.id, checked as boolean)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{property.registered_property_name || "Unnamed Property"}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">
+                              {property.users?.first_name} {property.users?.last_name}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {property.users?.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {property.house_number} {property.street_name}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {property.property_type?.replace("_", " ")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            ₦{(property.total_annual_rent || 0).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                          </TableCell>
+                          <TableCell>
+                            {property.verification_status === "approved" && (
+                              <Badge className="bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20">
+                                Approved
+                              </Badge>
+                            )}
+                            {property.verification_status === "pending" && (
+                              <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/20">
+                                Pending
+                              </Badge>
+                            )}
+                            {property.verification_status === "rejected" && (
+                              <Badge className="bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20">
+                                Rejected
+                              </Badge>
+                            )}
+                            {property.verification_status === "needs_info" && (
+                              <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20">
+                                Needs Info
+                              </Badge>
+                            )}
+                            {!property.verification_status && <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {new Date(property.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" onClick={() => handleViewDetails(property.id)}>
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              {filteredProperties.length > 0 && (
+                <div className="flex items-center justify-between px-6 py-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1} to {Math.min(endIndex, filteredProperties.length)} of{" "}
+                    {filteredProperties.length} properties
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Rows per page</span>
+                      <Select
+                        value={rowsPerPage.toString()}
+                        onValueChange={(value) => {
+                          setRowsPerPage(Number(value))
+                          setCurrentPage(1)
+                        }}
+                      >
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(1)}
+                          disabled={currentPage === 1}
+                        >
+                          First
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          Next
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(totalPages)}
+                          disabled={currentPage === totalPages}
+                        >
+                          Last
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </SidebarInset>
+      <AddPropertyModal
+        open={showAddPropertyModal}
+        onOpenChange={setShowAddPropertyModal}
+        onSuccess={fetchProperties}
+      />
+      <PropertyDetailsSheet
+        open={showPropertyDetails}
+        onOpenChange={setShowPropertyDetails}
+        propertyId={selectedPropertyId}
+        onUpdate={fetchProperties}
+      />
+    </SidebarProvider>
+  )
+}

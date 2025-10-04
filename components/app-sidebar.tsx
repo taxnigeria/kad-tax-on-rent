@@ -56,16 +56,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Properties",
-        url: "/dashboard/properties",
+        url: "/admin/properties",
         icon: Building2,
         items: [
           {
             title: "All Properties",
-            url: "/dashboard/properties",
+            url: "/admin/properties",
           },
           {
             title: "Add Property",
-            url: "/dashboard/properties/add",
+            url: "/admin/properties?add=true",
           },
           {
             title: "Assessments",

@@ -7,6 +7,12 @@ import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Suspense } from "react"
 
+import { Geist_Mono as V0_Font_Geist_Mono } from 'next/font/google'
+
+// Initialize fonts
+const _geistMono = V0_Font_Geist_Mono({ subsets: ['latin'], weight: ["100","200","300","400","500","600","700","800","900"], variable: '--v0-font-geist-mono' })
+const _v0_fontVariables = `${_geistMono.variable}`
+
 export const metadata: Metadata = {
   title: "v0 App",
   description: "Created with v0",
@@ -20,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="font-sans antialiased">
+      <body className={`font-sans antialiased ${_v0_fontVariables}`}>
         <AuthProvider>
           <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
         </AuthProvider>
