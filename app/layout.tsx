@@ -6,7 +6,6 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Suspense } from "react"
-
 import { Geist_Mono as V0_Font_Geist_Mono } from 'next/font/google'
 
 // Initialize fonts

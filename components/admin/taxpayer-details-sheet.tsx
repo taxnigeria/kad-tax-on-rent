@@ -7,19 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { getTaxpayerById, updateTaxpayerStatus } from "@/app/actions/taxpayers"
-import {
-  Building2,
-  FileText,
-  Mail,
-  Phone,
-  MapPin,
-  Loader2,
-  UserX,
-  UserCheck,
-  DollarSign,
-  CheckCircle,
-  Pencil,
-} from "lucide-react"
+import { Building2, FileText, Mail, Loader2, UserX, UserCheck, DollarSign, CheckCircle, Pencil } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { RegisterPropertyModal } from "@/components/register-property-modal"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -142,36 +130,36 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
               <div className="space-y-6 mt-6 mb-6 px-6">
                 {/* Status and Quick Stats */}
                 <div className="flex gap-3">
-                  <Card className="flex-1">
-                    <CardHeader className="pb-2 pt-3">
+                  <Card className="flex-1 gap-0 py-0">
+                    <CardHeader className="pb-1 pt-3 px-4">
                       <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                         <Building2 className="h-3.5 w-3.5" />
                         Properties
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="pb-3">
+                    <CardContent className="pb-3 px-4">
                       <div className="text-xl font-bold">{taxpayer.property_count || 0}</div>
                     </CardContent>
                   </Card>
-                  <Card className="flex-1">
-                    <CardHeader className="pb-2 pt-3">
+                  <Card className="flex-1 gap-0 py-0">
+                    <CardHeader className="pb-1 pt-3 px-4">
                       <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                         <DollarSign className="h-3.5 w-3.5" />
                         Total Owed
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="pb-3">
+                    <CardContent className="pb-3 px-4">
                       <div className="text-xl font-bold">₦{(taxpayer.total_tax_owed || 0).toLocaleString()}</div>
                     </CardContent>
                   </Card>
-                  <Card className="flex-1">
-                    <CardHeader className="pb-2 pt-3">
+                  <Card className="flex-1 gap-0 py-0">
+                    <CardHeader className="pb-1 pt-3 px-4">
                       <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                         <CheckCircle className="h-3.5 w-3.5" />
                         Total Paid
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="pb-3">
+                    <CardContent className="pb-3 px-4">
                       <div className="text-xl font-bold">₦{(taxpayer.total_paid || 0).toLocaleString()}</div>
                     </CardContent>
                   </Card>
@@ -181,24 +169,25 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
 
                 {/* Contact Information */}
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold">Contact Information</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                      <div className="flex items-center gap-2 flex-1">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span>{taxpayer.email}</span>
-                      </div>
-                      {taxpayer.phone_number && (
-                        <div className="flex items-center gap-2 flex-1">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          <span>{taxpayer.phone_number}</span>
-                        </div>
-                      )}
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Contact Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">Email</div>
+                      <div className="font-medium">{taxpayer.email}</div>
                     </div>
+                    {taxpayer.phone_number && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Phone</div>
+                        <div className="font-medium">{taxpayer.phone_number}</div>
+                      </div>
+                    )}
                     {taxpayer.taxpayer_profiles?.residential_address && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                        <span>{taxpayer.taxpayer_profiles.residential_address}</span>
+                      <div className="space-y-1 md:col-span-2 lg:col-span-3">
+                        <div className="text-xs text-muted-foreground">Residential Address</div>
+                        <div className="font-medium">{taxpayer.taxpayer_profiles.residential_address}</div>
                       </div>
                     )}
                   </div>
@@ -209,30 +198,30 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
                 {/* Personal Information */}
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold">Personal Information</h3>
-                  <div className="grid gap-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">TIN/NIN:</span>
-                      <span className="font-mono">{taxpayer.taxpayer_profiles?.tax_id_or_nin || "—"}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">TIN/NIN</div>
+                      <div className="font-medium font-mono">{taxpayer.taxpayer_profiles?.tax_id_or_nin || "—"}</div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Gender:</span>
-                      <span className="capitalize">{taxpayer.taxpayer_profiles?.gender || "—"}</span>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">Gender</div>
+                      <div className="font-medium capitalize">{taxpayer.taxpayer_profiles?.gender || "—"}</div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Date of Birth:</span>
-                      <span>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">Date of Birth</div>
+                      <div className="font-medium">
                         {taxpayer.taxpayer_profiles?.date_of_birth
                           ? new Date(taxpayer.taxpayer_profiles.date_of_birth).toLocaleDateString()
                           : "—"}
-                      </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Nationality:</span>
-                      <span>{taxpayer.taxpayer_profiles?.nationality || "—"}</span>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">Nationality</div>
+                      <div className="font-medium">{taxpayer.taxpayer_profiles?.nationality || "—"}</div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Registered:</span>
-                      <span>{new Date(taxpayer.created_at).toLocaleDateString()}</span>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">Registered</div>
+                      <div className="font-medium">{new Date(taxpayer.created_at).toLocaleDateString()}</div>
                     </div>
                   </div>
                 </div>
@@ -243,19 +232,21 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
                     <Separator />
                     <div className="space-y-3">
                       <h3 className="text-sm font-semibold">Business Information</h3>
-                      <div className="grid gap-3 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Business Name:</span>
-                          <span>{taxpayer.taxpayer_profiles.business_name || "—"}</span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                        <div className="space-y-1">
+                          <div className="text-xs text-muted-foreground">Business Name</div>
+                          <div className="font-medium">{taxpayer.taxpayer_profiles.business_name || "—"}</div>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Business Type:</span>
-                          <span className="capitalize">{taxpayer.taxpayer_profiles.business_type || "—"}</span>
+                        <div className="space-y-1">
+                          <div className="text-xs text-muted-foreground">Business Type</div>
+                          <div className="font-medium capitalize">
+                            {taxpayer.taxpayer_profiles.business_type || "—"}
+                          </div>
                         </div>
                         {taxpayer.taxpayer_profiles.business_address && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Business Address:</span>
-                            <span className="text-right">{taxpayer.taxpayer_profiles.business_address}</span>
+                          <div className="space-y-1 md:col-span-2 lg:col-span-3">
+                            <div className="text-xs text-muted-foreground">Business Address</div>
+                            <div className="font-medium">{taxpayer.taxpayer_profiles.business_address}</div>
                           </div>
                         )}
                       </div>
