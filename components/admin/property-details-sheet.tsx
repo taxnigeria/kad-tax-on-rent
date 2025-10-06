@@ -328,13 +328,14 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                       <div className="text-xs font-medium text-muted-foreground">City</div>
                       <div>{property.addresses.city}</div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="text-xs font-medium text-muted-foreground">State</div>
-                      <div>{property.addresses.state}</div>
-                    </div>
+                    
                     <div className="space-y-1">
                       <div className="text-xs font-medium text-muted-foreground">LGA</div>
                       <div>{property.addresses.lga}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">State</div>
+                      <div>{property.addresses.state}</div>
                     </div>
                   </div>
                 ) : (
