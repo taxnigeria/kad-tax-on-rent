@@ -113,9 +113,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Tax Calculations",
-        url: "/dashboard/tax-calculations",
+        url: "/admin/tax-calculations",
         icon: Calculator,
         items: [
+          {
+            title: "All Calculations",
+            url: "/admin/tax-calculations",
+          },
           {
             title: "Tax Rates",
             url: "/dashboard/tax-calculations/rates",
@@ -123,10 +127,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {
             title: "Formulas",
             url: "/dashboard/tax-calculations/formulas",
-          },
-          {
-            title: "Assessments",
-            url: "/dashboard/tax-calculations/assessments",
           },
         ],
       },

@@ -26,17 +26,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, MapPin } from "lucide-react"
+import { Loader2, MapPin, ChevronLeft, ChevronRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 import { createProperty } from "@/app/actions/create-property"
+import { createClient } from "@/utils/supabase/client"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Check } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface RegisterPropertyModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
-  taxpayerId?: string // Optional: for admins registering on behalf of taxpayers
-  initialData?: Partial<PropertyFormData> // Optional: for AI prefilling
+  taxpayerId?: string
+  initialData?: Partial<PropertyFormData>
 }
 
 interface PropertyFormData {
@@ -48,13 +53,20 @@ interface PropertyFormData {
   registeringForSomeoneElse: boolean
   houseNumber: string
   streetName: string
-  city: string
+  cityId: string
+  cityName: string
   state: string
-  lga: string
+  lgaId: string
+  lgaName: string
+  areaOfficeId: string
+  areaOfficeName: string
   totalUnits: string
   occupiedUnits: string
   totalAnnualRent: string
   floorArea: string
+  yearBuilt: string
+  numberOfFloors: string
+  propertyDescription: string
 }
 
 export function RegisterPropertyModal({
@@ -64,12 +76,20 @@ export function RegisterPropertyModal({
   taxpayerId,
   initialData,
 }: RegisterPropertyModalProps) {
+  const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [geocoding, setGeocoding] = useState(false)
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null)
   const { toast } = useToast()
   const { user } = useAuth()
+  const supabase = createClient()
+
+  const [cities, setCities] = useState<any[]>([])
+  const [lgas, setLgas] = useState<any[]>([])
+  const [areaOffices, setAreaOffices] = useState<any[]>([])
+  const [defaultState, setDefaultState] = useState("")
+  const [citySearchOpen, setCitySearchOpen] = useState(false)
 
   const [formData, setFormData] = useState<PropertyFormData>({
     propertyName: "",
@@ -80,14 +100,77 @@ export function RegisterPropertyModal({
     registeringForSomeoneElse: false,
     houseNumber: "",
     streetName: "",
-    city: "",
+    cityId: "",
+    cityName: "",
     state: "",
-    lga: "",
+    lgaId: "",
+    lgaName: "",
+    areaOfficeId: "",
+    areaOfficeName: "",
     totalUnits: "",
     occupiedUnits: "",
     totalAnnualRent: "",
     floorArea: "",
+    yearBuilt: "",
+    numberOfFloors: "",
+    propertyDescription: "",
   })
+
+  useEffect(() => {
+    if (open) {
+      fetchLocationData()
+      fetchSystemSettings()
+    }
+  }, [open])
+
+  async function fetchSystemSettings() {
+    try {
+      const { data, error } = await supabase
+        .from("system_settings")
+        .select("setting_value")
+        .eq("setting_key", "default_state")
+        .single()
+
+      if (!error && data) {
+        const state = data.setting_value as any
+        setDefaultState(state.value || "")
+        setFormData((prev) => ({ ...prev, state: state.value || "" }))
+      }
+    } catch (error) {
+      console.error("Error fetching system settings:", error)
+    }
+  }
+
+  async function fetchLocationData() {
+    try {
+      const [citiesRes, lgasRes, officesRes] = await Promise.all([
+        supabase.from("cities").select("*, lgas(name), area_offices(office_name)").order("name"),
+        supabase.from("lgas").select("*").order("name"),
+        supabase.from("area_offices").select("*").eq("is_active", true).order("office_name"),
+      ])
+
+      if (citiesRes.data) setCities(citiesRes.data)
+      if (lgasRes.data) setLgas(lgasRes.data)
+      if (officesRes.data) setAreaOffices(officesRes.data)
+    } catch (error) {
+      console.error("Error fetching location data:", error)
+    }
+  }
+
+  const handleCityChange = (cityId: string) => {
+    const city = cities.find((c) => c.id === cityId)
+    if (city) {
+      setFormData({
+        ...formData,
+        cityId: city.id,
+        cityName: city.name,
+        lgaId: city.lga_id,
+        lgaName: city.lgas?.name || "",
+        areaOfficeId: city.area_office_id,
+        areaOfficeName: city.area_offices?.office_name || "",
+      })
+    }
+  }
 
   useEffect(() => {
     if (initialData && open) {
@@ -109,7 +192,7 @@ export function RegisterPropertyModal({
   }
 
   const geocodeAddress = async () => {
-    if (!formData.houseNumber || !formData.streetName || !formData.city || !formData.state) {
+    if (!formData.houseNumber || !formData.streetName || !formData.cityName || !formData.state) {
       toast({
         title: "Incomplete Address",
         description: "Please fill in all address fields before geocoding",
@@ -120,7 +203,7 @@ export function RegisterPropertyModal({
 
     setGeocoding(true)
     try {
-      const address = `${formData.houseNumber} ${formData.streetName}, ${formData.city}, ${formData.state}, Nigeria`
+      const address = `${formData.houseNumber} ${formData.streetName}, ${formData.cityName}, ${formData.state}, Nigeria`
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
       )
@@ -151,8 +234,54 @@ export function RegisterPropertyModal({
     }
   }
 
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        return !!(
+          formData.propertyName &&
+          formData.propertyType &&
+          formData.propertyCategory &&
+          formData.houseNumber &&
+          formData.streetName &&
+          formData.cityId &&
+          formData.lgaId &&
+          formData.areaOfficeId
+        )
+      case 2:
+        return !!(formData.totalUnits && formData.totalAnnualRent && formData.businessType)
+      case 3:
+        return true
+      default:
+        return false
+    }
+  }
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep((prev) => Math.min(prev + 1, 3))
+    } else {
+      toast({
+        title: "Incomplete Information",
+        description: "Please fill in all required fields before proceeding",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleBack = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validateStep(3)) {
+      toast({
+        title: "Incomplete Information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
     setShowConfirmation(true)
   }
 
@@ -179,13 +308,17 @@ export function RegisterPropertyModal({
         registeringForSomeoneElse: formData.registeringForSomeoneElse,
         houseNumber: formData.houseNumber,
         streetName: formData.streetName,
-        city: formData.city,
+        city: formData.cityName,
         state: formData.state,
-        lga: formData.lga,
+        lga: formData.lgaName,
+        areaOfficeId: formData.areaOfficeId,
         totalUnits: Number.parseInt(formData.totalUnits) || 1,
         occupiedUnits: Number.parseInt(formData.occupiedUnits) || 0,
         totalAnnualRent: Number.parseFloat(formData.totalAnnualRent) || 0,
         floorArea: formData.floorArea ? Number.parseFloat(formData.floorArea) : undefined,
+        yearBuilt: formData.yearBuilt ? Number.parseInt(formData.yearBuilt) : undefined,
+        numberOfFloors: formData.numberOfFloors ? Number.parseInt(formData.numberOfFloors) : undefined,
+        propertyDescription: formData.propertyDescription,
         latitude: coordinates?.lat,
         longitude: coordinates?.lng,
         firebaseUid: user.uid,
@@ -202,6 +335,7 @@ export function RegisterPropertyModal({
           : "Property registered successfully! It will be reviewed by our team.",
       })
 
+      // Reset form
       setFormData({
         propertyName: "",
         propertyType: "",
@@ -211,15 +345,23 @@ export function RegisterPropertyModal({
         registeringForSomeoneElse: false,
         houseNumber: "",
         streetName: "",
-        city: "",
-        state: "",
-        lga: "",
+        cityId: "",
+        cityName: "",
+        state: defaultState,
+        lgaId: "",
+        lgaName: "",
+        areaOfficeId: "",
+        areaOfficeName: "",
         totalUnits: "",
         occupiedUnits: "",
         totalAnnualRent: "",
         floorArea: "",
+        yearBuilt: "",
+        numberOfFloors: "",
+        propertyDescription: "",
       })
       setCoordinates(null)
+      setCurrentStep(1)
 
       onOpenChange(false)
       onSuccess?.()
@@ -238,287 +380,408 @@ export function RegisterPropertyModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[75vw] max-w-[75vw] sm:max-w-7xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{taxpayerId ? "Register Property for Taxpayer" : "Register New Property"}</DialogTitle>
             <DialogDescription>
-              Fill in the details below to register a new property. All fields marked with * are required.
+              Step {currentStep} of 3:{" "}
+              {currentStep === 1 ? "Basic Information" : currentStep === 2 ? "Property Details" : "Review & Submit"}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Property Information */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Property Information</h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="propertyName">
-                    Property Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="propertyName"
-                    placeholder="e.g., Sunset Apartments"
-                    value={formData.propertyName}
-                    onChange={(e) => setFormData({ ...formData, propertyName: e.target.value })}
-                    required
+            {/* Step 1: Basic Information */}
+            {currentStep === 1 && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold">Basic Property Information</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="propertyName">
+                      Property Name <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="propertyName"
+                      placeholder="e.g., Sunset Apartments"
+                      value={formData.propertyName}
+                      onChange={(e) => setFormData({ ...formData, propertyName: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="propertyType">
+                      Property Type <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={formData.propertyType}
+                      onValueChange={(value) => setFormData({ ...formData, propertyType: value })}
+                      required
+                    >
+                      <SelectTrigger id="propertyType">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="residential">Residential</SelectItem>
+                        <SelectItem value="commercial">Commercial</SelectItem>
+                        <SelectItem value="industrial">Industrial</SelectItem>
+                        <SelectItem value="mixed">Mixed Use</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="propertyCategory">
+                      Property Category <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={formData.propertyCategory}
+                      onValueChange={(value) => setFormData({ ...formData, propertyCategory: value })}
+                      required
+                    >
+                      <SelectTrigger id="propertyCategory">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="apartment">Apartment</SelectItem>
+                        <SelectItem value="house">House</SelectItem>
+                        <SelectItem value="office">Office</SelectItem>
+                        <SelectItem value="shop">Shop</SelectItem>
+                        <SelectItem value="warehouse">Warehouse</SelectItem>
+                        <SelectItem value="land">Land</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="houseNumber">
+                      House Number <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="houseNumber"
+                      placeholder="e.g., 123"
+                      value={formData.houseNumber}
+                      onChange={(e) => setFormData({ ...formData, houseNumber: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="streetName">
+                      Street Name <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="streetName"
+                      placeholder="e.g., Main Street"
+                      value={formData.streetName}
+                      onChange={(e) => setFormData({ ...formData, streetName: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="city">
+                      City <span className="text-destructive">*</span>
+                    </Label>
+                    <Popover open={citySearchOpen} onOpenChange={setCitySearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={citySearchOpen}
+                          className="w-full justify-between bg-transparent"
+                        >
+                          {formData.cityName || "Select city..."}
+                          <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Search city..." />
+                          <CommandList>
+                            <CommandEmpty>No city found.</CommandEmpty>
+                            <CommandGroup>
+                              {cities.map((city) => (
+                                <CommandItem
+                                  key={city.id}
+                                  value={city.name}
+                                  onSelect={() => {
+                                    handleCityChange(city.id)
+                                    setCitySearchOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      formData.cityId === city.id ? "opacity-100" : "opacity-0",
+                                    )}
+                                  />
+                                  {city.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="lga">
+                      LGA <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="lga"
+                      value={formData.lgaName}
+                      readOnly
+                      className="bg-muted"
+                      placeholder="Select city first"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="areaOffice">
+                      Area Office <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="areaOffice"
+                      value={formData.areaOfficeName}
+                      readOnly
+                      className="bg-muted"
+                      placeholder="Select city first"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="state">
+                      State <span className="text-destructive">*</span>
+                    </Label>
+                    <Input id="state" value={formData.state} readOnly className="text-primary bg-muted" />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="registeringForSomeoneElse"
+                    checked={formData.registeringForSomeoneElse}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, registeringForSomeoneElse: checked as boolean })
+                    }
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="propertyType">
-                    Property Type <span className="text-destructive">*</span>
+                  <Label htmlFor="registeringForSomeoneElse" className="text-sm font-normal cursor-pointer">
+                    I am registering this property on behalf of someone else
                   </Label>
-                  <Select
-                    value={formData.propertyType}
-                    onValueChange={(value) => setFormData({ ...formData, propertyType: value })}
-                    required
-                  >
-                    <SelectTrigger id="propertyType">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="residential">Residential</SelectItem>
-                      <SelectItem value="commercial">Commercial</SelectItem>
-                      <SelectItem value="industrial">Industrial</SelectItem>
-                      <SelectItem value="mixed">Mixed Use</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="propertyCategory">
-                    Property Category <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={formData.propertyCategory}
-                    onValueChange={(value) => setFormData({ ...formData, propertyCategory: value })}
-                    required
-                  >
-                    <SelectTrigger id="propertyCategory">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="apartment">Apartment</SelectItem>
-                      <SelectItem value="house">House</SelectItem>
-                      <SelectItem value="office">Office</SelectItem>
-                      <SelectItem value="shop">Shop</SelectItem>
-                      <SelectItem value="warehouse">Warehouse</SelectItem>
-                      <SelectItem value="land">Land</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="floorArea">Floor Area (sqm)</Label>
-                  <Input
-                    id="floorArea"
-                    type="number"
-                    placeholder="e.g., 150"
-                    value={formData.floorArea}
-                    onChange={(e) => setFormData({ ...formData, floorArea: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="businessType">
-                    Business Type <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={formData.businessType}
-                    onValueChange={(value) => setFormData({ ...formData, businessType: value })}
-                    required
-                  >
-                    <SelectTrigger id="businessType">
-                      <SelectValue placeholder="Select business type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sole_proprietor">Sole Proprietor</SelectItem>
-                      <SelectItem value="partnership">Partnership</SelectItem>
-                      <SelectItem value="company">Company</SelectItem>
-                      <SelectItem value="cooperative">Cooperative</SelectItem>
-                      <SelectItem value="franchise">Franchise</SelectItem>
-                      <SelectItem value="trust">Trust</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="commencementYear">
-                    Rent Collection Start Year <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="commencementYear"
-                    type="number"
-                    placeholder="e.g., 2020"
-                    min="1900"
-                    max={new Date().getFullYear()}
-                    value={formData.commencementYear}
-                    onChange={(e) => setFormData({ ...formData, commencementYear: e.target.value })}
-                    required
-                  />
                 </div>
               </div>
+            )}
 
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="registeringForSomeoneElse"
-                  checked={formData.registeringForSomeoneElse}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, registeringForSomeoneElse: checked as boolean })
-                  }
-                />
-                <Label htmlFor="registeringForSomeoneElse" className="text-sm font-normal cursor-pointer">
-                  I am registering this property on behalf of someone else
-                </Label>
+            {/* Step 2: Property Details */}
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold">Property Details</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="businessType">
+                      Business Type <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={formData.businessType}
+                      onValueChange={(value) => setFormData({ ...formData, businessType: value })}
+                      required
+                    >
+                      <SelectTrigger id="businessType">
+                        <SelectValue placeholder="Select business type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sole_proprietor">Sole Proprietor</SelectItem>
+                        <SelectItem value="partnership">Partnership</SelectItem>
+                        <SelectItem value="company">Company</SelectItem>
+                        <SelectItem value="cooperative">Cooperative</SelectItem>
+                        <SelectItem value="franchise">Franchise</SelectItem>
+                        <SelectItem value="trust">Trust</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="totalUnits">
+                      Total Units <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="totalUnits"
+                      type="number"
+                      placeholder="e.g., 10"
+                      value={formData.totalUnits}
+                      onChange={(e) => setFormData({ ...formData, totalUnits: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="occupiedUnits">Occupied Units</Label>
+                    <Input
+                      id="occupiedUnits"
+                      type="number"
+                      placeholder="e.g., 8"
+                      value={formData.occupiedUnits}
+                      onChange={(e) => setFormData({ ...formData, occupiedUnits: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="totalAnnualRent">
+                      Total Annual Rent (₦) <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="totalAnnualRent"
+                      type="text"
+                      placeholder="e.g., 1,200,000"
+                      value={formatNumber(formData.totalAnnualRent)}
+                      onChange={(e) => handleNumberInput("totalAnnualRent", e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="yearBuilt">Year Built</Label>
+                    <Input
+                      id="yearBuilt"
+                      type="number"
+                      placeholder="e.g., 2015"
+                      min="1900"
+                      max={new Date().getFullYear()}
+                      value={formData.yearBuilt}
+                      onChange={(e) => setFormData({ ...formData, yearBuilt: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="numberOfFloors">Number of Floors</Label>
+                    <Input
+                      id="numberOfFloors"
+                      type="number"
+                      placeholder="e.g., 3"
+                      value={formData.numberOfFloors}
+                      onChange={(e) => setFormData({ ...formData, numberOfFloors: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="floorArea">Floor Area (sqm)</Label>
+                    <Input
+                      id="floorArea"
+                      type="number"
+                      placeholder="e.g., 150"
+                      value={formData.floorArea}
+                      onChange={(e) => setFormData({ ...formData, floorArea: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="commencementYear">Rent Collection Start Year</Label>
+                    <Input
+                      id="commencementYear"
+                      type="number"
+                      placeholder="e.g., 2020"
+                      min="1900"
+                      max={new Date().getFullYear()}
+                      value={formData.commencementYear}
+                      onChange={(e) => setFormData({ ...formData, commencementYear: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="propertyDescription">Property Description</Label>
+                    <Input
+                      id="propertyDescription"
+                      placeholder="Brief description of the property"
+                      value={formData.propertyDescription}
+                      onChange={(e) => setFormData({ ...formData, propertyDescription: e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Address Information */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Address Information</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={geocodeAddress}
-                  disabled={geocoding}
-                  className="gap-2 bg-transparent"
-                >
-                  {geocoding ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-                  {coordinates ? "Update Location" : "Get Location"}
+            {/* Step 3: Review & Submit */}
+            {currentStep === 3 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Review & Submit</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={geocodeAddress}
+                    disabled={geocoding}
+                    className="gap-2 bg-transparent"
+                  >
+                    {geocoding ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                    {coordinates ? "Update Location" : "Get Location"}
+                  </Button>
+                </div>
+                {coordinates && (
+                  <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                    📍 Location: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                  </div>
+                )}
+                <div className="space-y-3 text-sm border rounded-lg p-4">
+                  <div>
+                    <strong>Property:</strong> {formData.propertyName}
+                  </div>
+                  <div>
+                    <strong>Type:</strong> {formData.propertyType} - {formData.propertyCategory}
+                  </div>
+                  <div>
+                    <strong>Address:</strong> {formData.houseNumber} {formData.streetName}, {formData.cityName}
+                  </div>
+                  <div>
+                    <strong>LGA:</strong> {formData.lgaName}
+                  </div>
+                  <div>
+                    <strong>Area Office:</strong> {formData.areaOfficeName}
+                  </div>
+                  <div>
+                    <strong>Annual Rent:</strong> ₦{formatNumber(formData.totalAnnualRent)}
+                  </div>
+                  <div>
+                    <strong>Units:</strong> {formData.totalUnits} total
+                    {formData.occupiedUnits && `, ${formData.occupiedUnits} occupied`}
+                  </div>
+                  {formData.registeringForSomeoneElse && (
+                    <div className="text-amber-600">
+                      <strong>Note:</strong> Registering on behalf of someone else
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="flex justify-between">
+              <div className="flex gap-2">
+                {currentStep > 1 && (
+                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading}>
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Back
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                  Cancel
                 </Button>
+                {currentStep < 3 ? (
+                  <Button type="button" onClick={handleNext}>
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Register Property
+                  </Button>
+                )}
               </div>
-              {coordinates && (
-                <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                  📍 Location: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
-                </div>
-              )}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="houseNumber">
-                    House Number <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="houseNumber"
-                    placeholder="e.g., 123"
-                    value={formData.houseNumber}
-                    onChange={(e) => setFormData({ ...formData, houseNumber: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="streetName">
-                    Street Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="streetName"
-                    placeholder="e.g., Main Street"
-                    value={formData.streetName}
-                    onChange={(e) => setFormData({ ...formData, streetName: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="city">
-                    City <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="city"
-                    placeholder="e.g., Lagos"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="state">
-                    State <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="state"
-                    placeholder="e.g., Lagos State"
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="lga">
-                    Local Government Area (LGA) <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="lga"
-                    placeholder="e.g., Ikeja"
-                    value={formData.lga}
-                    onChange={(e) => setFormData({ ...formData, lga: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Rental Information */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Rental Information</h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="totalUnits">
-                    Total Units <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="totalUnits"
-                    type="number"
-                    placeholder="e.g., 10"
-                    value={formData.totalUnits}
-                    onChange={(e) => setFormData({ ...formData, totalUnits: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="occupiedUnits">
-                    Occupied Units <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="occupiedUnits"
-                    type="number"
-                    placeholder="e.g., 8"
-                    value={formData.occupiedUnits}
-                    onChange={(e) => setFormData({ ...formData, occupiedUnits: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="totalAnnualRent">
-                    Total Annual Rent (₦) <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="totalAnnualRent"
-                    type="text"
-                    placeholder="e.g., 1,200,000"
-                    value={formatNumber(formData.totalAnnualRent)}
-                    onChange={(e) => handleNumberInput("totalAnnualRent", e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Register Property
-              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -529,37 +792,7 @@ export function RegisterPropertyModal({
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Property Registration</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to register this property? Please review the details:
-              <div className="mt-4 space-y-2 text-sm">
-                <div>
-                  <strong>Property:</strong> {formData.propertyName}
-                </div>
-                <div>
-                  <strong>Type:</strong> {formData.propertyType}
-                </div>
-                <div>
-                  <strong>Business Type:</strong> {formData.businessType.replace(/_/g, " ")}
-                </div>
-                <div>
-                  <strong>Rent Start Year:</strong> {formData.commencementYear}
-                </div>
-                <div>
-                  <strong>Address:</strong> {formData.houseNumber} {formData.streetName}, {formData.city}
-                </div>
-                <div>
-                  <strong>Annual Rent:</strong> ₦{formatNumber(formData.totalAnnualRent)}
-                </div>
-                {formData.registeringForSomeoneElse && (
-                  <div className="text-amber-600">
-                    <strong>Note:</strong> Registering on behalf of someone else
-                  </div>
-                )}
-                {coordinates && (
-                  <div className="text-green-600">
-                    <strong>Location:</strong> Coordinates captured
-                  </div>
-                )}
-              </div>
+              Are you sure you want to register this property? Please review the details one last time.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
