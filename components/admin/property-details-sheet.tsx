@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useEffect, useState } from "react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -35,13 +37,14 @@ import {
   UserCog,
   Edit,
   Trash2,
-  Eye,
   Download,
+  Printer,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabase/client"
 import AssignManagerDialog from "@/components/admin/assign-manager-dialog"
 import CalculateTaxDialog from "@/components/admin/calculate-tax-dialog"
+import TaxCalculationDetailsSheet from "@/components/admin/tax-calculation-details-sheet"
 
 type PropertyDetailsSheetProps = {
   open: boolean
@@ -71,6 +74,8 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
   const [deleting, setDeleting] = useState(false)
   const [taxCalculations, setTaxCalculations] = useState<any[]>([])
   const [loadingTaxData, setLoadingTaxData] = useState(false)
+  const [taxCalcSheetOpen, setTaxCalcSheetOpen] = useState(false)
+  const [selectedTaxCalcId, setSelectedTaxCalcId] = useState<string | null>(null)
 
   useEffect(() => {
     if (open && propertyId) {
@@ -181,6 +186,42 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
       console.error("Error in fetchTaxCalculationsAndInvoices:", error)
     } finally {
       setLoadingTaxData(false)
+    }
+  }
+
+  function handleDownloadInvoice(e: React.MouseEvent, calc: any) {
+    e.stopPropagation() // Prevent row click
+    const invoice = calc.invoices?.[0]
+    if (invoice) {
+      toast({
+        title: "Downloading Invoice",
+        description: `Downloading invoice ${invoice.invoice_number}...`,
+      })
+      // TODO: Implement actual download logic
+    } else {
+      toast({
+        title: "No Invoice",
+        description: "This calculation doesn't have an associated invoice yet.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  function handlePrintInvoice(e: React.MouseEvent, calc: any) {
+    e.stopPropagation() // Prevent row click
+    const invoice = calc.invoices?.[0]
+    if (invoice) {
+      toast({
+        title: "Printing Invoice",
+        description: `Preparing to print invoice ${invoice.invoice_number}...`,
+      })
+      // TODO: Implement actual print logic
+    } else {
+      toast({
+        title: "No Invoice",
+        description: "This calculation doesn't have an associated invoice yet.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -683,7 +724,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                 Tax calculations and their associated invoices for this property
               </p>
 
-              <div className="border rounded-lg">
+              <div className="border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted hover:bg-muted">
@@ -705,7 +746,14 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                       taxCalculations.map((calc) => {
                         const invoice = calc.invoices?.[0] // Get first invoice for this calculation
                         return (
-                          <TableRow key={calc.id}>
+                          <TableRow
+                            key={calc.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => {
+                              setSelectedTaxCalcId(calc.id)
+                              setTaxCalcSheetOpen(true)
+                            }}
+                          >
                             <TableCell className="font-medium">{calc.tax_year}</TableCell>
                             <TableCell className="font-semibold">
                               ₦{Number(calc.total_tax_due || 0).toLocaleString()}
@@ -738,15 +786,23 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                               )}
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                                  <Eye className="h-3.5 w-3.5" />
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={(e) => handleDownloadInvoice(e, calc)}
+                                >
+                                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
                                 </Button>
-                                {invoice && (
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                                    <Download className="h-3.5 w-3.5" />
-                                  </Button>
-                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={(e) => handlePrintInvoice(e, calc)}
+                                >
+                                  <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -1100,6 +1156,16 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
         property={property}
         onSuccess={() => {
           fetchPropertyDetails()
+          fetchTaxCalculationsAndInvoices()
+          onUpdate()
+        }}
+      />
+
+      <TaxCalculationDetailsSheet
+        open={taxCalcSheetOpen}
+        onOpenChange={setTaxCalcSheetOpen}
+        calculationId={selectedTaxCalcId}
+        onUpdate={() => {
           fetchTaxCalculationsAndInvoices()
           onUpdate()
         }}

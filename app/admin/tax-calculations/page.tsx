@@ -374,7 +374,7 @@ export default function TaxCalculationsPage() {
               <TabsTrigger value="backlog">Backlog</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="all" className="mt-4">
+            <TabsContent value="all" className="">
               <Card>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">

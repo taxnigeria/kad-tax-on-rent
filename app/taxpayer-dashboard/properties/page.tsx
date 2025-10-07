@@ -13,10 +13,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Building2, Search, Plus, MapPin, Calendar, DollarSign, Home, Filter } from "lucide-react"
-import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RegisterPropertyModal } from "@/components/register-property-modal"
 import { getPropertiesByFirebaseUid } from "@/app/actions/get-properties"
+import { TaxpayerPropertyDetailsSheet } from "@/components/taxpayer/property-details-sheet"
 
 type Property = {
   id: string
@@ -50,6 +50,8 @@ export default function PropertiesPage() {
   const [typeFilter, setTypeFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
+  const [isPropertySheetOpen, setIsPropertySheetOpen] = useState(false)
 
   console.log("[v0] PropertiesPage render - authLoading:", authLoading, "user:", user?.uid, "loading:", loading)
 
@@ -384,11 +386,17 @@ export default function PropertiesPage() {
                         </div>
 
                         <div className="pt-4 border-t border-border/50">
-                          <Link href={`/taxpayer-dashboard/properties/${property.id}`}>
-                            <Button variant="outline" className="w-full bg-transparent" size="sm">
-                              View Details
-                            </Button>
-                          </Link>
+                          <Button
+                            variant="outline"
+                            className="w-full bg-transparent"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPropertyId(property.id)
+                              setIsPropertySheetOpen(true)
+                            }}
+                          >
+                            View Details
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -404,6 +412,11 @@ export default function PropertiesPage() {
         open={isRegisterModalOpen}
         onOpenChange={setIsRegisterModalOpen}
         onSuccess={fetchProperties}
+      />
+      <TaxpayerPropertyDetailsSheet
+        open={isPropertySheetOpen}
+        onOpenChange={setIsPropertySheetOpen}
+        propertyId={selectedPropertyId}
       />
     </SidebarProvider>
   )

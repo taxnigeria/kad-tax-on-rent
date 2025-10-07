@@ -15,11 +15,12 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, DollarSign, AlertCircle } from "lucide-react"
+import { Loader2, DollarSign, AlertCircle, Calendar } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 type CalculateTaxDialogProps = {
   open: boolean
@@ -29,8 +30,12 @@ type CalculateTaxDialogProps = {
 }
 
 export default function CalculateTaxDialog({ open, onOpenChange, property, onSuccess }: CalculateTaxDialogProps) {
-  const [taxYear, setTaxYear] = useState(new Date().getFullYear())
+  const [startYear, setStartYear] = useState(new Date().getFullYear())
+  const [endYear, setEndYear] = useState(new Date().getFullYear())
   const [eligibleYears, setEligibleYears] = useState<number[]>([])
+
+  const [calculationMode, setCalculationMode] = useState<"single" | "range">("single")
+
   const [taxRate, setTaxRate] = useState("10") // 10% tax rate
   const [annualRent, setAnnualRent] = useState("")
 
@@ -47,7 +52,6 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
   const [applyStampDuty, setApplyStampDuty] = useState(false)
   const [stampDutyRate] = useState("1") // Fixed 1% stamp duty rate
 
-  const [backlogYears, setBacklogYears] = useState("0")
   const [calculationNotes, setCalculationNotes] = useState("")
   const [generateInvoice, setGenerateInvoice] = useState(true)
 
@@ -79,7 +83,8 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
 
     const years = Array.from({ length: currentYear - earliestYear + 1 }, (_, i) => earliestYear + i)
     setEligibleYears(years)
-    setTaxYear(currentYear)
+    setStartYear(currentYear)
+    setEndYear(currentYear)
   }
 
   async function fetchExistingCalculations() {
@@ -102,17 +107,30 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
   function calculatePreview() {
     const rent = Number.parseFloat(annualRent) || 0
     const rate = Number.parseFloat(taxRate) || 0
-    const backlog = Number.parseFloat(backlogYears) || 0
 
     const baseTax = rent * (rate / 100)
-    const backlogTax = baseTax * backlog
 
-    const penalty = applyPenalty ? baseTax * (Number.parseFloat(penaltyRate) / 100) : 0
+    // Calculate number of years in range
+    const yearsInRange = calculationMode === "range" ? endYear - startYear + 1 : 1
+
+    // Calculate backlog (years before current year in the range)
+    const currentYear = new Date().getFullYear()
+    let backlogYears = 0
+    if (calculationMode === "range") {
+      // Count how many years in the range are before current year
+      for (let year = startYear; year < currentYear && year <= endYear; year++) {
+        backlogYears++
+      }
+    }
+
+    const backlogTax = baseTax * backlogYears
+
+    const penalty = applyPenalty ? baseTax * (Number.parseFloat(penaltyRate) / 100) * yearsInRange : 0
     const interest = applyInterest ? (baseTax + backlogTax) * (Number.parseFloat(interestRate) / 100) : 0
     const discount = applyDiscount ? Number.parseFloat(discountAmount) || 0 : 0
-    const stampDuty = applyStampDuty ? rent * (Number.parseFloat(stampDutyRate) / 100) : 0
+    const stampDuty = applyStampDuty ? rent * (Number.parseFloat(stampDutyRate) / 100) * yearsInRange : 0
 
-    const totalTax = baseTax + backlogTax + penalty + interest + stampDuty - discount
+    const totalTax = baseTax * yearsInRange + penalty + interest + stampDuty - discount
 
     return {
       baseTax,
@@ -122,6 +140,8 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
       discount,
       stampDuty,
       totalTax,
+      yearsInRange,
+      backlogYears,
     }
   }
 
@@ -132,57 +152,205 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
 
     setLoading(true)
     try {
-      // Create tax calculation
-      const { data: calculation, error: calcError } = await supabase
-        .from("tax_calculations")
-        .insert({
-          property_id: property.id,
-          tax_year: taxYear,
-          annual_rent: Number.parseFloat(annualRent),
-          tax_rate: Number.parseFloat(taxRate),
-          base_tax_amount: preview.baseTax,
-          backlog_tax_amount: preview.backlogTax,
-          backlog_years: Number.parseFloat(backlogYears),
-          penalty_amount: preview.penalty,
-          interest_amount: preview.interest,
-          total_tax_due: preview.totalTax,
-          calculation_notes: calculationNotes,
-          is_active: true,
-        })
-        .select()
-        .single()
+      const yearsToCalculate =
+        calculationMode === "range"
+          ? Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i)
+          : [startYear]
 
-      if (calcError) throw calcError
+      const currentYear = new Date().getFullYear()
+      const rent = Number.parseFloat(annualRent)
+      const rate = Number.parseFloat(taxRate)
+      const baseTax = rent * (rate / 100)
 
-      // Generate invoice if requested
-      if (generateInvoice && calculation) {
-        const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+      const backlogYears = yearsToCalculate.filter((year) => year < currentYear)
+      const currentYears = yearsToCalculate.filter((year) => year >= currentYear)
 
-        const { error: invoiceError } = await supabase.from("invoices").insert({
-          invoice_number: invoiceNumber,
-          taxpayer_id: property.owner_id,
-          property_id: property.id,
-          tax_calculation_id: calculation.id,
-          tax_year: taxYear,
-          base_amount: preview.baseTax,
-          penalty: preview.penalty,
-          interest: preview.interest,
-          discount: preview.discount,
-          stamp_duty: preview.stampDuty,
-          total_amount: preview.totalTax,
-          balance_due: preview.totalTax,
-          amount_paid: 0,
-          payment_status: "unpaid",
-          issue_date: new Date().toISOString().split("T")[0],
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        })
+      const calculationPromises = []
 
-        if (invoiceError) throw invoiceError
+      if (backlogYears.length > 0) {
+        const backlogStartYear = Math.min(...backlogYears)
+        const backlogEndYear = Math.max(...backlogYears)
+        const numBacklogYears = backlogYears.length
+
+        // Calculate total backlog tax
+        const backlogTaxTotal = baseTax * numBacklogYears
+
+        // Calculate charges for backlog
+        const penaltyForBacklog = applyPenalty ? baseTax * (Number.parseFloat(penaltyRate) / 100) * numBacklogYears : 0
+        const interestForBacklog = applyInterest
+          ? (baseTax * numBacklogYears + backlogTaxTotal) * (Number.parseFloat(interestRate) / 100)
+          : 0
+        const stampDutyForBacklog = applyStampDuty
+          ? rent * (Number.parseFloat(stampDutyRate) / 100) * numBacklogYears
+          : 0
+
+        // Apply discount only if this is the only calculation
+        const discountForBacklog =
+          applyDiscount && currentYears.length === 0 ? Number.parseFloat(discountAmount) || 0 : 0
+
+        const totalTaxForBacklog =
+          baseTax * numBacklogYears +
+          backlogTaxTotal +
+          penaltyForBacklog +
+          interestForBacklog +
+          stampDutyForBacklog -
+          discountForBacklog
+
+        // Create single backlog calculation
+        const backlogPromise = (async () => {
+          const { data: calculation, error: calcError } = await supabase
+            .from("tax_calculations")
+            .insert({
+              property_id: property.id,
+              tax_year: backlogEndYear, // Use the most recent backlog year as the tax_year
+              annual_rent: rent,
+              tax_rate: rate,
+              base_tax_amount: baseTax,
+              backlog_tax_amount: backlogTaxTotal,
+              backlog_years: numBacklogYears,
+              backlog_start_date: `${backlogStartYear}-01-01`,
+              backlog_end_date: `${backlogEndYear}-12-31`,
+              penalty_amount: penaltyForBacklog,
+              interest_amount: interestForBacklog,
+              total_tax_due: totalTaxForBacklog,
+              calculation_notes:
+                calculationMode === "range"
+                  ? `${calculationNotes} (Backlog for ${backlogStartYear}-${backlogEndYear}, ${numBacklogYears} years combined)`
+                  : calculationNotes,
+              is_active: true,
+            })
+            .select()
+            .single()
+
+          if (calcError) throw calcError
+
+          // Generate ONE invoice for all backlog years
+          if (generateInvoice && calculation) {
+            const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+
+            const { error: invoiceError } = await supabase.from("invoices").insert({
+              invoice_number: invoiceNumber,
+              taxpayer_id: property.owner_id,
+              property_id: property.id,
+              tax_calculation_id: calculation.id,
+              tax_year: backlogEndYear,
+              tax_period: `${backlogStartYear}-${backlogEndYear}`,
+              base_amount: baseTax * numBacklogYears,
+              penalty: penaltyForBacklog,
+              interest: interestForBacklog,
+              discount: discountForBacklog,
+              stamp_duty: stampDutyForBacklog,
+              total_amount: totalTaxForBacklog,
+              balance_due: totalTaxForBacklog,
+              amount_paid: 0,
+              payment_status: "unpaid",
+              issue_date: new Date().toISOString().split("T")[0],
+              due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              narration: `Backlog tax for ${numBacklogYears} year(s): ${backlogStartYear}-${backlogEndYear}`,
+            })
+
+            if (invoiceError) throw invoiceError
+          }
+
+          return calculation
+        })()
+
+        calculationPromises.push(backlogPromise)
+      }
+
+      for (const year of currentYears) {
+        const yearPromise = (async () => {
+          // Calculate charges per year
+          const penaltyForYear = applyPenalty ? baseTax * (Number.parseFloat(penaltyRate) / 100) : 0
+          const interestForYear = applyInterest ? baseTax * (Number.parseFloat(interestRate) / 100) : 0
+          const stampDutyForYear = applyStampDuty ? rent * (Number.parseFloat(stampDutyRate) / 100) : 0
+
+          // Apply discount only if this is the only calculation
+          const discountForYear =
+            applyDiscount && currentYears.length === 1 && backlogYears.length === 0
+              ? Number.parseFloat(discountAmount) || 0
+              : 0
+
+          const totalTaxForYear = baseTax + penaltyForYear + interestForYear + stampDutyForYear - discountForYear
+
+          // Create tax calculation for current year
+          const { data: calculation, error: calcError } = await supabase
+            .from("tax_calculations")
+            .insert({
+              property_id: property.id,
+              tax_year: year,
+              annual_rent: rent,
+              tax_rate: rate,
+              base_tax_amount: baseTax,
+              backlog_tax_amount: 0,
+              backlog_years: 0,
+              penalty_amount: penaltyForYear,
+              interest_amount: interestForYear,
+              total_tax_due: totalTaxForYear,
+              calculation_notes:
+                calculationMode === "range"
+                  ? `${calculationNotes} (Part of ${startYear}-${endYear} range calculation)`
+                  : calculationNotes,
+              is_active: true,
+            })
+            .select()
+            .single()
+
+          if (calcError) throw calcError
+
+          // Generate invoice for current year
+          if (generateInvoice && calculation) {
+            const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+
+            const { error: invoiceError } = await supabase.from("invoices").insert({
+              invoice_number: invoiceNumber,
+              taxpayer_id: property.owner_id,
+              property_id: property.id,
+              tax_calculation_id: calculation.id,
+              tax_year: year,
+              tax_period: year.toString(),
+              base_amount: baseTax,
+              penalty: penaltyForYear,
+              interest: interestForYear,
+              discount: discountForYear,
+              stamp_duty: stampDutyForYear,
+              total_amount: totalTaxForYear,
+              balance_due: totalTaxForYear,
+              amount_paid: 0,
+              payment_status: "unpaid",
+              issue_date: new Date().toISOString().split("T")[0],
+              due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+            })
+
+            if (invoiceError) throw invoiceError
+          }
+
+          return calculation
+        })()
+
+        calculationPromises.push(yearPromise)
+      }
+
+      await Promise.all(calculationPromises)
+
+      const totalCalculations = (backlogYears.length > 0 ? 1 : 0) + currentYears.length
+      let successMessage = ""
+
+      if (backlogYears.length > 0 && currentYears.length > 0) {
+        successMessage = `Tax calculated: ${backlogYears.length} backlog year(s) combined + ${currentYears.length} current year(s)`
+      } else if (backlogYears.length > 0) {
+        successMessage = `Backlog tax calculated for ${backlogYears.length} year(s) (${Math.min(...backlogYears)}-${Math.max(...backlogYears)})`
+      } else {
+        successMessage = `Tax calculated for ${currentYears.length} year(s)`
+      }
+
+      if (generateInvoice) {
+        successMessage += ` and ${totalCalculations} invoice(s) generated`
       }
 
       toast({
         title: "Success",
-        description: `Tax calculated successfully${generateInvoice ? " and invoice generated" : ""}`,
+        description: successMessage,
       })
 
       onOpenChange(false)
@@ -200,7 +368,11 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
   }
 
   const preview = calculatePreview()
-  const hasExistingForYear = existingCalculations.some((calc) => calc.tax_year === taxYear)
+  const yearsToCalculate =
+    calculationMode === "range" ? Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i) : [startYear]
+  const hasExistingInRange = yearsToCalculate.some((year) =>
+    existingCalculations.some((calc) => calc.tax_year === year),
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -208,43 +380,117 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
         <DialogHeader>
           <DialogTitle>Calculate Property Tax</DialogTitle>
           <DialogDescription>
-            Calculate tax for {property?.registered_property_name || "this property"} for a specific year
+            Calculate tax for {property?.registered_property_name || "this property"} - single year or year range
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          <div className="space-y-3">
+            <Label>Calculation Mode</Label>
+            <RadioGroup value={calculationMode} onValueChange={(value: any) => setCalculationMode(value)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="single" id="single" />
+                <Label htmlFor="single" className="cursor-pointer font-normal">
+                  Single Year - Calculate tax for one specific year
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="range" id="range" />
+                <Label htmlFor="range" className="cursor-pointer font-normal">
+                  Year Range - Calculate tax for multiple years (including backlog)
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           {/* Existing Calculations Warning */}
-          {hasExistingForYear && (
+          {hasExistingInRange && (
             <div className="flex items-start gap-2 p-3 border border-yellow-500/20 bg-yellow-500/10 rounded-lg">
               <AlertCircle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-medium text-yellow-500">Calculation exists for {taxYear}</p>
-                <p className="text-muted-foreground">
-                  A tax calculation already exists for this year. Creating a new one will not deactivate the existing
-                  calculation.
+                <p className="font-medium text-yellow-500">
+                  {calculationMode === "range"
+                    ? `Calculations exist for some years in ${startYear}-${endYear}`
+                    : `Calculation exists for ${startYear}`}
                 </p>
+                <p className="text-muted-foreground">Creating new calculations will not deactivate existing ones.</p>
               </div>
             </div>
           )}
 
-          {/* Basic Information */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="taxYear">Tax Year *</Label>
-              <Select value={taxYear.toString()} onValueChange={(value) => setTaxYear(Number.parseInt(value))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {eligibleYears.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                      {existingCalculations.some((calc) => calc.tax_year === year) && " (has calculation)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {calculationMode === "single" ? (
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="startYear">Tax Year *</Label>
+                <Select value={startYear.toString()} onValueChange={(value) => setStartYear(Number.parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eligibleYears.map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                        {existingCalculations.some((calc) => calc.tax_year === year) && " (has calculation)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="startYear">Start Year *</Label>
+                  <Select
+                    value={startYear.toString()}
+                    onValueChange={(value) => {
+                      const newStart = Number.parseInt(value)
+                      setStartYear(newStart)
+                      if (newStart > endYear) {
+                        setEndYear(newStart)
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {eligibleYears.map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                          {existingCalculations.some((calc) => calc.tax_year === year) && " ✓"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="endYear">End Year *</Label>
+                  <Select
+                    value={endYear.toString()}
+                    onValueChange={(value) => {
+                      const newEnd = Number.parseInt(value)
+                      setEndYear(newEnd)
+                      if (newEnd < startYear) {
+                        setStartYear(newEnd)
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {eligibleYears.map((year) => (
+                        <SelectItem key={year} value={year.toString()} disabled={year < startYear}>
+                          {year}
+                          {existingCalculations.some((calc) => calc.tax_year === year) && " ✓"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="annualRent">Annual Rent (₦) *</Label>
@@ -268,20 +514,26 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
                 placeholder="10.00"
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="backlogYears">Backlog Years</Label>
-              <Input
-                id="backlogYears"
-                type="number"
-                min="0"
-                max="6"
-                value={backlogYears}
-                onChange={(e) => setBacklogYears(e.target.value)}
-                placeholder="0"
-              />
-            </div>
           </div>
+
+          {calculationMode === "range" && (
+            <div className="flex items-start gap-2 p-3 border border-blue-500/20 bg-blue-500/10 rounded-lg">
+              <Calendar className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-blue-500">
+                  Calculating for {preview.yearsInRange} year{preview.yearsInRange > 1 ? "s" : ""} ({startYear} -{" "}
+                  {endYear})
+                </p>
+                <p className="text-muted-foreground">
+                  {preview.backlogYears > 0 && preview.yearsInRange > preview.backlogYears
+                    ? `Backlog: ${preview.backlogYears} year(s) combined into 1 calculation • Current: ${preview.yearsInRange - preview.backlogYears} separate calculation(s)`
+                    : preview.backlogYears > 0
+                      ? `All ${preview.backlogYears} year(s) are backlog - will be combined into 1 calculation`
+                      : "No backlog years in this range"}
+                </p>
+              </div>
+            </div>
+          )}
 
           <Separator />
 
@@ -326,7 +578,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
               />
               <div className="flex-1 space-y-2">
                 <Label htmlFor="applyDiscount" className="cursor-pointer">
-                  Apply Discount
+                  Apply Discount {calculationMode === "range" && "(applied to total)"}
                 </Label>
                 {applyDiscount && (
                   <Input
@@ -357,23 +609,36 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
 
           <Separator />
 
-          {/* Calculation Preview */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Calculation Preview</CardTitle>
+              <CardTitle className="text-base">
+                Calculation Preview {calculationMode === "range" && `(${preview.yearsInRange} years)`}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
-                  Base Tax ({taxRate}% of ₦{Number(annualRent).toLocaleString()})
+                  Base Tax per Year ({taxRate}% of ₦{Number(annualRent).toLocaleString()})
                 </span>
                 <span className="font-medium">
                   ₦{preview.baseTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-              {preview.backlogTax > 0 && (
+              {calculationMode === "range" && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Backlog Tax ({backlogYears} years)</span>
+                  <span className="text-muted-foreground">Total Base Tax ({preview.yearsInRange} years)</span>
+                  <span className="font-medium">
+                    ₦
+                    {(preview.baseTax * preview.yearsInRange).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+              )}
+              {preview.backlogYears > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Backlog Tax ({preview.backlogYears} years)</span>
                   <span className="font-medium">
                     ₦
                     {preview.backlogTax.toLocaleString(undefined, {
@@ -428,6 +693,15 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
                   ₦{preview.totalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
+              {calculationMode === "range" && preview.yearsInRange > 1 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {preview.backlogYears > 0 && preview.yearsInRange > preview.backlogYears
+                    ? `This will create ${1 + (preview.yearsInRange - preview.backlogYears)} calculation(s): 1 combined backlog + ${preview.yearsInRange - preview.backlogYears} current year(s)`
+                    : preview.backlogYears > 0
+                      ? `This will create 1 combined backlog calculation for all ${preview.backlogYears} year(s)`
+                      : `This will create ${preview.yearsInRange} separate calculations`}
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -451,7 +725,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
               onCheckedChange={(checked) => setGenerateInvoice(checked as boolean)}
             />
             <Label htmlFor="generateInvoice" className="cursor-pointer">
-              Generate invoice immediately after calculation
+              Generate invoice{calculationMode === "range" && "s"} immediately after calculation
             </Label>
           </div>
         </div>
@@ -469,7 +743,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
             ) : (
               <>
                 <DollarSign className="h-4 w-4 mr-2" />
-                Calculate Tax
+                Calculate Tax {calculationMode === "range" && `(${preview.yearsInRange} years)`}
               </>
             )}
           </Button>
