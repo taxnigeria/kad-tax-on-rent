@@ -2,6 +2,7 @@
 
 import type * as React from "react"
 import { Home, Building2, FileText, CreditCard, Bell, Settings, HelpCircle } from "lucide-react"
+import { usePathname } from "next/navigation"
 
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
@@ -19,6 +20,7 @@ import { useAuth } from "@/contexts/auth-context"
 
 export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
+  const pathname = usePathname()
 
   const data = {
     navMain: [
@@ -26,12 +28,13 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
         title: "Dashboard",
         url: "/taxpayer-dashboard",
         icon: Home,
-        isActive: true,
+        isActive: pathname === "/taxpayer-dashboard",
       },
       {
         title: "My Properties",
         url: "/taxpayer-dashboard/properties",
         icon: Building2,
+        isActive: pathname?.startsWith("/taxpayer-dashboard/properties"),
         items: [
           {
             title: "All Properties",
@@ -47,16 +50,19 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
         title: "Invoices",
         url: "/taxpayer-dashboard/invoices",
         icon: FileText,
+        isActive: pathname === "/taxpayer-dashboard/invoices",
       },
       {
         title: "Payments",
         url: "/taxpayer-dashboard/payments",
         icon: CreditCard,
+        isActive: pathname === "/taxpayer-dashboard/payments",
       },
       {
         title: "Notifications",
         url: "/taxpayer-dashboard/notifications",
         icon: Bell,
+        isActive: pathname === "/taxpayer-dashboard/notifications",
       },
     ],
     navSecondary: [
@@ -64,11 +70,13 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
         title: "Settings",
         url: "/taxpayer-dashboard/settings",
         icon: Settings,
+        isActive: pathname === "/taxpayer-dashboard/settings",
       },
       {
         title: "Help & Support",
         url: "/taxpayer-dashboard/help",
         icon: HelpCircle,
+        isActive: pathname === "/taxpayer-dashboard/help",
       },
     ],
   }

@@ -8,6 +8,7 @@ import { TaxpayerSidebar } from "@/components/taxpayer-sidebar"
 import { TaxpayerHeader } from "@/components/taxpayer-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AIAssistantSidebar } from "@/components/ai-assistant-sidebar"
+import { Loader2 } from "lucide-react"
 
 export default function NotificationsPage() {
   const router = useRouter()
@@ -23,18 +24,31 @@ export default function NotificationsPage() {
     }
   }, [user, userRole, loading, router])
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
   if (!user || (userRole && !["taxpayer", "property_manager"].includes(userRole))) {
+    if (loading) {
+      return (
+        <SidebarProvider
+          style={
+            {
+              "--sidebar-width": "calc(var(--spacing) * 72)",
+              "--header-height": "calc(var(--spacing) * 12)",
+            } as React.CSSProperties
+          }
+        >
+          <TaxpayerSidebar variant="inset" />
+          <SidebarInset>
+            <TaxpayerHeader />
+            <div className="flex flex-1 items-center justify-center">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="mt-4 text-muted-foreground">Loading...</p>
+              </div>
+            </div>
+          </SidebarInset>
+          <AIAssistantSidebar userRole={userRole as "taxpayer" | "property_manager"} />
+        </SidebarProvider>
+      )
+    }
     return null
   }
 

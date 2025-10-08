@@ -154,18 +154,31 @@ export default function PaymentsPage() {
     )
   }
 
-  if (loading || loadingPayments) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-          <p className="mt-4 text-muted-foreground">Loading payments...</p>
-        </div>
-      </div>
-    )
-  }
-
   if (!user || (userRole && !["taxpayer", "property_manager"].includes(userRole))) {
+    if (loading) {
+      return (
+        <SidebarProvider
+          style={
+            {
+              "--sidebar-width": "calc(var(--spacing) * 72)",
+              "--header-height": "calc(var(--spacing) * 12)",
+            } as React.CSSProperties
+          }
+        >
+          <TaxpayerSidebar variant="inset" />
+          <SidebarInset>
+            <TaxpayerHeader />
+            <div className="flex flex-1 items-center justify-center">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="mt-4 text-muted-foreground">Loading...</p>
+              </div>
+            </div>
+          </SidebarInset>
+          <AIAssistantSidebar userRole={userRole as "taxpayer" | "property_manager"} />
+        </SidebarProvider>
+      )
+    }
     return null
   }
 
@@ -181,114 +194,125 @@ export default function PaymentsPage() {
       <TaxpayerSidebar variant="inset" />
       <SidebarInset>
         <TaxpayerHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <div className="px-4 lg:px-6">
-                {/* Header */}
-                <div className="mb-6">
-                  <h1 className="text-3xl font-bold">Payment History</h1>
-                  <p className="text-muted-foreground mt-1">View all your payment records and receipts</p>
-                </div>
-
-                {/* Stats Cards */}
-                <div className="grid gap-4 md:grid-cols-3 mb-6">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardDescription>Total Payments</CardDescription>
-                      <CardTitle className="text-2xl">{totalPayments}</CardTitle>
-                    </CardHeader>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardDescription>Total Amount Paid</CardDescription>
-                      <CardTitle className="text-2xl">{formatCurrency(totalAmount)}</CardTitle>
-                    </CardHeader>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardDescription>Completed Payments</CardDescription>
-                      <CardTitle className="text-2xl">{completedPayments}</CardTitle>
-                    </CardHeader>
-                  </Card>
-                </div>
-
-                {/* Search */}
-                <div className="mb-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by receipt number, invoice, property, or transaction ID..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
+        {loadingPayments ? (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="mt-4 text-muted-foreground">Loading payments...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col">
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+                <div className="px-4 lg:px-6">
+                  {/* Header */}
+                  <div className="mb-6">
+                    <h1 className="text-3xl font-bold">Payment History</h1>
+                    <p className="text-muted-foreground mt-1">View all your payment records and receipts</p>
                   </div>
-                </div>
 
-                {/* Payments Table */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>All Payments</CardTitle>
-                    <CardDescription>
-                      {filteredPayments.length} payment{filteredPayments.length !== 1 ? "s" : ""} found
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {filteredPayments.length === 0 ? (
-                      <div className="text-center py-12">
-                        <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-semibold mb-2">No payments found</h3>
-                        <p className="text-muted-foreground">
-                          {searchQuery ? "Try adjusting your search" : "You haven't made any payments yet"}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="border rounded-lg overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted hover:bg-muted">
-                              <TableHead>Receipt Number</TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Invoice</TableHead>
-                              <TableHead>Property</TableHead>
-                              <TableHead>Payment Method</TableHead>
-                              <TableHead className="text-right">Amount</TableHead>
-                              <TableHead>Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredPayments.map((payment) => (
-                              <TableRow
-                                key={payment.id}
-                                className="cursor-pointer hover:bg-muted/50"
-                                onClick={() => handleRowClick(payment.id)}
-                              >
-                                <TableCell className="font-mono font-semibold">{payment.receipt_number}</TableCell>
-                                <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
-                                <TableCell className="font-mono text-sm">{payment.invoice.invoice_number}</TableCell>
-                                <TableCell className="max-w-[200px] truncate">
-                                  {payment.invoice.property.registered_property_name}
-                                </TableCell>
-                                <TableCell className="capitalize">{payment.payment_method.replace("_", " ")}</TableCell>
-                                <TableCell className="text-right font-semibold">
-                                  {formatCurrency(payment.amount)}
-                                </TableCell>
-                                <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                  {/* Stats Cards */}
+                  <div className="grid gap-4 md:grid-cols-3 mb-6">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardDescription>Total Payments</CardDescription>
+                        <CardTitle className="text-2xl">{totalPayments}</CardTitle>
+                      </CardHeader>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardDescription>Total Amount Paid</CardDescription>
+                        <CardTitle className="text-2xl">{formatCurrency(totalAmount)}</CardTitle>
+                      </CardHeader>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardDescription>Completed Payments</CardDescription>
+                        <CardTitle className="text-2xl">{completedPayments}</CardTitle>
+                      </CardHeader>
+                    </Card>
+                  </div>
+
+                  {/* Search */}
+                  <div className="mb-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by receipt number, invoice, property, or transaction ID..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Payments Table */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>All Payments</CardTitle>
+                      <CardDescription>
+                        {filteredPayments.length} payment{filteredPayments.length !== 1 ? "s" : ""} found
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {filteredPayments.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                          <h3 className="text-lg font-semibold mb-2">No payments found</h3>
+                          <p className="text-muted-foreground">
+                            {searchQuery ? "Try adjusting your search" : "You haven't made any payments yet"}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="border rounded-lg overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted hover:bg-muted">
+                                <TableHead>Receipt Number</TableHead>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Invoice</TableHead>
+                                <TableHead>Property</TableHead>
+                                <TableHead>Payment Method</TableHead>
+                                <TableHead className="text-right">Amount</TableHead>
+                                <TableHead>Status</TableHead>
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                            </TableHeader>
+                            <TableBody>
+                              {filteredPayments.map((payment) => (
+                                <TableRow
+                                  key={payment.id}
+                                  className="cursor-pointer hover:bg-muted/50"
+                                  onClick={() => handleRowClick(payment.id)}
+                                >
+                                  <TableCell className="font-mono font-semibold">{payment.receipt_number}</TableCell>
+                                  <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
+                                  <TableCell className="font-mono text-sm">{payment.invoice.invoice_number}</TableCell>
+                                  <TableCell className="max-w-[200px] truncate">
+                                    {payment.invoice.property.registered_property_name}
+                                  </TableCell>
+                                  <TableCell className="capitalize">
+                                    {payment.payment_method.replace("_", " ")}
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold">
+                                    {formatCurrency(payment.amount)}
+                                  </TableCell>
+                                  <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </SidebarInset>
       <AIAssistantSidebar userRole={userRole as "taxpayer" | "property_manager"} />
 

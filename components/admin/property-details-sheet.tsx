@@ -724,7 +724,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                 Tax calculations and their associated invoices for this property
               </p>
 
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted hover:bg-muted">

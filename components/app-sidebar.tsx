@@ -75,20 +75,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Invoices",
-        url: "/dashboard/invoices",
+        url: "/admin/invoices",
         icon: FileText,
         items: [
           {
             title: "All Invoices",
-            url: "/dashboard/invoices",
+            url: "/admin/invoices",
           },
           {
             title: "Create Invoice",
-            url: "/dashboard/invoices/create",
+            url: "/admin/invoices/create",
           },
           {
             title: "Overdue",
-            url: "/dashboard/invoices/overdue",
+            url: "/admin/invoices/overdue",
           },
         ],
       },

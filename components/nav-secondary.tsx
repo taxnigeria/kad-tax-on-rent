@@ -1,7 +1,7 @@
 "use client"
 
-import * as React from "react"
-import { type Icon } from "@tabler/icons-react"
+import type * as React from "react"
+import type { Icon } from "@tabler/icons-react"
 
 import {
   SidebarGroup,
@@ -9,7 +9,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '@/components/ui/sidebar'
+} from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 
 export function NavSecondary({
   items,
@@ -19,6 +20,7 @@ export function NavSecondary({
     title: string
     url: string
     icon: Icon
+    isActive?: boolean
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (
@@ -27,7 +29,10 @@ export function NavSecondary({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild>
+              <SidebarMenuButton
+                asChild
+                className={cn(item.isActive && "bg-accent text-accent-foreground font-medium")}
+              >
                 <a href={item.url}>
                   <item.icon />
                   <span>{item.title}</span>

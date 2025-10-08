@@ -240,9 +240,9 @@ export default function TaxCalculationsPage() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="overflow-x-hidden">
         <SiteHeader />
-        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6 overflow-x-hidden">
           {/* Header */}
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>

@@ -550,7 +550,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
               />
               <div className="flex-1 space-y-2">
                 <Label htmlFor="applyPenalty" className="cursor-pointer">
-                  Apply Penalty (10% - Fixed by law)
+                  Apply Penalty (10%)
                 </Label>
               </div>
             </div>
@@ -564,7 +564,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
               />
               <div className="flex-1 space-y-2">
                 <Label htmlFor="applyInterest" className="cursor-pointer">
-                  Apply Interest (27% - Fixed by law)
+                  Apply Interest (27%)
                 </Label>
               </div>
             </div>
@@ -601,7 +601,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
               />
               <div className="flex-1 space-y-2">
                 <Label htmlFor="applyStampDuty" className="cursor-pointer">
-                  Apply Stamp Duty (1% - Fixed by law)
+                  Apply Stamp Duty (1%)
                 </Label>
               </div>
             </div>

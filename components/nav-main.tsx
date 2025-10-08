@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 
 export function NavMain({
   items,
@@ -19,6 +20,7 @@ export function NavMain({
     title: string
     url: string
     icon?: Icon
+    isActive?: boolean
   }[]
 }) {
   return (
@@ -46,7 +48,11 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title} asChild>
+              <SidebarMenuButton
+                tooltip={item.title}
+                asChild
+                className={cn(item.isActive && "bg-accent text-accent-foreground font-medium")}
+              >
                 <Link href={item.url}>
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>

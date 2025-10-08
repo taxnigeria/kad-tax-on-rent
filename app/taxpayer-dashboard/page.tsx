@@ -155,20 +155,32 @@ export default function TaxpayerDashboardPage() {
     router.push("/taxpayer-dashboard/invoices?filter=unpaid")
   }
 
-  // Show loading state while checking authentication
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
   // Don't render dashboard if not authenticated or wrong role
   if (!user || (userRole && !["taxpayer", "property_manager"].includes(userRole))) {
+    if (loading) {
+      return (
+        <SidebarProvider
+          style={
+            {
+              "--sidebar-width": "calc(var(--spacing) * 72)",
+              "--header-height": "calc(var(--spacing) * 12)",
+            } as React.CSSProperties
+          }
+        >
+          <TaxpayerSidebar variant="inset" />
+          <SidebarInset>
+            <TaxpayerHeader />
+            <div className="flex flex-1 items-center justify-center">
+              <div className="text-center">
+                <Loader2 className="inline-block h-8 w-8 animate-spin" />
+                <p className="mt-4 text-muted-foreground">Loading...</p>
+              </div>
+            </div>
+          </SidebarInset>
+          <AIAssistantSidebar userRole={userRole as "taxpayer" | "property_manager"} />
+        </SidebarProvider>
+      )
+    }
     return null
   }
 
