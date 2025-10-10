@@ -11,9 +11,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { signUp } from "@/lib/auth"
 import { Loader2, ChevronLeft } from "lucide-react"
-import { IconHome, IconKey, IconBriefcase, IconClipboardList, IconCheck } from "@tabler/icons-react"
+import { IconHome, IconKey, IconBriefcase, IconCheck } from "@tabler/icons-react"
 
-type UserRole = "taxpayer" | "tenant" | "property_manager" | "enumerator"
+type UserRole = "taxpayer" | "tenant" | "property_manager"
 
 interface RoleOption {
   value: UserRole
@@ -44,13 +44,6 @@ const roleOptions: RoleOption[] = [
     description: "I manage properties on behalf of owners",
     icon: <IconBriefcase className="size-8" />,
     color: "text-purple-600",
-  },
-  {
-    value: "enumerator",
-    label: "Enumerator",
-    description: "I work for KADIRS and enumerate properties",
-    icon: <IconClipboardList className="size-8" />,
-    color: "text-orange-600",
   },
 ]
 
@@ -257,22 +250,6 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
                 </div>
 
                 {/* Role-specific fields */}
-                {selectedRole === "enumerator" && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="staffId">Staff ID</Label>
-                    <Input
-                      id="staffId"
-                      name="staffId"
-                      type="text"
-                      placeholder="KADIRS-ENM-001"
-                      required
-                      value={formData.staffId}
-                      onChange={handleChange}
-                      disabled={loading}
-                    />
-                  </div>
-                )}
-
                 {selectedRole === "property_manager" && (
                   <div className="grid gap-2">
                     <Label htmlFor="licenseNumber">License Number (Optional)</Label>
