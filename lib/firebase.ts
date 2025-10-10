@@ -10,25 +10,21 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-let app: FirebaseApp
-let auth: Auth | null = null
+const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
 
-if (typeof window !== "undefined") {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
-  auth = getAuth(app)
-}
+let authInstance: Auth | null = null
 
-export function getFirebaseAuth(): Auth {
+function getFirebaseAuth(): Auth {
   if (typeof window === "undefined") {
     throw new Error("Firebase Auth can only be used on the client side")
   }
 
-  if (!auth) {
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
-    auth = getAuth(app)
+  if (!authInstance) {
+    authInstance = getAuth(app)
   }
 
-  return auth
+  return authInstance
 }
 
-export { auth }
+export const auth = getFirebaseAuth()
+export { getFirebaseAuth }

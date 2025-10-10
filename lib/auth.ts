@@ -10,12 +10,13 @@ import {
   updateProfile,
   type User,
 } from "firebase/auth"
-import { auth } from "./firebase"
+import { getFirebaseAuth } from "./firebase"
 import { createUserInDatabase } from "@/app/actions/auth"
 import { getFirebaseErrorMessage } from "./firebase-errors"
 
 export async function signIn(email: string, password: string, rememberMe = false) {
   try {
+    const auth = getFirebaseAuth()
     await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence)
     const userCredential = await signInWithEmailAndPassword(auth, email, password)
     return { user: userCredential.user, error: null }
@@ -26,6 +27,7 @@ export async function signIn(email: string, password: string, rememberMe = false
 
 export async function signOut() {
   try {
+    const auth = getFirebaseAuth()
     await firebaseSignOut(auth)
     return { error: null }
   } catch (error: any) {
@@ -37,6 +39,7 @@ export { signOut as logout }
 
 export async function resetPassword(email: string) {
   try {
+    const auth = getFirebaseAuth()
     await sendPasswordResetEmail(auth, email)
     return { error: null }
   } catch (error: any) {
@@ -55,13 +58,13 @@ export async function signUp(data: {
   try {
     console.log("[v0] Starting signup process...")
 
-    // Create user in Firebase Auth
+    const auth = getFirebaseAuth()
+
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)
     const user = userCredential.user
 
     console.log("[v0] Auth user created:", user.uid)
 
-    // Update Firebase profile with display name
     await updateProfile(user, {
       displayName: `${data.firstName} ${data.lastName}`,
     })
@@ -90,5 +93,6 @@ export async function signUp(data: {
 }
 
 export function onAuthStateChange(callback: (user: User | null) => void) {
+  const auth = getFirebaseAuth()
   return onAuthStateChanged(auth, callback)
 }
