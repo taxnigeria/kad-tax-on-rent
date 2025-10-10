@@ -14,6 +14,7 @@ import { AIAssistantSidebar } from "@/components/ai-assistant-sidebar"
 import { createBrowserClient } from "@/utils/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
+import { ProfileCompletionModal } from "@/components/profile-completion-modal"
 import { ProfileCompletionCard } from "@/components/profile-completion-card"
 
 interface DashboardStats {
@@ -44,6 +45,8 @@ export default function TaxpayerDashboardPage() {
   })
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
   const [loadingData, setLoadingData] = useState(true)
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false)
+  const [isFirstLogin, setIsFirstLogin] = useState(false)
 
   useEffect(() => {
     if (!loading) {
@@ -57,6 +60,7 @@ export default function TaxpayerDashboardPage() {
 
   useEffect(() => {
     if (user) {
+      checkFirstLogin()
       loadDashboardData()
     }
   }, [user])
@@ -144,6 +148,32 @@ export default function TaxpayerDashboardPage() {
     }
   }
 
+  const checkFirstLogin = async () => {
+    if (!user) return
+
+    const supabase = createBrowserClient()
+    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", user.uid).single()
+
+    if (userData) {
+      const { data: profileData } = await supabase
+        .from("taxpayer_profiles")
+        .select("profile_completion_dismissed, last_profile_check")
+        .eq("user_id", userData.id)
+        .single()
+
+      // Show modal if never dismissed or last check was more than 7 days ago
+      const shouldShow =
+        !profileData?.profile_completion_dismissed ||
+        !profileData?.last_profile_check ||
+        new Date().getTime() - new Date(profileData.last_profile_check).getTime() > 7 * 24 * 60 * 60 * 1000
+
+      if (shouldShow) {
+        setIsFirstLogin(true)
+        setShowProfileCompletion(true)
+      }
+    }
+  }
+
   const handleRegisterProperty = () => {
     router.push("/taxpayer-dashboard/properties")
   }
@@ -200,15 +230,16 @@ export default function TaxpayerDashboardPage() {
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              {/* Welcome Section */}
               <div className="px-4 lg:px-6">
+                {/* Welcome Section */}
                 <div className="mb-6">
                   <h1 className="text-3xl font-bold tracking-tight">Welcome back!</h1>
                   <p className="text-muted-foreground">Manage your properties and tax obligations</p>
                 </div>
 
+                {/* Profile Completion Card */}
                 <div className="mb-6">
-                  <ProfileCompletionCard userRole={userRole as "taxpayer" | "property_manager"} />
+                  <ProfileCompletionCard onViewDetails={() => setShowProfileCompletion(true)} />
                 </div>
 
                 {/* Quick Stats */}
@@ -422,6 +453,12 @@ export default function TaxpayerDashboardPage() {
         </div>
       </SidebarInset>
       <AIAssistantSidebar userRole={userRole as "taxpayer" | "property_manager"} />
+      {/* Profile Completion Modal */}
+      <ProfileCompletionModal
+        open={showProfileCompletion}
+        onOpenChange={setShowProfileCompletion}
+        onDismiss={() => setShowProfileCompletion(false)}
+      />
     </SidebarProvider>
   )
 }

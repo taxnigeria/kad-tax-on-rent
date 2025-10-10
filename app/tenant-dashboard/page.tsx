@@ -13,6 +13,7 @@ import { Building2, FileText, CreditCard, AlertCircle, LinkIcon, Loader2 } from 
 import { AIAssistantSidebar } from "@/components/ai-assistant-sidebar"
 import { createBrowserClient } from "@/utils/supabase/client"
 import { formatCurrency } from "@/lib/utils"
+import { ProfileCompletionModal } from "@/components/profile-completion-modal"
 import { ProfileCompletionCard } from "@/components/profile-completion-card"
 
 interface DashboardStats {
@@ -32,6 +33,7 @@ export default function TenantDashboardPage() {
     outstanding: 0,
   })
   const [loadingData, setLoadingData] = useState(true)
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false)
 
   useEffect(() => {
     if (!loading) {
@@ -49,6 +51,7 @@ export default function TenantDashboardPage() {
 
   useEffect(() => {
     if (user && userRole === "tenant") {
+      checkFirstLogin()
       loadDashboardData()
     }
   }, [user, userRole])
@@ -91,6 +94,30 @@ export default function TenantDashboardPage() {
       console.error("Error loading dashboard data:", error)
     } finally {
       setLoadingData(false)
+    }
+  }
+
+  const checkFirstLogin = async () => {
+    if (!user) return
+
+    const supabase = createBrowserClient()
+    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", user.uid).single()
+
+    if (userData) {
+      const { data: profileData } = await supabase
+        .from("taxpayer_profiles")
+        .select("profile_completion_dismissed, last_profile_check")
+        .eq("user_id", userData.id)
+        .single()
+
+      const shouldShow =
+        !profileData?.profile_completion_dismissed ||
+        !profileData?.last_profile_check ||
+        new Date().getTime() - new Date(profileData.last_profile_check).getTime() > 7 * 24 * 60 * 60 * 1000
+
+      if (shouldShow) {
+        setShowProfileCompletion(true)
+      }
     }
   }
 
@@ -153,10 +180,6 @@ export default function TenantDashboardPage() {
                 <div className="mb-6">
                   <h1 className="text-3xl font-bold tracking-tight">Welcome back!</h1>
                   <p className="text-muted-foreground">Manage your rentals and tax payments</p>
-                </div>
-
-                <div className="mb-6">
-                  <ProfileCompletionCard userRole="tenant" />
                 </div>
 
                 {/* Quick Stats */}
@@ -234,6 +257,11 @@ export default function TenantDashboardPage() {
                       )}
                     </CardContent>
                   </Card>
+                </div>
+
+                {/* Profile Completion Card */}
+                <div className="mb-6">
+                  <ProfileCompletionCard onViewDetails={() => setShowProfileCompletion(true)} />
                 </div>
 
                 {/* Quick Actions */}
@@ -352,6 +380,13 @@ export default function TenantDashboardPage() {
         </div>
       </SidebarInset>
       <AIAssistantSidebar userRole="tenant" />
+
+      {/* Profile Completion Modal */}
+      <ProfileCompletionModal
+        open={showProfileCompletion}
+        onOpenChange={setShowProfileCompletion}
+        onDismiss={() => setShowProfileCompletion(false)}
+      />
     </SidebarProvider>
   )
 }
