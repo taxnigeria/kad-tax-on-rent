@@ -265,7 +265,7 @@ export default function TaxpayerDashboardPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="mt-3 text-2xl font-bold">{stats.totalProperties}</div>
+                        <div className="mt-1 text-2xl font-bold">{stats.totalProperties}</div>
                       </>
                     )}
                   </Card>
@@ -289,7 +289,7 @@ export default function TaxpayerDashboardPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="mt-3 text-2xl font-bold">{stats.pendingInvoices}</div>
+                        <div className="mt-1 text-2xl font-bold">{stats.pendingInvoices}</div>
                       </>
                     )}
                   </Card>
@@ -311,7 +311,7 @@ export default function TaxpayerDashboardPage() {
                             <p className="text-sm text-muted-foreground">Total payments made</p>
                           </div>
                         </div>
-                        <div className="mt-3 text-2xl font-bold">{formatCurrency(stats.totalPaid)}</div>
+                        <div className="mt-1 text-2xl font-bold">{formatCurrency(stats.totalPaid)}</div>
                       </>
                     )}
                   </Card>
@@ -335,7 +335,7 @@ export default function TaxpayerDashboardPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="mt-3 text-2xl font-bold">{formatCurrency(stats.outstanding)}</div>
+                        <div className="mt-1 text-2xl font-bold">{formatCurrency(stats.outstanding)}</div>
                       </>
                     )}
                   </Card>
