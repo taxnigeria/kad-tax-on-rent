@@ -31,8 +31,8 @@ export default function LandingPage() {
                 <Building2 className="h-6 w-6 text-primary-foreground" />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-lg text-foreground leading-none">KADIRS</span>
-                <span className="text-xs text-muted-foreground">Tax on Rent Portal</span>
+                <span className="font-bold text-lg text-foreground leading-none">KTR</span>
+                <span className="text-xs text-muted-foreground">Kaduna Tax on Rent Portal</span>
               </div>
             </Link>
 
@@ -80,7 +80,7 @@ export default function LandingPage() {
           {/* Hero Image/Illustration */}
           <div className="relative mt-16">
             <div className="rounded-2xl border-2 border-border bg-card shadow-2xl overflow-hidden">
-              <img src="/modern-tax-portal-dashboard-interface.jpg" alt="KADIRS Tax Portal Dashboard" className="w-full h-auto" />
+              <img src="/images/design-mode/v0_image-2.jpg" alt="KADIRS Tax Portal Dashboard" className="w-full h-auto" />
             </div>
           </div>
         </div>
