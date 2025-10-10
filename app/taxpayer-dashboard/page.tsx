@@ -233,8 +233,8 @@ export default function TaxpayerDashboardPage() {
               <div className="px-4 lg:px-6">
                 {/* Welcome Section */}
                 <div className="mb-6">
-                  <h1 className="text-3xl font-bold tracking-tight">Welcome back!</h1>
-                  <p className="text-muted-foreground">Manage your properties and tax obligations</p>
+                  <h1 className="text-lg font-bold tracking-tight">Welcome back!</h1>
+                  <p className="text-muted-foreground text-sm">Manage your properties and tax obligations</p>
                 </div>
 
                 {/* Profile Completion Card */}
@@ -244,82 +244,103 @@ export default function TaxpayerDashboardPage() {
 
                 {/* Quick Stats */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-base font-semibold">Total Properties</CardTitle>
-                      <Building2 className="h-5 w-5 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      {loadingData ? (
+                  {/* Total Properties */}
+                  <Card className="flex flex-col items-start justify-between rounded-2xl border p-4 shadow-sm">
+                    {loadingData ? (
+                      <div className="flex w-full justify-center p-6">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      ) : (
-                        <div className="space-y-1">
-                          <div className="text-3xl font-bold">{stats.totalProperties}</div>
-                          <p className="text-sm text-muted-foreground">
-                            {stats.totalProperties === 0
-                              ? "No properties registered yet"
-                              : `${stats.totalProperties} ${stats.totalProperties === 1 ? "property" : "properties"} registered`}
-                          </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                            <Building2 className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold">Total Properties</p>
+                            <p className="text-sm text-muted-foreground">
+                              {stats.verifiedProperties
+                                ? `${stats.verifiedProperties} verified`
+                                : "No verified yet"}
+                            </p>
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
+                        <div className="mt-3 text-4xl font-bold">{stats.totalProperties}</div>
+                      </>
+                    )}
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-base font-semibold">Pending Invoices</CardTitle>
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      {loadingData ? (
+                  {/* Pending Invoices */}
+                  <Card className="flex flex-col items-start justify-between rounded-2xl border p-4 shadow-sm">
+                    {loadingData ? (
+                      <div className="flex w-full justify-center p-6">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      ) : (
-                        <div className="space-y-1">
-                          <div className="text-3xl font-bold">{stats.pendingInvoices}</div>
-                          <p className="text-sm text-muted-foreground">
-                            {stats.pendingInvoices === 0 ? "All caught up!" : "Requires payment"}
-                          </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                            <FileText className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold">Pending Invoices</p>
+                            <p className="text-sm text-muted-foreground">
+                              {stats.pendingInvoices === 0 ? "All caught up!" : "Requires payment"}
+                            </p>
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
+                        <div className="mt-3 text-4xl font-bold">{stats.pendingInvoices}</div>
+                      </>
+                    )}
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-base font-semibold">Total Paid</CardTitle>
-                      <CreditCard className="h-5 w-5 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      {loadingData ? (
+                  {/* Total Paid */}
+                  <Card className="flex flex-col items-start justify-between rounded-2xl border p-4 shadow-sm">
+                    {loadingData ? (
+                      <div className="flex w-full justify-center p-6">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      ) : (
-                        <div className="space-y-1">
-                          <div className="text-3xl font-bold">{formatCurrency(stats.totalPaid)}</div>
-                          <p className="text-sm text-muted-foreground">Total payments made</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                            <CreditCard className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold">Total Paid</p>
+                            <p className="text-sm text-muted-foreground">Total payments made</p>
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
+                        <div className="mt-3 text-4xl font-bold">{formatCurrency(stats.totalPaid)}</div>
+                      </>
+                    )}
                   </Card>
 
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-base font-semibold">Outstanding</CardTitle>
-                      <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      {loadingData ? (
+                  {/* Outstanding */}
+                  <Card className="flex flex-col items-start justify-between rounded-2xl border p-4 shadow-sm">
+                    {loadingData ? (
+                      <div className="flex w-full justify-center p-6">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      ) : (
-                        <div className="space-y-1">
-                          <div className="text-3xl font-bold">{formatCurrency(stats.outstanding)}</div>
-                          <p className="text-sm text-muted-foreground">
-                            {stats.outstanding === 0 ? "No outstanding balance" : "Balance due"}
-                          </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
+                            <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold">Outstanding</p>
+                            <p className="text-sm text-muted-foreground">
+                              {stats.outstanding === 0 ? "No outstanding balance" : "Balance due"}
+                            </p>
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
+                        <div className="mt-3 text-4xl font-bold">{formatCurrency(stats.outstanding)}</div>
+                      </>
+                    )}
                   </Card>
                 </div>
+
 
                 {/* Quick Actions */}
                 <div className="mt-6">
