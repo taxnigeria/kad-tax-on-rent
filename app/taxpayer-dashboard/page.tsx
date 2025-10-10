@@ -252,7 +252,7 @@ export default function TaxpayerDashboardPage() {
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
                           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
                             <Building2 className="h-6 w-6 text-muted-foreground" />
                           </div>
@@ -278,7 +278,7 @@ export default function TaxpayerDashboardPage() {
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
                           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
                             <FileText className="h-6 w-6 text-muted-foreground" />
                           </div>
@@ -302,7 +302,7 @@ export default function TaxpayerDashboardPage() {
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
                           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
                             <CreditCard className="h-6 w-6 text-muted-foreground" />
                           </div>
@@ -324,7 +324,7 @@ export default function TaxpayerDashboardPage() {
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
                           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
                             <AlertCircle className="h-6 w-6 text-muted-foreground" />
                           </div>
