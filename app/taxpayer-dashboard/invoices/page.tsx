@@ -400,8 +400,7 @@ export default function InvoicesPage() {
             <div className="flex flex-col gap-6 p-4 md:p-6">
               {/* Page Header */}
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">My Tax Bills</h1>
-                <p className="text-muted-foreground mt-1">View your property tax assessments and payment status</p>
+                <h1 className="text-lg font-bold tracking-tight">My Tax Bills</h1>
               </div>
 
               {/* Stats Cards */}

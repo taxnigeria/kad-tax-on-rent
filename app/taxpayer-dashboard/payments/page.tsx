@@ -208,8 +208,7 @@ export default function PaymentsPage() {
                 <div className="px-4 lg:px-6">
                   {/* Header */}
                   <div className="mb-6">
-                    <h1 className="text-3xl font-bold">Payment History</h1>
-                    <p className="text-muted-foreground mt-1">View all your payment records and receipts</p>
+                    <h1 className="text-lg font-bold">Payment History</h1>
                   </div>
 
                   {/* Stats Cards */}

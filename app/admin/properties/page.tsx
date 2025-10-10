@@ -225,8 +225,7 @@ export default function AdminPropertiesPage() {
           {/* Header */}
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Properties Management</h1>
-              <p className="text-muted-foreground mt-1">Manage all registered properties across taxpayers</p>
+              <h1 className="text-lg font-bold tracking-tight">Properties Management</h1>
             </div>
             <Button className="gap-2" onClick={handleAddProperty}>
               <Plus className="h-4 w-4" />

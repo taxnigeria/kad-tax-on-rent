@@ -271,8 +271,7 @@ export default function AdminPaymentsPage() {
           {/* Header */}
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Payments</h1>
-              <p className="text-muted-foreground mt-1">View and manage all payment transactions</p>
+              <h1 className="text-lg font-bold tracking-tight">Payments</h1>
             </div>
           </div>
 

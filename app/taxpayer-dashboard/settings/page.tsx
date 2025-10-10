@@ -381,8 +381,7 @@ export default function SettingsPage() {
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
               <div className="px-4 lg:px-6">
                 <div className="mb-6">
-                  <h1 className="text-3xl font-bold">Settings</h1>
-                  <p className="text-muted-foreground mt-1">Manage your account settings and preferences</p>
+                  <h1 className="text-lg font-bold">Settings</h1>
                 </div>
 
                 <Tabs defaultValue="profile" className="space-y-6">
