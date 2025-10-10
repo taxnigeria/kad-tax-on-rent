@@ -3,7 +3,7 @@
 import { IconCreditCard, IconDotsVertical, IconLogout, IconNotification, IconUserCircle } from "@tabler/icons-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -47,6 +47,11 @@ export function NavUser() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const handleLogout = async () => {
     try {
@@ -57,7 +62,7 @@ export function NavUser() {
     }
   }
 
-  if (!user) {
+  if (!isMounted || !user) {
     return null
   }
 
@@ -71,7 +76,7 @@ export function NavUser() {
     <>
       <SidebarMenu>
         <SidebarMenuItem>
-          <DropdownMenu>
+          <DropdownMenu modal={true}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
@@ -89,10 +94,12 @@ export function NavUser() {
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              className="w-56 rounded-lg"
+              className="w-56 rounded-lg z-[9999]"
               side={isMobile ? "bottom" : "right"}
               align="end"
               sideOffset={4}
+              alignOffset={0}
+              collisionPadding={8}
             >
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
