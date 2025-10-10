@@ -1,5 +1,5 @@
-import { initializeApp, getApps, getApp } from "firebase/app"
-import { getAuth } from "firebase/auth"
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app"
+import { getAuth, type Auth } from "firebase/auth"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,10 +10,25 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-// Initialize Firebase app (singleton pattern)
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+let app: FirebaseApp
+let auth: Auth | null = null
 
-// Initialize Firebase Auth
-const auth = getAuth(app)
+if (typeof window !== "undefined") {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+  auth = getAuth(app)
+}
+
+export function getFirebaseAuth(): Auth {
+  if (typeof window === "undefined") {
+    throw new Error("Firebase Auth can only be used on the client side")
+  }
+
+  if (!auth) {
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
+    auth = getAuth(app)
+  }
+
+  return auth
+}
 
 export { auth }
