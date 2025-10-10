@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/utils/supabase/server"
+import { createServerClient } from "@/lib/supabase/server"
 import { auth } from "@/lib/firebase"
 
 export async function POST(request: NextRequest) {
