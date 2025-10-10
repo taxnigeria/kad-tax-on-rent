@@ -223,7 +223,7 @@ export default function TaxCalculationsPage() {
     active: calculations.filter((c) => c.is_active).length,
   }
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">

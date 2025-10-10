@@ -1,6 +1,7 @@
 "use client"
 
 import type * as React from "react"
+import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   Users,
@@ -30,6 +31,7 @@ import { useAuth } from "@/contexts/auth-context"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
+  const pathname = usePathname()
 
   const data = {
     navMain: [
@@ -94,20 +96,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Payments",
-        url: "/dashboard/payments",
+        url: "/admin/payments",
         icon: CreditCard,
         items: [
           {
             title: "All Payments",
-            url: "/dashboard/payments",
+            url: "/admin/payments",
           },
           {
             title: "Reconciliation",
-            url: "/dashboard/payments/reconciliation",
+            url: "/admin/payments/reconciliation",
           },
           {
             title: "Payment History",
-            url: "/dashboard/payments/history",
+            url: "/admin/payments/history",
           },
         ],
       },
@@ -203,8 +205,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={data.navMain} pathname={pathname} />
+        <NavSecondary items={data.navSecondary} className="mt-auto" pathname={pathname} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser
