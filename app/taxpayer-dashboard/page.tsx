@@ -245,77 +245,77 @@ export default function TaxpayerDashboardPage() {
                 {/* Quick Stats */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-base font-semibold">Total Properties</CardTitle>
+                      <Building2 className="h-5 w-5 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       {loadingData ? (
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       ) : (
-                        <>
-                          <div className="text-2xl font-bold">{stats.totalProperties}</div>
-                          <p className="text-xs text-muted-foreground">
+                        <div className="space-y-1">
+                          <div className="text-3xl font-bold">{stats.totalProperties}</div>
+                          <p className="text-sm text-muted-foreground">
                             {stats.totalProperties === 0
                               ? "No properties registered yet"
                               : `${stats.totalProperties} ${stats.totalProperties === 1 ? "property" : "properties"} registered`}
                           </p>
-                        </>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Pending Invoices</CardTitle>
-                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-base font-semibold">Pending Invoices</CardTitle>
+                      <FileText className="h-5 w-5 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       {loadingData ? (
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       ) : (
-                        <>
-                          <div className="text-2xl font-bold">{stats.pendingInvoices}</div>
-                          <p className="text-xs text-muted-foreground">
+                        <div className="space-y-1">
+                          <div className="text-3xl font-bold">{stats.pendingInvoices}</div>
+                          <p className="text-sm text-muted-foreground">
                             {stats.pendingInvoices === 0 ? "All caught up!" : "Requires payment"}
                           </p>
-                        </>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
-                      <CreditCard className="h-4 w-4 text-muted-foreground" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-base font-semibold">Total Paid</CardTitle>
+                      <CreditCard className="h-5 w-5 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       {loadingData ? (
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       ) : (
-                        <>
-                          <div className="text-2xl font-bold">{formatCurrency(stats.totalPaid)}</div>
-                          <p className="text-xs text-muted-foreground">Total payments made</p>
-                        </>
+                        <div className="space-y-1">
+                          <div className="text-3xl font-bold">{formatCurrency(stats.totalPaid)}</div>
+                          <p className="text-sm text-muted-foreground">Total payments made</p>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-                      <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                      <CardTitle className="text-base font-semibold">Outstanding</CardTitle>
+                      <AlertCircle className="h-5 w-5 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       {loadingData ? (
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       ) : (
-                        <>
-                          <div className="text-2xl font-bold">{formatCurrency(stats.outstanding)}</div>
-                          <p className="text-xs text-muted-foreground">
+                        <div className="space-y-1">
+                          <div className="text-3xl font-bold">{formatCurrency(stats.outstanding)}</div>
+                          <p className="text-sm text-muted-foreground">
                             {stats.outstanding === 0 ? "No outstanding balance" : "Balance due"}
                           </p>
-                        </>
+                        </div>
                       )}
                     </CardContent>
                   </Card>

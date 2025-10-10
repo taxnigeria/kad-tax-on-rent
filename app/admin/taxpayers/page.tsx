@@ -185,46 +185,46 @@ export default function AdminTaxpayersPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-4">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Taxpayers</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-semibold">Total Taxpayers</CardTitle>
+                  <Users className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.total}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Registered accounts</p>
+                <CardContent className="space-y-1">
+                  <div className="text-3xl font-bold">{stats.total}</div>
+                  <p className="text-sm text-muted-foreground">Registered accounts</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active</CardTitle>
-                  <UserCheck className="h-4 w-4 text-green-500" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-semibold">Active</CardTitle>
+                  <UserCheck className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.active}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Active accounts</p>
+                <CardContent className="space-y-1">
+                  <div className="text-3xl font-bold">{stats.active}</div>
+                  <p className="text-sm text-muted-foreground">Active accounts</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Inactive</CardTitle>
-                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-semibold">Inactive</CardTitle>
+                  <AlertCircle className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.inactive}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Inactive accounts</p>
+                <CardContent className="space-y-1">
+                  <div className="text-3xl font-bold">{stats.inactive}</div>
+                  <p className="text-sm text-muted-foreground">Inactive accounts</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">New This Month</CardTitle>
-                  <UserPlus className="h-4 w-4 text-blue-500" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-base font-semibold">New This Month</CardTitle>
+                  <UserPlus className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.newThisMonth}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Recent registrations</p>
+                <CardContent className="space-y-1">
+                  <div className="text-3xl font-bold">{stats.newThisMonth}</div>
+                  <p className="text-sm text-muted-foreground">Recent registrations</p>
                 </CardContent>
               </Card>
             </div>
