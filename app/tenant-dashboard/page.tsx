@@ -13,6 +13,7 @@ import { Building2, FileText, CreditCard, AlertCircle, LinkIcon, Loader2 } from 
 import { AIAssistantSidebar } from "@/components/ai-assistant-sidebar"
 import { createBrowserClient } from "@/utils/supabase/client"
 import { formatCurrency } from "@/lib/utils"
+import { ProfileCompletionCard } from "@/components/profile-completion-card"
 
 interface DashboardStats {
   totalRentals: number
@@ -152,6 +153,10 @@ export default function TenantDashboardPage() {
                 <div className="mb-6">
                   <h1 className="text-3xl font-bold tracking-tight">Welcome back!</h1>
                   <p className="text-muted-foreground">Manage your rentals and tax payments</p>
+                </div>
+
+                <div className="mb-6">
+                  <ProfileCompletionCard userRole="tenant" />
                 </div>
 
                 {/* Quick Stats */}

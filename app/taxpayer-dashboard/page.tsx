@@ -14,6 +14,7 @@ import { AIAssistantSidebar } from "@/components/ai-assistant-sidebar"
 import { createBrowserClient } from "@/utils/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
+import { ProfileCompletionCard } from "@/components/profile-completion-card"
 
 interface DashboardStats {
   totalProperties: number
@@ -204,6 +205,10 @@ export default function TaxpayerDashboardPage() {
                 <div className="mb-6">
                   <h1 className="text-3xl font-bold tracking-tight">Welcome back!</h1>
                   <p className="text-muted-foreground">Manage your properties and tax obligations</p>
+                </div>
+
+                <div className="mb-6">
+                  <ProfileCompletionCard userRole={userRole as "taxpayer" | "property_manager"} />
                 </div>
 
                 {/* Quick Stats */}
