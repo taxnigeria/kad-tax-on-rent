@@ -243,16 +243,16 @@ export default function TaxpayerDashboardPage() {
                 </div>
 
                 {/* Quick Stats */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="flex flex-wrap gap-4">
                   {/* Total Properties */}
-                  <Card className="flex flex-col items-start justify-between rounded-2xl border p-4 shadow-sm">
+                  <Card className="flex flex-col justify-between rounded-2xl border p-4 shadow-sm w-full sm:w-[48%] lg:w-[23%]">
                     {loadingData ? (
                       <div className="flex w-full justify-center p-6">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-3 w-full">
+                        <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
                             <Building2 className="h-6 w-6 text-muted-foreground" />
                           </div>
@@ -265,20 +265,20 @@ export default function TaxpayerDashboardPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="mt-3 text-4xl font-bold">{stats.totalProperties}</div>
+                        <div className="mt-3 text-2xl font-bold">{stats.totalProperties}</div>
                       </>
                     )}
                   </Card>
 
                   {/* Pending Invoices */}
-                  <Card className="flex flex-col items-start justify-between rounded-2xl border p-4 shadow-sm">
+                  <Card className="flex flex-col justify-between rounded-2xl border p-4 shadow-sm w-full sm:w-[48%] lg:w-[23%]">
                     {loadingData ? (
                       <div className="flex w-full justify-center p-6">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-3 w-full">
+                        <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
                             <FileText className="h-6 w-6 text-muted-foreground" />
                           </div>
@@ -289,20 +289,20 @@ export default function TaxpayerDashboardPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="mt-3 text-4xl font-bold">{stats.pendingInvoices}</div>
+                        <div className="mt-3 text-2xl font-bold">{stats.pendingInvoices}</div>
                       </>
                     )}
                   </Card>
 
                   {/* Total Paid */}
-                  <Card className="flex flex-col items-start justify-between rounded-2xl border p-4 shadow-sm">
+                  <Card className="flex flex-col justify-between rounded-2xl border p-4 shadow-sm w-full sm:w-[48%] lg:w-[23%]">
                     {loadingData ? (
                       <div className="flex w-full justify-center p-6">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-3 w-full">
+                        <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
                             <CreditCard className="h-6 w-6 text-muted-foreground" />
                           </div>
@@ -311,20 +311,20 @@ export default function TaxpayerDashboardPage() {
                             <p className="text-sm text-muted-foreground">Total payments made</p>
                           </div>
                         </div>
-                        <div className="mt-3 text-4xl font-bold">{formatCurrency(stats.totalPaid)}</div>
+                        <div className="mt-3 text-2xl font-bold">{formatCurrency(stats.totalPaid)}</div>
                       </>
                     )}
                   </Card>
 
                   {/* Outstanding */}
-                  <Card className="flex flex-col items-start justify-between rounded-2xl border p-4 shadow-sm">
+                  <Card className="flex flex-col justify-between rounded-2xl border p-4 shadow-sm w-full sm:w-[48%] lg:w-[23%]">
                     {loadingData ? (
                       <div className="flex w-full justify-center p-6">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-3 w-full">
+                        <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted">
                             <AlertCircle className="h-6 w-6 text-muted-foreground" />
                           </div>
@@ -335,11 +335,12 @@ export default function TaxpayerDashboardPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="mt-3 text-4xl font-bold">{formatCurrency(stats.outstanding)}</div>
+                        <div className="mt-3 text-2xl font-bold">{formatCurrency(stats.outstanding)}</div>
                       </>
                     )}
                   </Card>
                 </div>
+
 
 
                 {/* Quick Actions */}
