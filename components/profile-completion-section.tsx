@@ -69,7 +69,7 @@ export function ProfileCompletionSection() {
     setLoading(true)
 
     try {
-      const result = await getProfileCompletionStatus()
+      const result = await getProfileCompletionStatus(user.uid)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -123,7 +123,7 @@ export function ProfileCompletionSection() {
 
     try {
       setVerifying(true)
-      const result = await sendEmailVerification()
+      const result = await sendEmailVerification(user.uid, user.email!)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -146,6 +146,8 @@ export function ProfileCompletionSection() {
   }
 
   const handleSendOTP = async () => {
+    if (!user) return
+
     if (!phoneNumber) {
       toast({
         title: "Error",
@@ -157,7 +159,7 @@ export function ProfileCompletionSection() {
 
     try {
       setVerifying(true)
-      const result = await sendPhoneOTP(phoneNumber)
+      const result = await sendPhoneOTP(user.uid, phoneNumber)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -180,6 +182,8 @@ export function ProfileCompletionSection() {
   }
 
   const handleVerifyOTP = async () => {
+    if (!user) return
+
     if (!otp) {
       toast({
         title: "Error",
@@ -191,7 +195,7 @@ export function ProfileCompletionSection() {
 
     try {
       setVerifying(true)
-      const result = await verifyPhoneOTP(otp)
+      const result = await verifyPhoneOTP(user.uid, otp)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -235,6 +239,8 @@ export function ProfileCompletionSection() {
   }
 
   const handleUploadPhoto = async () => {
+    if (!user) return
+
     if (!selectedFile) {
       toast({
         title: "Error",
@@ -250,7 +256,7 @@ export function ProfileCompletionSection() {
       const formData = new FormData()
       formData.append("file", selectedFile)
 
-      const result = await uploadProfilePhoto(formData)
+      const result = await uploadProfilePhoto(user.uid, formData)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -277,9 +283,11 @@ export function ProfileCompletionSection() {
   }
 
   const handleGenerateKadirsID = async () => {
+    if (!user) return
+
     try {
       setGenerating(true)
-      const result = await generateKadirsID()
+      const result = await generateKadirsID(user.uid)
 
       if (!result.success) {
         throw new Error(result.error)

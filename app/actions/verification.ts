@@ -3,23 +3,15 @@
 import { createServerClient } from "@/lib/supabase/server"
 import { put } from "@vercel/blob"
 
-export async function sendPhoneOTP(phoneNumber: string) {
+export async function sendPhoneOTP(firebaseUid: string, phoneNumber: string) {
   try {
     const supabase = await createServerClient()
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Get user from database
+    // Get user from database using Firebase UID
     const { data: userData } = await supabase
       .from("users")
       .select("id, first_name, last_name")
-      .eq("firebase_uid", user.id)
+      .eq("firebase_uid", firebaseUid)
       .single()
 
     if (!userData) {
@@ -82,20 +74,12 @@ export async function sendPhoneOTP(phoneNumber: string) {
   }
 }
 
-export async function verifyPhoneOTP(otp: string) {
+export async function verifyPhoneOTP(firebaseUid: string, otp: string) {
   try {
     const supabase = await createServerClient()
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Get user from database
-    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", user.id).single()
+    // Get user from database using Firebase UID
+    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", firebaseUid).single()
 
     if (!userData) {
       return { success: false, error: "User not found" }
@@ -137,22 +121,21 @@ export async function verifyPhoneOTP(otp: string) {
   }
 }
 
-export async function sendEmailVerification() {
+export async function sendEmailVerification(firebaseUid: string, email: string) {
   try {
     const supabase = await createServerClient()
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
+    // Get user from database using Firebase UID
+    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", firebaseUid).single()
+
+    if (!userData) {
+      return { success: false, error: "User not found" }
     }
 
     // Use Supabase Auth to send verification email
     const { error } = await supabase.auth.resend({
       type: "signup",
-      email: user.email!,
+      email: email,
     })
 
     if (error) {
@@ -167,20 +150,12 @@ export async function sendEmailVerification() {
   }
 }
 
-export async function uploadProfilePhoto(formData: FormData) {
+export async function uploadProfilePhoto(firebaseUid: string, formData: FormData) {
   try {
     const supabase = await createServerClient()
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Get user from database
-    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", user.id).single()
+    // Get user from database using Firebase UID
+    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", firebaseUid).single()
 
     if (!userData) {
       return { success: false, error: "User not found" }
@@ -224,23 +199,15 @@ export async function uploadProfilePhoto(formData: FormData) {
   }
 }
 
-export async function generateKadirsID() {
+export async function generateKadirsID(firebaseUid: string) {
   try {
     const supabase = await createServerClient()
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Get user from database
+    // Get user from database using Firebase UID
     const { data: userData } = await supabase
       .from("users")
       .select("id, first_name, last_name, email, phone_number")
-      .eq("firebase_uid", user.id)
+      .eq("firebase_uid", firebaseUid)
       .single()
 
     if (!userData) {
@@ -269,23 +236,15 @@ export async function generateKadirsID() {
   }
 }
 
-export async function getProfileCompletionStatus() {
+export async function getProfileCompletionStatus(firebaseUid: string) {
   try {
     const supabase = await createServerClient()
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "User not authenticated" }
-    }
-
-    // Get user data
+    // Get user data using Firebase UID
     const { data: userData } = await supabase
       .from("users")
       .select("id, email_verified, phone_verified, role")
-      .eq("firebase_uid", user.id)
+      .eq("firebase_uid", firebaseUid)
       .single()
 
     if (!userData) {
