@@ -261,7 +261,7 @@ export default function TaxpayerDashboardPage() {
                             <p className="text-sm text-muted-foreground">
                               {stats.verifiedProperties
                                 ? `${stats.verifiedProperties} verified`
-                                : "No verified yet"}
+                                : "None verified yet"}
                             </p>
                           </div>
                         </div>
