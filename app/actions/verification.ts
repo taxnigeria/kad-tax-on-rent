@@ -27,7 +27,7 @@ export async function sendPhoneOTP(firebaseUid: string, phoneNumber: string) {
     const { error: tokenError } = await supabase.from("verification_tokens").insert({
       user_id: userData.id,
       token_value: otp,
-      token_type: "phone_otp",
+      token_type: "whatsapp",
       phone_number: phoneNumber,
       expires_at: expiresAt.toISOString(),
       is_used: false,
