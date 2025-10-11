@@ -6,8 +6,7 @@ import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { Mail, Phone, ImageIcon, ChevronRight, Upload, Loader2 } from "lucide-react"
-import { createBrowserClient } from "@/utils/supabase/client"
+import { Mail, Phone, ImageIcon, ChevronRight, Upload, Loader2, Award as IdCard } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import {
   Dialog,
@@ -20,7 +19,14 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { sendEmailVerification } from "firebase/auth"
+import {
+  sendEmailVerification,
+  sendPhoneOTP,
+  verifyPhoneOTP,
+  uploadProfilePhoto,
+  generateKadirsID,
+  getProfileCompletionStatus,
+} from "@/app/actions/verification"
 
 interface CompletionItem {
   id: string
@@ -49,6 +55,7 @@ export function ProfileCompletionSection() {
   const [uploading, setUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
     if (user && userRole) {
@@ -60,40 +67,40 @@ export function ProfileCompletionSection() {
     if (!user) return
 
     setLoading(true)
-    const supabase = createBrowserClient()
 
     try {
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id, email_verified, phone_verified")
-        .eq("firebase_uid", user.uid)
-        .single()
+      const result = await getProfileCompletionStatus()
 
-      const { data: profileData } = await supabase
-        .from("taxpayer_profiles")
-        .select("kadirs_id, profile_photo_url")
-        .eq("user_id", userData?.id)
-        .single()
+      if (!result.success) {
+        throw new Error(result.error)
+      }
 
       const completionItems: CompletionItem[] = [
         {
           id: "email",
           label: "Verify Email",
-          completed: userData?.email_verified || false,
+          completed: result.items.emailVerified,
           icon: <Mail className="h-5 w-5" />,
           action: () => setEmailDialogOpen(true),
         },
         {
           id: "phone",
           label: "Verify Phone",
-          completed: userData?.phone_verified || false,
+          completed: result.items.phoneVerified,
           icon: <Phone className="h-5 w-5" />,
           action: () => setPhoneDialogOpen(true),
         },
         {
+          id: "kadirs",
+          label: "Generate KADIRS ID",
+          completed: result.items.kadirsIdGenerated,
+          icon: <IdCard className="h-5 w-5" />,
+          action: () => setKadrisDialogOpen(true),
+        },
+        {
           id: "profile_photo",
           label: "Upload profile photo",
-          completed: !!profileData?.profile_photo_url,
+          completed: result.items.profilePhotoUploaded,
           icon: <ImageIcon className="h-5 w-5" />,
           action: () => setPhotoDialogOpen(true),
         },
@@ -105,7 +112,7 @@ export function ProfileCompletionSection() {
       const percentage = Math.round((completedCount / completionItems.length) * 100)
       setCompletionPercentage(percentage)
     } catch (error) {
-      console.error("Error loading profile completion:", error)
+      console.error("[v0] Error loading profile completion:", error)
     } finally {
       setLoading(false)
     }
@@ -116,7 +123,12 @@ export function ProfileCompletionSection() {
 
     try {
       setVerifying(true)
-      await sendEmailVerification(user)
+      const result = await sendEmailVerification()
+
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+
       toast({
         title: "Verification email sent",
         description: "Please check your inbox and click the verification link.",
@@ -145,14 +157,11 @@ export function ProfileCompletionSection() {
 
     try {
       setVerifying(true)
-      // TODO: Replace with actual n8n webhook URL
-      const response = await fetch("/api/send-whatsapp-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber }),
-      })
+      const result = await sendPhoneOTP(phoneNumber)
 
-      if (!response.ok) throw new Error("Failed to send OTP")
+      if (!result.success) {
+        throw new Error(result.error)
+      }
 
       setOtpSent(true)
       toast({
@@ -182,20 +191,11 @@ export function ProfileCompletionSection() {
 
     try {
       setVerifying(true)
-      // TODO: Replace with actual verification endpoint
-      const response = await fetch("/api/verify-whatsapp-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber, otp }),
-      })
+      const result = await verifyPhoneOTP(otp)
 
-      if (!response.ok) throw new Error("Invalid OTP")
-
-      // Update database
-      const supabase = createBrowserClient()
-      const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", user?.uid).single()
-
-      await supabase.from("users").update({ phone_verified: true }).eq("id", userData?.id)
+      if (!result.success) {
+        throw new Error(result.error)
+      }
 
       toast({
         title: "Phone verified",
@@ -247,24 +247,14 @@ export function ProfileCompletionSection() {
     try {
       setUploading(true)
 
-      // Upload to Vercel Blob
       const formData = new FormData()
       formData.append("file", selectedFile)
 
-      const response = await fetch("/api/upload-profile-photo", {
-        method: "POST",
-        body: formData,
-      })
+      const result = await uploadProfilePhoto(formData)
 
-      if (!response.ok) throw new Error("Failed to upload photo")
-
-      const { url } = await response.json()
-
-      // Update database
-      const supabase = createBrowserClient()
-      const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", user?.uid).single()
-
-      await supabase.from("taxpayer_profiles").update({ profile_photo_url: url }).eq("user_id", userData?.id)
+      if (!result.success) {
+        throw new Error(result.error)
+      }
 
       toast({
         title: "Photo uploaded",
@@ -283,6 +273,33 @@ export function ProfileCompletionSection() {
       })
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleGenerateKadirsID = async () => {
+    try {
+      setGenerating(true)
+      const result = await generateKadirsID()
+
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+
+      toast({
+        title: "KADIRS ID generated",
+        description: `Your KADIRS ID is: ${result.kadirsId}`,
+      })
+
+      setKadrisDialogOpen(false)
+      loadProfileCompletion()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate KADIRS ID",
+        variant: "destructive",
+      })
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -440,6 +457,26 @@ export function ProfileCompletionSection() {
               {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Upload className="mr-2 h-4 w-4" />
               Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={kadrisDialogOpen} onOpenChange={setKadrisDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate KADIRS ID</DialogTitle>
+            <DialogDescription>
+              Your KADIRS ID is a unique identifier for tax purposes. Click the button below to generate your ID.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setKadrisDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleGenerateKadirsID} disabled={generating}>
+              {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Generate ID
             </Button>
           </DialogFooter>
         </DialogContent>
