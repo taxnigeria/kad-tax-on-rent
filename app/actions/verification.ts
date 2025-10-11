@@ -2,24 +2,42 @@
 
 import { createServerClient } from "@/lib/supabase/server"
 import { put } from "@vercel/blob"
+import { normalizeNigerianPhone, isValidNigerianPhone } from "@/lib/utils/phone"
 
 export async function sendPhoneOTP(firebaseUid: string, phoneNumber: string) {
   try {
+    console.log("[v0] sendPhoneOTP called with:", { firebaseUid, phoneNumber })
+
+    const normalizedPhone = normalizeNigerianPhone(phoneNumber)
+
+    if (!normalizedPhone || !isValidNigerianPhone(phoneNumber)) {
+      return {
+        success: false,
+        error: "Invalid phone number format. Please use Nigerian format (e.g., 08012345678)",
+      }
+    }
+
+    console.log("[v0] Normalized phone:", normalizedPhone)
+
     const supabase = await createServerClient()
 
     // Get user from database using Firebase UID
-    const { data: userData } = await supabase
+    const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id, first_name, last_name")
       .eq("firebase_uid", firebaseUid)
       .single()
 
-    if (!userData) {
+    if (userError || !userData) {
+      console.error("[v0] User not found:", userError)
       return { success: false, error: "User not found" }
     }
 
+    console.log("[v0] User found:", userData.id)
+
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
+    console.log("[v0] Generated OTP (will not log in production)")
 
     // Store OTP in verification_tokens table (expires in 10 minutes)
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
@@ -27,8 +45,8 @@ export async function sendPhoneOTP(firebaseUid: string, phoneNumber: string) {
     const { error: tokenError } = await supabase.from("verification_tokens").insert({
       user_id: userData.id,
       token_value: otp,
-      token_type: "whatsapp",
-      phone_number: phoneNumber,
+      token_type: "phone_otp",
+      phone_number: normalizedPhone,
       expires_at: expiresAt.toISOString(),
       is_used: false,
     })
@@ -38,13 +56,18 @@ export async function sendPhoneOTP(firebaseUid: string, phoneNumber: string) {
       return { success: false, error: "Failed to generate OTP" }
     }
 
+    console.log("[v0] OTP stored in database")
+
     // Call n8n webhook to send OTP via WhatsApp
     const webhookUrl = process.env.N8N_WEBHOOK_URL
     const authToken = process.env.N8N_WEBHOOK_AUTH_TOKEN
 
     if (!webhookUrl || !authToken) {
+      console.error("[v0] Webhook configuration missing")
       return { success: false, error: "Webhook configuration missing" }
     }
+
+    console.log("[v0] Calling n8n webhook...")
 
     const response = await fetch(webhookUrl, {
       method: "POST",
@@ -55,16 +78,26 @@ export async function sendPhoneOTP(firebaseUid: string, phoneNumber: string) {
       body: JSON.stringify({
         action: "send_otp",
         channel: "whatsapp",
-        phone_number: phoneNumber,
+        phone_number: normalizedPhone,
         otp_code: otp,
         user_name: `${userData.first_name} ${userData.last_name}`,
         message_template: `Your KADIRS verification code is: ${otp}. Valid for 10 minutes.`,
       }),
     })
 
+    console.log("[v0] Webhook response status:", response.status)
+
     if (!response.ok) {
-      console.error("[v0] Webhook error:", await response.text())
-      return { success: false, error: "Failed to send OTP" }
+      const errorText = await response.text()
+      console.error("[v0] Webhook error:", errorText)
+      return { success: false, error: "Failed to send OTP via WhatsApp" }
+    }
+
+    const responseData = await response.json()
+    console.log("[v0] Webhook response:", responseData)
+
+    if (phoneNumber !== normalizedPhone) {
+      await supabase.from("users").update({ phone_number: normalizedPhone }).eq("id", userData.id)
     }
 
     return { success: true, message: "OTP sent successfully" }

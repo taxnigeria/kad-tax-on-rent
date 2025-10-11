@@ -148,7 +148,9 @@ export function ProfileCompletionSection() {
   const handleSendOTP = async () => {
     if (!user) return
 
-    if (!phoneNumber) {
+    const trimmedPhone = phoneNumber.trim()
+
+    if (!trimmedPhone) {
       toast({
         title: "Error",
         description: "Please enter your phone number",
@@ -157,9 +159,20 @@ export function ProfileCompletionSection() {
       return
     }
 
+    // Basic validation for Nigerian phone numbers
+    const phoneRegex = /^(\+?234|0)?[789]\d{9}$/
+    if (!phoneRegex.test(trimmedPhone.replace(/\s/g, ""))) {
+      toast({
+        title: "Invalid phone number",
+        description: "Please enter a valid Nigerian phone number (e.g., 08012345678)",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setVerifying(true)
-      const result = await sendPhoneOTP(user.uid, phoneNumber)
+      const result = await sendPhoneOTP(user.uid, trimmedPhone)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -382,10 +395,13 @@ export function ProfileCompletionSection() {
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input
                   id="phone"
-                  placeholder="+234 XXX XXX XXXX"
+                  placeholder="08012345678 or +2348012345678"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Enter your Nigerian phone number. We'll send a verification code via WhatsApp.
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -397,6 +413,7 @@ export function ProfileCompletionSection() {
                   onChange={(e) => setOtp(e.target.value)}
                   maxLength={6}
                 />
+                <p className="text-xs text-muted-foreground">Enter the 6-digit code sent to your WhatsApp</p>
               </div>
             )}
           </div>
