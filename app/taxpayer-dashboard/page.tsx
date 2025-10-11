@@ -10,12 +10,11 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Building2, FileText, CreditCard, AlertCircle, Plus, Loader2 } from "lucide-react"
-import { AIAssistantSidebar } from "@/components/ai-assistant-sidebar"
 import { createBrowserClient } from "@/utils/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
-import { ProfileCompletionModal } from "@/components/profile-completion-modal"
-import { ProfileCompletionCard } from "@/components/profile-completion-card"
+import AIAssistantSidebar from "@/components/ai-assistant-sidebar" // Import AIAssistantSidebar
+import ProfileCompletionSection from "@/components/profile-completion-section" // Import ProfileCompletionSection
 
 interface DashboardStats {
   totalProperties: number
@@ -45,8 +44,6 @@ export default function TaxpayerDashboardPage() {
   })
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
   const [loadingData, setLoadingData] = useState(true)
-  const [showProfileCompletion, setShowProfileCompletion] = useState(false)
-  const [isFirstLogin, setIsFirstLogin] = useState(false)
 
   useEffect(() => {
     if (!loading) {
@@ -60,7 +57,6 @@ export default function TaxpayerDashboardPage() {
 
   useEffect(() => {
     if (user) {
-      checkFirstLogin()
       loadDashboardData()
     }
   }, [user])
@@ -148,32 +144,6 @@ export default function TaxpayerDashboardPage() {
     }
   }
 
-  const checkFirstLogin = async () => {
-    if (!user) return
-
-    const supabase = createBrowserClient()
-    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", user.uid).single()
-
-    if (userData) {
-      const { data: profileData } = await supabase
-        .from("taxpayer_profiles")
-        .select("profile_completion_dismissed, last_profile_check")
-        .eq("user_id", userData.id)
-        .single()
-
-      // Show modal if never dismissed or last check was more than 7 days ago
-      const shouldShow =
-        !profileData?.profile_completion_dismissed ||
-        !profileData?.last_profile_check ||
-        new Date().getTime() - new Date(profileData.last_profile_check).getTime() > 7 * 24 * 60 * 60 * 1000
-
-      if (shouldShow) {
-        setIsFirstLogin(true)
-        setShowProfileCompletion(true)
-      }
-    }
-  }
-
   const handleRegisterProperty = () => {
     router.push("/taxpayer-dashboard/properties")
   }
@@ -237,9 +207,9 @@ export default function TaxpayerDashboardPage() {
                   <p className="text-muted-foreground text-sm">Manage your properties and tax obligations</p>
                 </div>
 
-                {/* Profile Completion Card */}
+                {/* Profile Completion Section */}
                 <div className="mb-6">
-                  <ProfileCompletionCard onViewDetails={() => setShowProfileCompletion(true)} />
+                  <ProfileCompletionSection />
                 </div>
 
                 {/* Quick Stats */}
@@ -258,11 +228,7 @@ export default function TaxpayerDashboardPage() {
                           </div>
                           <div>
                             <p className="text-base font-semibold">Total Properties</p>
-                            <p className="text-sm text-muted-foreground">
-                              {stats.verifiedProperties
-                                ? `${stats.verifiedProperties} verified`
-                                : "None verified yet"}
-                            </p>
+                            <p className="text-sm text-muted-foreground">{stats.totalProperties}</p>
                           </div>
                         </div>
                         <div className="mt-1 text-lg font-bold">{stats.totalProperties}</div>
@@ -340,8 +306,6 @@ export default function TaxpayerDashboardPage() {
                     )}
                   </Card>
                 </div>
-
-
 
                 {/* Quick Actions */}
                 <div className="mt-6">
@@ -475,12 +439,6 @@ export default function TaxpayerDashboardPage() {
         </div>
       </SidebarInset>
       <AIAssistantSidebar userRole={userRole as "taxpayer" | "property_manager"} />
-      {/* Profile Completion Modal */}
-      <ProfileCompletionModal
-        open={showProfileCompletion}
-        onOpenChange={setShowProfileCompletion}
-        onDismiss={() => setShowProfileCompletion(false)}
-      />
     </SidebarProvider>
   )
 }

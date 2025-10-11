@@ -223,3 +223,5 @@ export function AIAssistantSidebar({ userRole }: AIAssistantSidebarProps) {
     </>
   )
 }
+
+export default AIAssistantSidebar
