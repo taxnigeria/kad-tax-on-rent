@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/auth-context"
 interface KadirsIDDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: () => void
+  onSuccess: (kadirsId: string) => void
 }
 
 export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialogProps) {
@@ -168,12 +168,7 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
         throw new Error(result.error)
       }
 
-      toast({
-        title: "KADIRS ID Generated",
-        description: `Your KADIRS ID is: ${result.kadirsId}${result.isTemporary ? " (Temporary)" : ""}`,
-      })
-
-      onSuccess()
+      onSuccess(result.kadirsId || "")
       onOpenChange(false)
     } catch (error: any) {
       toast({

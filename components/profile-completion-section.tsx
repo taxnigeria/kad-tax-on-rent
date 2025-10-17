@@ -29,6 +29,7 @@ import {
   syncEmailVerificationStatus,
 } from "@/app/actions/verification"
 import { KadirsIDDialog } from "@/components/kadirs-id-dialog"
+import { SuccessModal } from "@/components/success-modal"
 
 interface CompletionItem {
   id: string
@@ -58,6 +59,13 @@ export function ProfileCompletionSection() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+
+  const [successModalOpen, setSuccessModalOpen] = useState(false)
+  const [successModalData, setSuccessModalData] = useState({
+    title: "",
+    description: "",
+    kadirsId: undefined as string | undefined,
+  })
 
   useEffect(() => {
     if (user && userRole) {
@@ -152,12 +160,14 @@ export function ProfileCompletionSection() {
 
       await firebaseSendEmailVerification(currentUser)
 
-      toast({
-        title: "Verification email sent",
-        description:
-          "Please check your inbox and click the verification link. This page will update automatically once verified.",
-      })
       setEmailDialogOpen(false)
+      setSuccessModalData({
+        title: "Verification Email Sent!",
+        description:
+          "We've sent a verification link to your email. Please check your inbox and click the link to verify your account. This page will update automatically once verified.",
+        kadirsId: undefined,
+      })
+      setSuccessModalOpen(true)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -237,15 +247,17 @@ export function ProfileCompletionSection() {
         throw new Error(result.error)
       }
 
-      toast({
-        title: "Phone verified",
-        description: "Your phone number has been verified successfully",
-      })
-
       setPhoneDialogOpen(false)
       setOtpSent(false)
       setOtp("")
       setPhoneNumber("")
+      setSuccessModalData({
+        title: "Phone Number Verified!",
+        description:
+          "Your phone number has been verified successfully. You can now proceed with generating your KADIRS ID.",
+        kadirsId: undefined,
+      })
+      setSuccessModalOpen(true)
       loadProfileCompletion()
     } catch (error: any) {
       toast({
@@ -316,6 +328,17 @@ export function ProfileCompletionSection() {
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleKadirsSuccess = (kadirsId: string) => {
+    setSuccessModalData({
+      title: "KADIRS ID Generated!",
+      description:
+        "Your KADIRS ID has been successfully generated. Keep this ID safe as you'll need it for all tax-related transactions.",
+      kadirsId: kadirsId,
+    })
+    setSuccessModalOpen(true)
+    loadProfileCompletion()
   }
 
   if (loading || completionPercentage === 100) {
@@ -478,7 +501,15 @@ export function ProfileCompletionSection() {
         </DialogContent>
       </Dialog>
 
-      <KadirsIDDialog open={kadrisDialogOpen} onOpenChange={setKadrisDialogOpen} onSuccess={loadProfileCompletion} />
+      <KadirsIDDialog open={kadrisDialogOpen} onOpenChange={setKadrisDialogOpen} onSuccess={handleKadirsSuccess} />
+
+      <SuccessModal
+        open={successModalOpen}
+        onOpenChange={setSuccessModalOpen}
+        title={successModalData.title}
+        description={successModalData.description}
+        kadirsId={successModalData.kadirsId}
+      />
     </>
   )
 }
