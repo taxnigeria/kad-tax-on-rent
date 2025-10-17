@@ -61,7 +61,7 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
 
       const [lgasResult, industriesResult, summaryResult] = await Promise.all([
         supabase.from("lgas").select("id, name").order("name"),
-        supabase.from("industries").select("id, name").eq("is_active", true).order("name"),
+        supabase.from("industries").select("id, name, industry_id").eq("is_active", true).order("name"),
         getKadirsIDSummary(user.uid),
       ])
 
@@ -275,7 +275,7 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
                   </SelectTrigger>
                   <SelectContent>
                     {industries.map((industry) => (
-                      <SelectItem key={industry.id} value={industry.id.toString()}>
+                      <SelectItem key={industry.industry_id} value={industry.industry_id.toString()}>
                         {industry.name}
                       </SelectItem>
                     ))}
