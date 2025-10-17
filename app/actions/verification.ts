@@ -252,19 +252,130 @@ export async function generateKadirsID(firebaseUid: string) {
     const supabase = await createServerClient()
 
     // Get user data using Firebase UID
-    const { data: userData } = await supabase
+    const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("id, first_name, last_name, email, phone_number")
+      .select("id, first_name, middle_name, last_name, email, phone_number, email_verified, phone_verified")
       .eq("firebase_uid", firebaseUid)
       .single()
 
-    if (!userData) {
+    if (userError || !userData) {
       return { success: false, error: "User not found" }
     }
 
-    // TODO: Call actual KADIRS ID generation API
-    // For now, generate a temporary ID
-    const kadirsId = `KAD-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 99999)).padStart(5, "0")}`
+    if (!userData.email_verified) {
+      return { success: false, error: "Please verify your email before generating KADIRS ID" }
+    }
+
+    if (!userData.phone_verified) {
+      return { success: false, error: "Please verify your phone number before generating KADIRS ID" }
+    }
+
+    // Get taxpayer profile data
+    const { data: profileData, error: profileError } = await supabase
+      .from("taxpayer_profiles")
+      .select("*")
+      .eq("user_id", userData.id)
+      .maybeSingle()
+
+    if (profileError) {
+      console.error("[v0] Error fetching profile:", profileError)
+      return { success: false, error: "Failed to fetch profile data" }
+    }
+
+    if (profileData?.kadirs_id) {
+      return { success: false, error: "KADIRS ID already generated", kadirsId: profileData.kadirs_id }
+    }
+
+    if (!profileData?.gender) {
+      return { success: false, error: "Please update your profile with gender information" }
+    }
+
+    if (!profileData?.address_line1) {
+      return { success: false, error: "Please update your profile with address information" }
+    }
+
+    if (!profileData?.lga_id) {
+      return { success: false, error: "Please update your profile with LGA information" }
+    }
+
+    if (!profileData?.industry_id) {
+      return { success: false, error: "Please update your profile with industry information" }
+    }
+
+    // Get LGA details
+    const { data: lgaData } = await supabase
+      .from("lgas")
+      .select("id, area_office_id")
+      .eq("id", profileData.lga_id)
+      .single()
+
+    if (!lgaData) {
+      return { success: false, error: "Invalid LGA selected" }
+    }
+
+    // Get system settings for state ID
+    const { data: settingsData } = await supabase
+      .from("system_settings")
+      .select("state_id")
+      .eq("setting_key", "default_state")
+      .maybeSingle()
+
+    const stateId = settingsData?.state_id || 19 // Default to Kaduna (19)
+
+    const kadirsRequestBody = {
+      firstName: userData.first_name,
+      middleName: userData.middle_name || "",
+      lastName: userData.last_name,
+      email: userData.email,
+      phoneNumber: userData.phone_number || "null",
+      password: `Taxpayer${new Date().getFullYear()}#`,
+      confirmPassword: `Taxpayer${new Date().getFullYear()}#`,
+      addressLine1: profileData.address_line1,
+      genderId: profileData.gender === "female" ? 1 : 2,
+      lgaId: lgaData.id,
+      stateId: stateId,
+      taxStation: lgaData.area_office_id || 1,
+      industryId: profileData.industry_id,
+      userType: profileData.user_type || "Individual",
+      tin: profileData.tin || "",
+      rcNumber: profileData.rc_number || "",
+      identifier: "null",
+    }
+
+    console.log("[v0] KADIRS API request body:", kadirsRequestBody)
+
+    const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
+    const authToken = process.env.N8N_WEBHOOK_AUTH_TOKEN
+
+    if (!authToken) {
+      console.error("[v0] N8N_WEBHOOK_AUTH_TOKEN not configured")
+      return { success: false, error: "KADIRS API authentication not configured" }
+    }
+
+    const response = await fetch(kadirsApiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authToken,
+      },
+      body: JSON.stringify(kadirsRequestBody),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("[v0] KADIRS API error:", errorText)
+      return { success: false, error: "Failed to generate KADIRS ID from API" }
+    }
+
+    const responseData = await response.json()
+    console.log("[v0] KADIRS API response:", responseData)
+
+    const kadirsId = responseData[0]?.userRegistration?.tpui
+
+    if (!kadirsId) {
+      console.error("[v0] KADIRS ID not found in response:", responseData)
+      return { success: false, error: "KADIRS ID not found in API response" }
+    }
 
     // Update taxpayer_profiles with KADIRS ID
     const { error: updateError } = await supabase
@@ -274,12 +385,128 @@ export async function generateKadirsID(firebaseUid: string) {
 
     if (updateError) {
       console.error("[v0] Error updating KADIRS ID:", updateError)
-      return { success: false, error: "Failed to generate KADIRS ID" }
+      return { success: false, error: "Failed to save KADIRS ID" }
     }
 
     return { success: true, kadirsId }
   } catch (error: any) {
     console.error("[v0] Generate KADIRS ID error:", error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function getKadirsIDSummary(firebaseUid: string) {
+  try {
+    const supabase = await createServerClient()
+
+    const { data: userData } = await supabase
+      .from("users")
+      .select("id, first_name, middle_name, last_name, email, phone_number, email_verified, phone_verified")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (!userData) {
+      return { success: false, error: "User not found" }
+    }
+
+    const { data: profileData } = await supabase
+      .from("taxpayer_profiles")
+      .select("*, lgas(name), industries(name)")
+      .eq("user_id", userData.id)
+      .maybeSingle()
+
+    return {
+      success: true,
+      summary: {
+        fullName: `${userData.first_name} ${userData.middle_name || ""} ${userData.last_name}`.trim(),
+        email: userData.email,
+        phoneNumber: userData.phone_number,
+        gender: profileData?.gender,
+        address: profileData?.address_line1,
+        lga: profileData?.lgas?.name,
+        industry: profileData?.industries?.name,
+        userType: profileData?.user_type,
+        tin: profileData?.tin,
+        rcNumber: profileData?.rc_number,
+        emailVerified: userData.email_verified,
+        phoneVerified: userData.phone_verified,
+      },
+    }
+  } catch (error: any) {
+    console.error("[v0] Get KADIRS summary error:", error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function updateProfileForKadirs(
+  firebaseUid: string,
+  data: {
+    gender: string
+    addressLine1: string
+    lgaId: string
+    industryId: number
+    userType: string
+    tin?: string
+    rcNumber?: string
+  },
+) {
+  try {
+    const supabase = await createServerClient()
+
+    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", firebaseUid).single()
+
+    if (!userData) {
+      return { success: false, error: "User not found" }
+    }
+
+    // Check if profile exists
+    const { data: existingProfile } = await supabase
+      .from("taxpayer_profiles")
+      .select("id")
+      .eq("user_id", userData.id)
+      .maybeSingle()
+
+    if (existingProfile) {
+      // Update existing profile
+      const { error: updateError } = await supabase
+        .from("taxpayer_profiles")
+        .update({
+          gender: data.gender,
+          address_line1: data.addressLine1,
+          lga_id: data.lgaId,
+          industry_id: data.industryId,
+          user_type: data.userType,
+          tin: data.tin || null,
+          rc_number: data.rcNumber || null,
+        })
+        .eq("user_id", userData.id)
+
+      if (updateError) {
+        console.error("[v0] Error updating profile:", updateError)
+        return { success: false, error: "Failed to update profile" }
+      }
+    } else {
+      // Create new profile
+      const { error: insertError } = await supabase.from("taxpayer_profiles").insert({
+        user_id: userData.id,
+        gender: data.gender,
+        address_line1: data.addressLine1,
+        lga_id: data.lgaId,
+        industry_id: data.industryId,
+        user_type: data.userType,
+        tin: data.tin || null,
+        rc_number: data.rcNumber || null,
+      })
+
+      if (insertError) {
+        console.error("[v0] Error creating profile:", insertError)
+        return { success: false, error: "Failed to create profile" }
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[v0] Update profile error:", error)
     return { success: false, error: error.message }
   }
 }

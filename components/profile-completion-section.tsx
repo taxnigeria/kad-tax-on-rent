@@ -25,10 +25,10 @@ import {
   sendPhoneOTP,
   verifyPhoneOTP,
   uploadProfilePhoto,
-  generateKadirsID,
   getProfileCompletionStatus,
   syncEmailVerificationStatus,
 } from "@/app/actions/verification"
+import { KadirsIDDialog } from "@/components/kadirs-id-dialog"
 
 interface CompletionItem {
   id: string
@@ -318,35 +318,6 @@ export function ProfileCompletionSection() {
     }
   }
 
-  const handleGenerateKadirsID = async () => {
-    if (!user) return
-
-    try {
-      setGenerating(true)
-      const result = await generateKadirsID(user.uid)
-
-      if (!result.success) {
-        throw new Error(result.error)
-      }
-
-      toast({
-        title: "KADIRS ID generated",
-        description: `Your KADIRS ID is: ${result.kadirsId}`,
-      })
-
-      setKadrisDialogOpen(false)
-      loadProfileCompletion()
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to generate KADIRS ID",
-        variant: "destructive",
-      })
-    } finally {
-      setGenerating(false)
-    }
-  }
-
   if (loading || completionPercentage === 100) {
     return null
   }
@@ -507,25 +478,7 @@ export function ProfileCompletionSection() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={kadrisDialogOpen} onOpenChange={setKadrisDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate KADIRS ID</DialogTitle>
-            <DialogDescription>
-              Your KADIRS ID is a unique identifier for tax purposes. Click the button below to generate your ID.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setKadrisDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleGenerateKadirsID} disabled={generating}>
-              {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Generate ID
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <KadirsIDDialog open={kadrisDialogOpen} onOpenChange={setKadrisDialogOpen} onSuccess={loadProfileCompletion} />
     </>
   )
 }
