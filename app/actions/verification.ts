@@ -154,7 +154,22 @@ export async function verifyPhoneOTP(firebaseUid: string, otp: string) {
   }
 }
 
-export async function sendEmailVerification(firebaseUid: string, email: string) {
+export async function sendEmailVerification(firebaseUid: string) {
+  try {
+    // This will be called from the client side where Firebase auth is available
+    // The client will handle sending the verification email via Firebase
+    // This server action just confirms the action was requested
+    return {
+      success: true,
+      message: "Please check your implementation - email verification should be handled client-side with Firebase",
+    }
+  } catch (error: any) {
+    console.error("[v0] Send email verification error:", error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function syncEmailVerificationStatus(firebaseUid: string, isVerified: boolean) {
   try {
     const supabase = await createServerClient()
 
@@ -165,20 +180,20 @@ export async function sendEmailVerification(firebaseUid: string, email: string) 
       return { success: false, error: "User not found" }
     }
 
-    // Use Supabase Auth to send verification email
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email: email,
-    })
+    // Update email_verified status in users table
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ email_verified: isVerified })
+      .eq("id", userData.id)
 
-    if (error) {
-      console.error("[v0] Email verification error:", error)
-      return { success: false, error: error.message }
+    if (updateError) {
+      console.error("[v0] Error updating email verification status:", updateError)
+      return { success: false, error: "Failed to update verification status" }
     }
 
-    return { success: true, message: "Verification email sent" }
+    return { success: true, message: "Email verification status synced" }
   } catch (error: any) {
-    console.error("[v0] Send email verification error:", error)
+    console.error("[v0] Sync email verification error:", error)
     return { success: false, error: error.message }
   }
 }
@@ -236,7 +251,7 @@ export async function generateKadirsID(firebaseUid: string) {
   try {
     const supabase = await createServerClient()
 
-    // Get user from database using Firebase UID
+    // Get user data using Firebase UID
     const { data: userData } = await supabase
       .from("users")
       .select("id, first_name, last_name, email, phone_number")
@@ -284,12 +299,11 @@ export async function getProfileCompletionStatus(firebaseUid: string) {
       return { success: false, error: "User not found" }
     }
 
-    // Get taxpayer profile data
     const { data: profileData } = await supabase
       .from("taxpayer_profiles")
       .select("kadirs_id, profile_photo_url, phone_verified")
       .eq("user_id", userData.id)
-      .single()
+      .maybeSingle()
 
     // Calculate completion items
     const items = {
@@ -307,7 +321,7 @@ export async function getProfileCompletionStatus(firebaseUid: string) {
         .select("id")
         .eq("tenant_id", userData.id)
         .limit(1)
-        .single()
+        .maybeSingle()
 
       hasLinkedProperty = !!rentalData
     }
@@ -320,7 +334,7 @@ export async function getProfileCompletionStatus(firebaseUid: string) {
         .select("id")
         .eq("owner_id", userData.id)
         .limit(1)
-        .single()
+        .maybeSingle()
 
       hasRegisteredProperty = !!propertyData
     }

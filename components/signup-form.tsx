@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { signUp } from "@/lib/auth"
 import { Loader2, ChevronLeft } from "lucide-react"
 import { IconHome, IconKey, IconBriefcase, IconCheck } from "@tabler/icons-react"
+import GoogleSignInButton from "@/components/google-signin-button"
 
 type UserRole = "taxpayer" | "tenant" | "property_manager"
 
@@ -146,6 +147,19 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
           {/* Step 1: Role Selection */}
           {step === 1 && (
             <div className="grid gap-4">
+              <div className="space-y-4">
+                <GoogleSignInButton />
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or sign up with email</span>
+                  </div>
+                </div>
+              </div>
+
               {roleOptions.map((role) => (
                 <button
                   key={role.value}

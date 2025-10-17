@@ -9,6 +9,8 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   type User,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from "firebase/auth"
 import { auth } from "./firebase"
 import { createUserInDatabase } from "@/app/actions/auth"
@@ -91,4 +93,14 @@ export async function signUp(data: {
 
 export function onAuthStateChange(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback)
+}
+
+export async function signInWithGoogle() {
+  try {
+    const provider = new GoogleAuthProvider()
+    const userCredential = await signInWithPopup(auth, provider)
+    return { user: userCredential.user, error: null }
+  } catch (error: any) {
+    return { user: null, error: getFirebaseErrorMessage(error) }
+  }
 }

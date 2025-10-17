@@ -19,13 +19,15 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
+import { sendEmailVerification as firebaseSendEmailVerification } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 import {
-  sendEmailVerification,
   sendPhoneOTP,
   verifyPhoneOTP,
   uploadProfilePhoto,
   generateKadirsID,
   getProfileCompletionStatus,
+  syncEmailVerificationStatus,
 } from "@/app/actions/verification"
 
 interface CompletionItem {
@@ -62,6 +64,25 @@ export function ProfileCompletionSection() {
       loadProfileCompletion()
     }
   }, [user, userRole])
+
+  useEffect(() => {
+    if (!user) return
+
+    const checkEmailVerification = async () => {
+      await user.reload()
+
+      if (user.emailVerified) {
+        await syncEmailVerificationStatus(user.uid, true)
+        loadProfileCompletion()
+      }
+    }
+
+    checkEmailVerification()
+
+    const interval = setInterval(checkEmailVerification, 30000)
+
+    return () => clearInterval(interval)
+  }, [user])
 
   const loadProfileCompletion = async () => {
     if (!user) return
@@ -123,15 +144,18 @@ export function ProfileCompletionSection() {
 
     try {
       setVerifying(true)
-      const result = await sendEmailVerification(user.uid, user.email!)
 
-      if (!result.success) {
-        throw new Error(result.error)
+      const currentUser = auth.currentUser
+      if (!currentUser) {
+        throw new Error("No authenticated user found")
       }
+
+      await firebaseSendEmailVerification(currentUser)
 
       toast({
         title: "Verification email sent",
-        description: "Please check your inbox and click the verification link.",
+        description:
+          "Please check your inbox and click the verification link. This page will update automatically once verified.",
       })
       setEmailDialogOpen(false)
     } catch (error: any) {
@@ -159,7 +183,6 @@ export function ProfileCompletionSection() {
       return
     }
 
-    // Basic validation for Nigerian phone numbers
     const phoneRegex = /^(\+?234|0)?[789]\d{9}$/
     if (!phoneRegex.test(trimmedPhone.replace(/\s/g, ""))) {
       toast({
@@ -332,16 +355,13 @@ export function ProfileCompletionSection() {
     <>
       <Card className="p-6">
         <div className="space-y-4">
-          {/* Header with progress */}
           <div>
             <h3 className="text-lg font-semibold">Complete profile</h3>
             <p className="text-sm text-muted-foreground">{completionPercentage}% complete</p>
           </div>
 
-          {/* Progress bar */}
           <Progress value={completionPercentage} className="h-2" />
 
-          {/* Action items in horizontal layout */}
           <div className="flex flex-wrap gap-3">
             {items
               .filter((item) => !item.completed)
