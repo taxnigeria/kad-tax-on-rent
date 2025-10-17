@@ -302,16 +302,21 @@ export async function generateKadirsID(firebaseUid: string) {
       return { success: false, error: "Please update your profile with industry information" }
     }
 
-    // Get LGA details
     const { data: lgaData } = await supabase
       .from("lgas")
-      .select("id, area_office_id")
+      .select("id, lga_id, area_office_id")
       .eq("id", profileData.lga_id)
       .single()
 
     if (!lgaData) {
       return { success: false, error: "Invalid LGA selected" }
     }
+
+    const { data: areaOfficeData } = await supabase
+      .from("area_offices")
+      .select("area_office_id")
+      .eq("id", lgaData.area_office_id)
+      .maybeSingle()
 
     // Get system settings for state ID
     const { data: settingsData } = await supabase
@@ -332,10 +337,10 @@ export async function generateKadirsID(firebaseUid: string) {
       confirmPassword: `Taxpayer${new Date().getFullYear()}#`,
       addressLine1: profileData.address_line1,
       genderId: profileData.gender === "female" ? 1 : 2,
-      lgaId: lgaData.id,
+      lgaId: Number.parseInt(lgaData.lga_id) || 2, // Use PayKaduna lga_id
       stateId: stateId,
-      taxStation: lgaData.area_office_id || 1,
-      industryId: profileData.industry_id,
+      taxStation: areaOfficeData?.area_office_id || 1, // Use PayKaduna area_office_id
+      industryId: profileData.industry_id, // Already using PayKaduna industry_id
       userType: profileData.user_type || "Individual",
       tin: profileData.tin || "",
       rcNumber: profileData.rc_number || "",

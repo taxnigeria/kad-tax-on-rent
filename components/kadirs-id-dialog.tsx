@@ -60,10 +60,13 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
       const supabase = createClient()
 
       const [lgasResult, industriesResult, summaryResult] = await Promise.all([
-        supabase.from("lgas").select("id, name").order("name"),
-        supabase.from("industries").select("id, name, industry_id").eq("is_active", true).order("name"),
+        supabase.from("lgas").select("id, name, lga_id").order("name"),
+        supabase.from("industries").select("id, name, industry_id").order("name"),
         getKadirsIDSummary(user.uid),
       ])
+
+      console.log("[v0] LGAs loaded:", lgasResult.data?.length)
+      console.log("[v0] Industries loaded:", industriesResult.data?.length)
 
       if (lgasResult.data) setLgas(lgasResult.data)
       if (industriesResult.data) setIndustries(industriesResult.data)
@@ -82,7 +85,7 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
         let industryId = ""
         if (s.industry && industriesResult.data) {
           const matchingIndustry = industriesResult.data.find((ind: any) => ind.name === s.industry)
-          if (matchingIndustry) industryId = matchingIndustry.id.toString()
+          if (matchingIndustry) industryId = matchingIndustry.industry_id?.toString() || ""
         }
 
         setFormData({
@@ -253,6 +256,9 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
                     <SelectValue placeholder="Select LGA" />
                   </SelectTrigger>
                   <SelectContent>
+                    {lgas.length === 0 && (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No LGAs available</div>
+                    )}
                     {lgas.map((lga) => (
                       <SelectItem key={lga.id} value={lga.id}>
                         {lga.name}
@@ -274,8 +280,11 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
                     <SelectValue placeholder="Select industry" />
                   </SelectTrigger>
                   <SelectContent>
+                    {industries.length === 0 && (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No industries available</div>
+                    )}
                     {industries.map((industry) => (
-                      <SelectItem key={industry.industry_id} value={industry.industry_id.toString()}>
+                      <SelectItem key={industry.id} value={industry.industry_id?.toString() || ""}>
                         {industry.name}
                       </SelectItem>
                     ))}
