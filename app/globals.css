@@ -164,3 +164,80 @@
     scroll-behavior: smooth;
   }
 }
+
+/* Adding print styles for invoice templates */
+@media print {
+  /* Hide non-print elements */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset page margins */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  /* Print container */
+  .print-container {
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Page break between demand notice and invoice */
+  .demand-notice-page {
+    page-break-after: always;
+    padding: 2rem;
+  }
+
+  .invoice-page {
+    page-break-after: auto;
+    padding: 2rem;
+  }
+
+  /* Ensure tables don't break across pages */
+  table {
+    page-break-inside: avoid;
+  }
+
+  /* Prevent orphaned headers */
+  h1,
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+
+  /* Ensure proper text rendering */
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Hide backgrounds for better printing */
+  .bg-gray-50,
+  .bg-gray-100 {
+    background-color: #f9fafb !important;
+  }
+}
+
+/* Screen styles for print preview */
+@media screen {
+  .print-container {
+    max-width: 210mm; /* A4 width */
+    margin: 2rem auto;
+    background: white;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .demand-notice-page,
+  .invoice-page {
+    min-height: 297mm; /* A4 height */
+    padding: 2rem;
+    background: white;
+  }
+
+  .demand-notice-page {
+    border-bottom: 2px dashed #e5e7eb;
+    margin-bottom: 2rem;
+  }
+}
