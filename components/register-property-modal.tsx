@@ -500,7 +500,7 @@ export function RegisterPropertyModal({
                           <CommandList>
                             <CommandEmpty>No city found.</CommandEmpty>
                             <CommandGroup>
-                              {cities.map((city) => (
+                              {citiesRes.map((city) => (
                                 <CommandItem
                                   key={city.id}
                                   value={city.name}
