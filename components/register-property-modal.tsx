@@ -143,31 +143,63 @@ export function RegisterPropertyModal({
 
   async function fetchLocationData() {
     try {
+      console.log("[v0] Fetching location data...")
+
       const [citiesRes, lgasRes, officesRes] = await Promise.all([
-        supabase.from("cities").select("*, lgas(name), area_offices(office_name)").order("name"),
-        supabase.from("lgas").select("*").order("name"),
-        supabase.from("area_offices").select("*").eq("is_active", true).order("office_name"),
+        supabase.from("cities").select("id, name, lga_id, area_office_id").order("name"),
+        supabase.from("lgas").select("id, name, lga_id").order("name"),
+        supabase.from("area_offices").select("id, office_name, area_office_id").order("office_name"),
       ])
 
-      if (citiesRes.data) setCities(citiesRes.data)
-      if (lgasRes.data) setLgas(lgasRes.data)
-      if (officesRes.data) setAreaOffices(officesRes.data)
+      console.log("[v0] Cities response:", citiesRes)
+      console.log("[v0] LGAs response:", lgasRes)
+      console.log("[v0] Area offices response:", officesRes)
+
+      if (citiesRes.error) {
+        console.error("[v0] Cities query error:", citiesRes.error)
+      }
+      if (lgasRes.error) {
+        console.error("[v0] LGAs query error:", lgasRes.error)
+      }
+      if (officesRes.error) {
+        console.error("[v0] Area offices query error:", officesRes.error)
+      }
+
+      if (citiesRes.data) {
+        console.log("[v0] Setting cities:", citiesRes.data.length, "cities found")
+        setCities(citiesRes.data)
+      }
+      if (lgasRes.data) {
+        console.log("[v0] Setting LGAs:", lgasRes.data.length, "LGAs found")
+        setLgas(lgasRes.data)
+      }
+      if (officesRes.data) {
+        console.log("[v0] Setting area offices:", officesRes.data.length, "offices found")
+        setAreaOffices(officesRes.data)
+      }
     } catch (error) {
-      console.error("Error fetching location data:", error)
+      console.error("[v0] Error fetching location data:", error)
     }
   }
 
   const handleCityChange = (cityId: string) => {
     const city = cities.find((c) => c.id === cityId)
     if (city) {
+      const lga = lgas.find((l) => l.lga_id === city.lga_id)
+      const areaOffice = areaOffices.find((a) => a.area_office_id === city.area_office_id)
+
+      console.log("[v0] City selected:", city)
+      console.log("[v0] Found LGA:", lga)
+      console.log("[v0] Found area office:", areaOffice)
+
       setFormData({
         ...formData,
         cityId: city.id,
         cityName: city.name,
-        lgaId: city.lga_id,
-        lgaName: city.lgas?.name || "",
-        areaOfficeId: city.area_office_id,
-        areaOfficeName: city.area_offices?.office_name || "",
+        lgaId: city.lga_id?.toString() || "",
+        lgaName: lga?.name || "",
+        areaOfficeId: city.area_office_id?.toString() || "",
+        areaOfficeName: areaOffice?.office_name || "",
       })
     }
   }
@@ -498,9 +530,11 @@ export function RegisterPropertyModal({
                         <Command>
                           <CommandInput placeholder="Search city..." />
                           <CommandList>
-                            <CommandEmpty>No city found.</CommandEmpty>
+                            <CommandEmpty>
+                              {cities.length === 0 ? "No cities available. Please contact support." : "No city found."}
+                            </CommandEmpty>
                             <CommandGroup>
-                              {citiesRes.map((city) => (
+                              {cities.map((city) => (
                                 <CommandItem
                                   key={city.id}
                                   value={city.name}
