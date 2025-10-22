@@ -185,8 +185,8 @@ export function RegisterPropertyModal({
   const handleCityChange = (cityId: string) => {
     const city = cities.find((c) => c.id === cityId)
     if (city) {
-      const lga = lgas.find((l) => l.lga_id === city.lga_id)
-      const areaOffice = areaOffices.find((a) => a.area_office_id === city.area_office_id)
+      const lga = lgas.find((l) => l.id === city.lga_id)
+      const areaOffice = areaOffices.find((a) => a.id === city.area_office_id)
 
       console.log("[v0] City selected:", city)
       console.log("[v0] Found LGA:", lga)
@@ -514,7 +514,7 @@ export function RegisterPropertyModal({
                     <Label htmlFor="city">
                       City <span className="text-destructive">*</span>
                     </Label>
-                    <Popover open={citySearchOpen} onOpenChange={setCitySearchOpen}>
+                    <Popover open={citySearchOpen} onOpenChange={setCitySearchOpen} modal={true}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
@@ -526,7 +526,7 @@ export function RegisterPropertyModal({
                           <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-full p-0">
+                      <PopoverContent className="w-full p-0 z-[9999]">
                         <Command>
                           <CommandInput placeholder="Search city..." />
                           <CommandList>
