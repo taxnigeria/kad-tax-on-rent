@@ -63,8 +63,8 @@ export function NavUser() {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
       setMenuPosition({
-        top: rect.bottom + 8,
-        left: isMobile ? rect.left : rect.right + 8,
+        top: rect.top, // Align to top of avatar
+        left: rect.right + 8, // 8px spacing to the right of avatar
       })
     }
     setShowUserMenu(true)
@@ -108,9 +108,8 @@ export function NavUser() {
           className="w-56 p-0 gap-0"
           style={{
             position: "fixed",
-            top: `${menuPosition.top}px`,
-            left: isMobile ? `${menuPosition.left}px` : "auto",
-            right: isMobile ? "auto" : "16px",
+            top: `${Math.min(menuPosition.top, window.innerHeight - 300)}px`,
+            left: `${menuPosition.left}px`,
             transform: "none",
             margin: 0,
           }}
