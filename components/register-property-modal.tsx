@@ -26,15 +26,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, MapPin, ChevronLeft, ChevronRight } from "lucide-react"
+import { Loader2, MapPin, ChevronLeft, ChevronRight, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 import { createProperty } from "@/app/actions/create-property"
 import { createClient } from "@/utils/supabase/client"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Check } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 interface RegisterPropertyModalProps {
   open: boolean
@@ -89,7 +85,8 @@ export function RegisterPropertyModal({
   const [lgas, setLgas] = useState<any[]>([])
   const [areaOffices, setAreaOffices] = useState<any[]>([])
   const [defaultState, setDefaultState] = useState("")
-  const [citySearchOpen, setCitySearchOpen] = useState(false)
+  const [cityDialogOpen, setCityDialogOpen] = useState(false)
+  const [citySearchQuery, setCitySearchQuery] = useState("")
 
   const [formData, setFormData] = useState<PropertyFormData>({
     propertyName: "",
@@ -182,15 +179,11 @@ export function RegisterPropertyModal({
     }
   }
 
-  const handleCityChange = (cityId: string) => {
+  const handleCitySelect = (cityId: string) => {
     const city = cities.find((c) => c.id === cityId)
     if (city) {
       const lga = lgas.find((l) => l.id === city.lga_id)
       const areaOffice = areaOffices.find((a) => a.id === city.area_office_id)
-
-      console.log("[v0] City selected:", city)
-      console.log("[v0] Found LGA:", lga)
-      console.log("[v0] Found area office:", areaOffice)
 
       setFormData({
         ...formData,
@@ -201,6 +194,8 @@ export function RegisterPropertyModal({
         areaOfficeId: city.area_office_id?.toString() || "",
         areaOfficeName: areaOffice?.office_name || "",
       })
+      setCityDialogOpen(false)
+      setCitySearchQuery("")
     }
   }
 
@@ -409,6 +404,8 @@ export function RegisterPropertyModal({
     }
   }
 
+  const filteredCities = cities.filter((city) => city.name.toLowerCase().includes(citySearchQuery.toLowerCase()))
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -514,49 +511,15 @@ export function RegisterPropertyModal({
                     <Label htmlFor="city">
                       City <span className="text-destructive">*</span>
                     </Label>
-                    <Popover open={citySearchOpen} onOpenChange={setCitySearchOpen} modal={true}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={citySearchOpen}
-                          className="w-full justify-between bg-transparent"
-                        >
-                          {formData.cityName || "Select city..."}
-                          <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-full p-0 z-[9999]">
-                        <Command>
-                          <CommandInput placeholder="Search city..." />
-                          <CommandList>
-                            <CommandEmpty>
-                              {cities.length === 0 ? "No cities available. Please contact support." : "No city found."}
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {cities.map((city) => (
-                                <CommandItem
-                                  key={city.id}
-                                  value={city.name}
-                                  onSelect={() => {
-                                    handleCityChange(city.id)
-                                    setCitySearchOpen(false)
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      formData.cityId === city.id ? "opacity-100" : "opacity-0",
-                                    )}
-                                  />
-                                  {city.name}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-between bg-transparent"
+                      onClick={() => setCityDialogOpen(true)}
+                    >
+                      {formData.cityName || "Select city..."}
+                      <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
                   </div>
 
                   <div className="space-y-2">
@@ -818,6 +781,44 @@ export function RegisterPropertyModal({
               </div>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cityDialogOpen} onOpenChange={setCityDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select City</DialogTitle>
+            <DialogDescription>Search and select a city from the list</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search cities..."
+                value={citySearchQuery}
+                onChange={(e) => setCitySearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="max-h-[300px] overflow-y-auto space-y-1">
+              {filteredCities.length === 0 ? (
+                <div className="text-center py-6 text-sm text-muted-foreground">
+                  {cities.length === 0 ? "No cities available. Please contact support." : "No cities found."}
+                </div>
+              ) : (
+                filteredCities.map((city) => (
+                  <Button
+                    key={city.id}
+                    variant={formData.cityId === city.id ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => handleCitySelect(city.id)}
+                  >
+                    {city.name}
+                  </Button>
+                ))
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
