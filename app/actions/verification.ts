@@ -583,3 +583,103 @@ export async function getProfileCompletionStatus(firebaseUid: string) {
     return { success: false, error: error.message }
   }
 }
+
+export async function verifyExistingKadirsID(criteria: string) {
+  try {
+    const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
+    const authToken = process.env.N8N_WEBHOOK_AUTH_TOKEN
+
+    if (!authToken) {
+      return { success: false, error: "KADIRS API authentication not configured" }
+    }
+
+    const response = await fetch(kadirsApiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authToken,
+      },
+      body: JSON.stringify({ criteria }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("[v0] KADIRS verification error:", errorText)
+      return { success: false, error: "Failed to verify KADIRS ID" }
+    }
+
+    const responseData = await response.json()
+    console.log("[v0] KADIRS verification response:", responseData)
+
+    if (!responseData || !responseData.tpui) {
+      return { success: false, error: "KADIRS ID not found" }
+    }
+
+    return {
+      success: true,
+      data: {
+        fullName: responseData.fullName,
+        tpui: responseData.tpui,
+        tin: responseData.tin,
+        nin: responseData.nin,
+        phone: responseData.phone,
+        email: responseData.email,
+      },
+    }
+  } catch (error: any) {
+    console.error("[v0] Verify existing KADIRS ID error:", error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function saveExistingKadirsID(firebaseUid: string, kadirsId: string) {
+  try {
+    const supabase = await createServerClient()
+
+    const { data: userData } = await supabase.from("users").select("id").eq("firebase_uid", firebaseUid).single()
+
+    if (!userData) {
+      return { success: false, error: "User not found" }
+    }
+
+    // Check if profile exists
+    const { data: existingProfile } = await supabase
+      .from("taxpayer_profiles")
+      .select("id, kadirs_id")
+      .eq("user_id", userData.id)
+      .maybeSingle()
+
+    if (existingProfile?.kadirs_id) {
+      return { success: false, error: "KADIRS ID already exists for this user" }
+    }
+
+    if (existingProfile) {
+      // Update existing profile
+      const { error: updateError } = await supabase
+        .from("taxpayer_profiles")
+        .update({ kadirs_id: kadirsId })
+        .eq("user_id", userData.id)
+
+      if (updateError) {
+        console.error("[v0] Error updating KADIRS ID:", updateError)
+        return { success: false, error: "Failed to save KADIRS ID" }
+      }
+    } else {
+      // Create new profile with KADIRS ID
+      const { error: insertError } = await supabase.from("taxpayer_profiles").insert({
+        user_id: userData.id,
+        kadirs_id: kadirsId,
+      })
+
+      if (insertError) {
+        console.error("[v0] Error creating profile:", insertError)
+        return { success: false, error: "Failed to save KADIRS ID" }
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[v0] Save existing KADIRS ID error:", error)
+    return { success: false, error: error.message }
+  }
+}

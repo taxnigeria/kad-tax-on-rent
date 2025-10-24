@@ -13,9 +13,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle2, AlertCircle, Copy, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getKadirsIDSummary, updateProfileForKadirs, generateKadirsID } from "@/app/actions/verification"
+import {
+  getKadirsIDSummary,
+  updateProfileForKadirs,
+  generateKadirsID,
+  verifyExistingKadirsID,
+  saveExistingKadirsID,
+} from "@/app/actions/verification"
 import { useAuth } from "@/contexts/auth-context"
 
 interface KadirsIDDialogProps {
@@ -24,12 +30,18 @@ interface KadirsIDDialogProps {
   onSuccess: (kadirsId: string) => void
 }
 
+type Step = "choice" | "existing-input" | "existing-confirm" | "form" | "summary" | "generating" | "success"
+
 export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialogProps) {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [step, setStep] = useState<"form" | "summary" | "generating">("form")
+  const [step, setStep] = useState<Step>("choice")
   const [loading, setLoading] = useState(false)
   const [summary, setSummary] = useState<any>(null)
+  const [existingKadirsData, setExistingKadirsData] = useState<any>(null)
+  const [existingCriteria, setExistingCriteria] = useState("")
+  const [generatedKadirsId, setGeneratedKadirsId] = useState("")
+  const [copied, setCopied] = useState(false)
 
   const [formData, setFormData] = useState({
     gender: "",
@@ -45,10 +57,10 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
   const [industries, setIndustries] = useState<any[]>([])
 
   useEffect(() => {
-    if (open && user) {
+    if (open && user && step === "form") {
       loadInitialData()
     }
-  }, [open, user])
+  }, [open, user, step])
 
   const loadInitialData = async () => {
     if (!user) return
@@ -158,6 +170,61 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
     }
   }
 
+  const handleVerifyExisting = async () => {
+    if (!existingCriteria.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please enter your KADIRS ID or email",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      const result = await verifyExistingKadirsID(existingCriteria)
+
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+
+      setExistingKadirsData(result.data)
+      setStep("existing-confirm")
+    } catch (error: any) {
+      toast({
+        title: "Verification failed",
+        description: error.message || "Could not verify KADIRS ID",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveExisting = async () => {
+    if (!user || !existingKadirsData) return
+
+    setLoading(true)
+    try {
+      const result = await saveExistingKadirsID(user.uid, existingKadirsData.tpui)
+
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+
+      setGeneratedKadirsId(existingKadirsData.tpui)
+      setStep("success")
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save KADIRS ID",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleGenerateID = async () => {
     if (!user) return
 
@@ -171,8 +238,8 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
         throw new Error(result.error)
       }
 
-      onSuccess(result.kadirsId || "")
-      onOpenChange(false)
+      setGeneratedKadirsId(result.kadirsId || "")
+      setStep("success")
     } catch (error: any) {
       toast({
         title: "Error",
@@ -185,18 +252,136 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
     }
   }
 
+  const handleCopyKadirsId = () => {
+    navigator.clipboard.writeText(generatedKadirsId)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSuccessClose = () => {
+    onSuccess(generatedKadirsId)
+    onOpenChange(false)
+    // Reset state
+    setStep("choice")
+    setExistingCriteria("")
+    setExistingKadirsData(null)
+    setGeneratedKadirsId("")
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Generate KADIRS ID</DialogTitle>
+          <DialogTitle>
+            {step === "choice" && "KADIRS ID"}
+            {step === "existing-input" && "Use Existing KADIRS ID"}
+            {step === "existing-confirm" && "Confirm Your Details"}
+            {step === "form" && "Generate New KADIRS ID"}
+            {step === "summary" && "Review Your Information"}
+            {step === "generating" && "Generating KADIRS ID"}
+            {step === "success" && "Success!"}
+          </DialogTitle>
           <DialogDescription>
+            {step === "choice" && "Choose how you want to proceed with your KADIRS ID"}
+            {step === "existing-input" && "Enter your existing KADIRS ID or email to verify"}
+            {step === "existing-confirm" && "Please confirm these details match your information"}
             {step === "form" && "Please provide the following information to generate your KADIRS ID"}
             {step === "summary" && "Please review your information before generating your KADIRS ID"}
             {step === "generating" && "Generating your KADIRS ID..."}
+            {step === "success" && "Your KADIRS ID has been saved successfully"}
           </DialogDescription>
         </DialogHeader>
 
+        {step === "choice" && (
+          <div className="space-y-4 py-6">
+            <Button
+              variant="outline"
+              className="w-full h-auto py-6 flex flex-col items-start gap-2 bg-transparent"
+              onClick={() => setStep("form")}
+            >
+              <span className="font-semibold text-base">Generate New KADIRS ID</span>
+              <span className="text-sm text-muted-foreground font-normal">
+                Create a new KADIRS ID by providing your information
+              </span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full h-auto py-6 flex flex-col items-start gap-2 bg-transparent"
+              onClick={() => setStep("existing-input")}
+            >
+              <span className="font-semibold text-base">I Have an Existing KADIRS ID</span>
+              <span className="text-sm text-muted-foreground font-normal">
+                Link your existing KADIRS ID to your account
+              </span>
+            </Button>
+          </div>
+        )}
+
+        {step === "existing-input" && (
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="criteria">
+                KADIRS ID or Email <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="criteria"
+                placeholder="Enter your KADIRS ID (e.g., KIR-25T-021207) or email"
+                value={existingCriteria}
+                onChange={(e) => setExistingCriteria(e.target.value)}
+              />
+              <p className="text-sm text-muted-foreground">
+                Enter either your KADIRS ID or the email address associated with your KADIRS account
+              </p>
+            </div>
+          </div>
+        )}
+
+        {step === "existing-confirm" && existingKadirsData && (
+          <div className="space-y-4 py-4">
+            <div className="rounded-lg border p-4 space-y-3">
+              <h4 className="font-semibold text-sm">Retrieved Information</h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Full Name:</span>
+                  <p className="font-medium">{existingKadirsData.fullName}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">KADIRS ID:</span>
+                  <p className="font-medium">{existingKadirsData.tpui}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Email:</span>
+                  <p className="font-medium">{existingKadirsData.email}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Phone:</span>
+                  <p className="font-medium">{existingKadirsData.phone}</p>
+                </div>
+                {existingKadirsData.tin && existingKadirsData.tin !== "-" && (
+                  <div>
+                    <span className="text-muted-foreground">TIN:</span>
+                    <p className="font-medium">{existingKadirsData.tin}</p>
+                  </div>
+                )}
+                {existingKadirsData.nin && existingKadirsData.nin !== "-" && (
+                  <div>
+                    <span className="text-muted-foreground">NIN:</span>
+                    <p className="font-medium">{existingKadirsData.nin}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <p className="text-sm text-blue-900">
+                Please verify that this information matches your details before proceeding.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Existing form step */}
         {step === "form" && (
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -317,6 +502,7 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
           </div>
         )}
 
+        {/* Existing summary step */}
         {step === "summary" && summary && (
           <div className="space-y-4 py-4">
             <div className="rounded-lg border p-4 space-y-3">
@@ -401,6 +587,7 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
           </div>
         )}
 
+        {/* Existing generating step */}
         {step === "generating" && (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -408,11 +595,64 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
           </div>
         )}
 
+        {step === "success" && (
+          <div className="flex flex-col items-center justify-center py-12 space-y-6">
+            <div className="rounded-full bg-green-100 p-4">
+              <CheckCircle2 className="h-12 w-12 text-green-600" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-semibold">KADIRS ID Saved Successfully!</h3>
+              <p className="text-sm text-muted-foreground">Your KADIRS ID has been linked to your account</p>
+            </div>
+
+            <div className="w-full max-w-md rounded-lg border-2 border-primary/20 bg-primary/5 p-6 space-y-3">
+              <p className="text-sm text-muted-foreground text-center">Your KADIRS ID</p>
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-2xl font-bold text-primary">{generatedKadirsId}</p>
+                <Button variant="ghost" size="icon" onClick={handleCopyKadirsId} className="h-8 w-8">
+                  {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <DialogFooter>
+          {step === "choice" && (
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+          )}
+
+          {step === "existing-input" && (
+            <>
+              <Button variant="outline" onClick={() => setStep("choice")}>
+                Back
+              </Button>
+              <Button onClick={handleVerifyExisting} disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Verify
+              </Button>
+            </>
+          )}
+
+          {step === "existing-confirm" && (
+            <>
+              <Button variant="outline" onClick={() => setStep("existing-input")}>
+                Back
+              </Button>
+              <Button onClick={handleSaveExisting} disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm & Save
+              </Button>
+            </>
+          )}
+
           {step === "form" && (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+              <Button variant="outline" onClick={() => setStep("choice")}>
+                Back
               </Button>
               <Button onClick={handleSubmitForm} disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -434,6 +674,12 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
                 Generate KADIRS ID
               </Button>
             </>
+          )}
+
+          {step === "success" && (
+            <Button onClick={handleSuccessClose} className="w-full">
+              Done
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>
