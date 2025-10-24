@@ -326,7 +326,7 @@ export function KadirsIDDialog({ open, onOpenChange, onSuccess }: KadirsIDDialog
               </Label>
               <Input
                 id="criteria"
-                placeholder="Enter your KADIRS ID (e.g., KIR-25T-021207) or email"
+                placeholder="eg: KIR-25T-000000 or example@email.com"
                 value={existingCriteria}
                 onChange={(e) => setExistingCriteria(e.target.value)}
               />

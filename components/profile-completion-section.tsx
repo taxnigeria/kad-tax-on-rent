@@ -67,6 +67,8 @@ export function ProfileCompletionSection() {
     kadirsId: undefined as string | undefined,
   })
 
+  const [previousEmailVerified, setPreviousEmailVerified] = useState(false)
+
   useEffect(() => {
     if (user && userRole) {
       loadProfileCompletion()
@@ -79,18 +81,24 @@ export function ProfileCompletionSection() {
     const checkEmailVerification = async () => {
       await user.reload()
 
-      if (user.emailVerified) {
+      if (user.emailVerified && !previousEmailVerified) {
+        // Email was just verified, sync and reload
         await syncEmailVerificationStatus(user.uid, true)
+        setPreviousEmailVerified(true)
         loadProfileCompletion()
+      } else if (user.emailVerified) {
+        // Already verified, just update the tracked state
+        setPreviousEmailVerified(true)
       }
     }
 
     checkEmailVerification()
 
+    // Check every 30 seconds, but only reload if status changes
     const interval = setInterval(checkEmailVerification, 30000)
 
     return () => clearInterval(interval)
-  }, [user])
+  }, [user, previousEmailVerified])
 
   const loadProfileCompletion = async () => {
     if (!user) return
