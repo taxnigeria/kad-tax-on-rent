@@ -27,7 +27,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "v0 App",
+  title: "Kad Tax on Rent",
   description: "Created with v0",
   generator: "v0.app",
 }

@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RegisterPropertyModal } from "@/components/register-property-modal"
 import { getPropertiesByFirebaseUid } from "@/app/actions/get-properties"
 import { TaxpayerPropertyDetailsSheet } from "@/components/taxpayer/property-details-sheet"
+import { getProfileCompletionStatus } from "@/app/actions/verification"
+import { toast } from "@/components/ui/use-toast"
 
 type Property = {
   id: string
@@ -52,6 +54,11 @@ export default function PropertiesPage() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
   const [isPropertySheetOpen, setIsPropertySheetOpen] = useState(false)
+  const [profileCompletion, setProfileCompletion] = useState<{
+    emailVerified: boolean
+    phoneVerified: boolean
+    kadirsIdGenerated: boolean
+  } | null>(null)
 
   console.log("[v0] PropertiesPage render - authLoading:", authLoading, "user:", user?.uid, "loading:", loading)
 
@@ -154,6 +161,44 @@ export default function PropertiesPage() {
     )
   }
 
+  useEffect(() => {
+    const fetchProfileCompletion = async () => {
+      if (user?.uid) {
+        const result = await getProfileCompletionStatus(user.uid)
+        if (result.success) {
+          setProfileCompletion(result.items)
+        }
+      }
+    }
+    fetchProfileCompletion()
+  }, [user?.uid])
+
+  const handleRegisterPropertyClick = () => {
+    if (!profileCompletion) {
+      toast({
+        title: "Loading profile...",
+        description: "Please wait while we check your profile status",
+      })
+      return
+    }
+
+    const missingItems: string[] = []
+    if (!profileCompletion.emailVerified) missingItems.push("Email verification")
+    if (!profileCompletion.phoneVerified) missingItems.push("Phone verification")
+    if (!profileCompletion.kadirsIdGenerated) missingItems.push("KADIRS ID")
+
+    if (missingItems.length > 0) {
+      toast({
+        title: "Complete Your Profile First",
+        description: `Please complete the following: ${missingItems.join(", ")}`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsRegisterModalOpen(true)
+  }
+
   if (!user || (userRole && !["taxpayer", "property_manager"].includes(userRole))) {
     if (authLoading) {
       return (
@@ -210,7 +255,7 @@ export default function PropertiesPage() {
                   <div>
                     <h1 className="text-lg font-bold tracking-tight">My Properties</h1>
                   </div>
-                  <Button className="gap-2" onClick={() => setIsRegisterModalOpen(true)}>
+                  <Button className="gap-2" onClick={handleRegisterPropertyClick}>
                     <Plus className="h-4 w-4" />
                     Register Property
                   </Button>
@@ -322,7 +367,7 @@ export default function PropertiesPage() {
                           : "Try adjusting your search or filter criteria."}
                       </p>
                       {properties.length === 0 && (
-                        <Button className="gap-2" onClick={() => setIsRegisterModalOpen(true)}>
+                        <Button className="gap-2" onClick={handleRegisterPropertyClick}>
                           <Plus className="h-4 w-4" />
                           Register Your First Property
                         </Button>

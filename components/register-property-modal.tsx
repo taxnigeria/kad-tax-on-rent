@@ -31,6 +31,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 import { createProperty } from "@/app/actions/create-property"
 import { createClient } from "@/utils/supabase/client"
+import { Progress } from "@/components/ui/progress"
 
 interface RegisterPropertyModalProps {
   open: boolean
@@ -130,8 +131,9 @@ export function RegisterPropertyModal({
 
       if (!error && data) {
         const state = data.setting_value as any
-        setDefaultState(state.value || "")
-        setFormData((prev) => ({ ...prev, state: state.value || "" }))
+        const stateValue = state.value || ""
+        setDefaultState(stateValue)
+        setFormData((prev) => ({ ...prev, state: stateValue }))
       }
     } catch (error) {
       console.error("Error fetching system settings:", error)
@@ -275,7 +277,7 @@ export function RegisterPropertyModal({
           formData.areaOfficeId
         )
       case 2:
-        return !!(formData.totalUnits && formData.totalAnnualRent && formData.businessType)
+        return !!(formData.totalUnits && formData.totalAnnualRent && formData.businessType && formData.commencementYear)
       case 3:
         return true
       default:
@@ -416,6 +418,9 @@ export function RegisterPropertyModal({
               Step {currentStep} of 3:{" "}
               {currentStep === 1 ? "Basic Information" : currentStep === 2 ? "Property Details" : "Review & Submit"}
             </DialogDescription>
+            <div className="pt-2">
+              <Progress value={(currentStep / 3) * 100} className="h-2" />
+            </div>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -675,7 +680,9 @@ export function RegisterPropertyModal({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="commencementYear">Rent Collection Start Year</Label>
+                    <Label htmlFor="commencementYear">
+                      Rent Collection Start Year <span className="text-destructive">*</span>
+                    </Label>
                     <Input
                       id="commencementYear"
                       type="number"
@@ -684,6 +691,7 @@ export function RegisterPropertyModal({
                       max={new Date().getFullYear()}
                       value={formData.commencementYear}
                       onChange={(e) => setFormData({ ...formData, commencementYear: e.target.value })}
+                      required
                     />
                   </div>
 
