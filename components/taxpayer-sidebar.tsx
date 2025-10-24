@@ -1,7 +1,7 @@
 "use client"
 
 import type * as React from "react"
-import { Home, Building2, FileText, CreditCard, Bell, Settings, HelpCircle } from "lucide-react"
+import { Home, Building2, FileText, CreditCard, Bell, Settings, HelpCircle, LogOut } from "lucide-react"
 import { usePathname } from "next/navigation"
 
 import { NavMain } from "@/components/nav-main"
@@ -77,6 +77,13 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
         url: "/taxpayer-dashboard/help",
         icon: HelpCircle,
         isActive: pathname === "/taxpayer-dashboard/help",
+      },
+      {
+        title: "Log out",
+        url: "#",
+        icon: LogOut,
+        isActive: false,
+        onClick: "logout",
       },
     ],
   }
