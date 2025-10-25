@@ -108,19 +108,32 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
   }
 
   function handleDownload() {
-    toast({
-      title: "Downloading",
-      description: "Your tax bill is being downloaded...",
-    })
-    // TODO: Implement actual download logic
+    if (invoice?.id) {
+      const printWindow = window.open(`/invoices/${invoice.id}/print`, "_blank")
+      if (printWindow) {
+        printWindow.addEventListener("load", () => {
+          printWindow.print()
+        })
+      }
+    } else {
+      toast({
+        title: "No Invoice Available",
+        description: "An invoice has not been generated yet",
+        variant: "destructive",
+      })
+    }
   }
 
   function handlePrint() {
-    toast({
-      title: "Printing",
-      description: "Preparing to print your tax bill...",
-    })
-    // TODO: Implement actual print logic
+    if (invoice?.id) {
+      window.open(`/invoices/${invoice.id}/print`, "_blank")
+    } else {
+      toast({
+        title: "No Invoice Available",
+        description: "An invoice has not been generated yet",
+        variant: "destructive",
+      })
+    }
   }
 
   function handlePayNow() {

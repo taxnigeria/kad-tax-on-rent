@@ -613,7 +613,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
 
                 <div className="space-y-2">
                   <Label htmlFor="state">State</Label>
-                  <Input id="state" value={formData.state} disabled readOnly />
+                  <Input id="state" value={formData.state || "Kaduna"} disabled readOnly />
                 </div>
               </div>
 

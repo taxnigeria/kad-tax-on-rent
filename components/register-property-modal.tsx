@@ -303,6 +303,10 @@ export function RegisterPropertyModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // This function is now only used for form structure, not for triggering confirmation
+  }
+
+  const handleRegisterClick = () => {
     if (!validateStep(3)) {
       toast({
         title: "Incomplete Information",
@@ -557,7 +561,7 @@ export function RegisterPropertyModal({
                     <Label htmlFor="state">
                       State <span className="text-destructive">*</span>
                     </Label>
-                    <Input id="state" value={formData.state} readOnly className="text-primary bg-muted" />
+                    <Input id="state" value={formData.state || "Kaduna"} readOnly className="text-primary bg-muted" />
                   </div>
                 </div>
 
@@ -781,7 +785,8 @@ export function RegisterPropertyModal({
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={loading}>
+                  // This prevents automatic form submission and only shows confirmation when button is clicked
+                  <Button type="button" onClick={handleRegisterClick} disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Register Property
                   </Button>

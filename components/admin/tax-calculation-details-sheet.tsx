@@ -147,20 +147,38 @@ export default function TaxCalculationDetailsSheet({
   async function handlePrint() {
     if (!calculation) return
 
-    toast({
-      title: "Printing",
-      description: "Opening print dialog...",
-    })
-    window.print()
+    const invoice = calculation?.invoices?.[0]
+
+    if (invoice?.id) {
+      window.open(`/invoices/${invoice.id}/print`, "_blank")
+    } else {
+      toast({
+        title: "No Invoice Available",
+        description: "Please generate an invoice first before printing",
+        variant: "destructive",
+      })
+    }
   }
 
   async function handleDownload() {
     if (!calculation) return
 
-    toast({
-      title: "Downloading",
-      description: "Preparing tax calculation document...",
-    })
+    const invoice = calculation?.invoices?.[0]
+
+    if (invoice?.id) {
+      const printWindow = window.open(`/invoices/${invoice.id}/print`, "_blank")
+      if (printWindow) {
+        printWindow.addEventListener("load", () => {
+          printWindow.print()
+        })
+      }
+    } else {
+      toast({
+        title: "No Invoice Available",
+        description: "Please generate an invoice first before downloading",
+        variant: "destructive",
+      })
+    }
   }
 
   const invoice = calculation?.invoices?.[0]
