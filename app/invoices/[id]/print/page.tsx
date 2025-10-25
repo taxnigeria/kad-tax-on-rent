@@ -3,16 +3,16 @@
 import { getInvoiceDetails } from "@/app/actions/invoices"
 import { DemandNoticeTemplate } from "@/components/print-templates/demand-notice-template"
 import { InvoiceTemplate } from "@/components/print-templates/invoice-template"
-import { Button } from "@/components/ui/button"
-import { PrinterIcon } from "lucide-react"
 import { notFound } from "next/navigation"
+import { PrintButton } from "@/components/print-button"
 
 export default async function InvoicePrintPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const result = await getInvoiceDetails(params.id)
+  const { id } = await params
+  const result = await getInvoiceDetails(id)
 
   if (!result.success || !result.data) {
     notFound()
@@ -80,10 +80,9 @@ export default async function InvoicePrintPage({
     <div className="min-h-screen bg-white">
       {/* Print Button - Hidden when printing */}
       <div className="no-print fixed top-4 right-4 z-50">
-        <Button onClick={() => window.print()} size="lg" className="shadow-lg">
-          <PrinterIcon className="mr-2 size-4" />
+        <PrintButton onClick={() => window.print()} size="lg" className="shadow-lg">
           Print Invoice
-        </Button>
+        </PrintButton>
       </div>
 
       {/* Print Content */}
