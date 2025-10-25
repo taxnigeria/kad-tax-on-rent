@@ -128,7 +128,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
     const penalty = applyPenalty ? baseTax * (Number.parseFloat(penaltyRate) / 100) * yearsInRange : 0
     const interest = applyInterest ? (baseTax + backlogTax) * (Number.parseFloat(interestRate) / 100) : 0
     const discount = applyDiscount ? Number.parseFloat(discountAmount) || 0 : 0
-    const stampDuty = applyStampDuty ? rent * (Number.parseFloat(stampDutyRate) / 100) * yearsInRange : 0
+    const stampDuty = applyStampDuty ? baseTax * (Number.parseFloat(stampDutyRate) / 100) * yearsInRange : 0
 
     const totalTax = baseTax * yearsInRange + penalty + interest + stampDuty - discount
 
