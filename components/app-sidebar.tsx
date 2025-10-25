@@ -13,6 +13,7 @@ import {
   Shield,
   Settings,
   HelpCircle,
+  LogOut,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -181,6 +182,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Help & Support",
         url: "/dashboard/help",
         icon: HelpCircle,
+      },
+      {
+        title: "Log out",
+        url: "#",
+        icon: LogOut,
+        isActive: false,
+        onClick: () => console.log("logout"),
       },
     ],
   }
