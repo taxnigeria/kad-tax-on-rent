@@ -166,6 +166,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
       const currentYears = yearsToCalculate.filter((year) => year >= currentYear)
 
       const calculationPromises = []
+      const createdInvoiceIds: string[] = []
 
       if (backlogYears.length > 0) {
         const backlogStartYear = Math.min(...backlogYears)
@@ -228,7 +229,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
           if (generateInvoice && calculation) {
             const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
 
-            const { error: invoiceError } = await supabase.from("invoices").insert({
+            const { data: invoiceData, error: invoiceError } = await supabase.from("invoices").insert({
               invoice_number: invoiceNumber,
               taxpayer_id: property.owner_id,
               property_id: property.id,
@@ -250,6 +251,10 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
             })
 
             if (invoiceError) throw invoiceError
+
+            if (invoiceData?.id) {
+              createdInvoiceIds.push(invoiceData.id)
+            }
           }
 
           return calculation
@@ -302,7 +307,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
           if (generateInvoice && calculation) {
             const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
 
-            const { error: invoiceError } = await supabase.from("invoices").insert({
+            const { data: invoiceData, error: invoiceError } = await supabase.from("invoices").insert({
               invoice_number: invoiceNumber,
               taxpayer_id: property.owner_id,
               property_id: property.id,
@@ -323,6 +328,10 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
             })
 
             if (invoiceError) throw invoiceError
+
+            if (invoiceData?.id) {
+              createdInvoiceIds.push(invoiceData.id)
+            }
           }
 
           return calculation
@@ -332,6 +341,34 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
       }
 
       await Promise.all(calculationPromises)
+
+      if (generateInvoice && createdInvoiceIds.length > 0) {
+        console.log("[v0] Generating PayKaduna invoices for:", createdInvoiceIds)
+
+        // Import the action
+        const { generatePayKadunaInvoice } = await import("@/app/actions/invoices")
+
+        // Generate PayKaduna invoices in parallel
+        const payKadunaPromises = createdInvoiceIds.map((invoiceId) => generatePayKadunaInvoice(invoiceId))
+        const payKadunaResults = await Promise.allSettled(payKadunaPromises)
+
+        // Log results
+        payKadunaResults.forEach((result, index) => {
+          if (result.status === "fulfilled" && result.value.success) {
+            console.log(
+              `[v0] PayKaduna invoice generated for ${createdInvoiceIds[index]}:`,
+              result.value.data?.billReference,
+            )
+          } else if (result.status === "fulfilled") {
+            console.error(
+              `[v0] Failed to generate PayKaduna invoice for ${createdInvoiceIds[index]}:`,
+              result.value.error,
+            )
+          } else {
+            console.error(`[v0] Error generating PayKaduna invoice for ${createdInvoiceIds[index]}:`, result.reason)
+          }
+        })
+      }
 
       const totalCalculations = (backlogYears.length > 0 ? 1 : 0) + currentYears.length
       let successMessage = ""
@@ -345,7 +382,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
       }
 
       if (generateInvoice) {
-        successMessage += ` and ${totalCalculations} invoice(s) generated`
+        successMessage += ` and ${totalCalculations} invoice(s) generated with PayKaduna`
       }
 
       toast({
