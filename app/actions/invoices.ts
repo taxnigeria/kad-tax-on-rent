@@ -47,20 +47,27 @@ export interface InvoiceStats {
   nextDueDate: string | null
 }
 
-export async function getTaxpayerInvoices(filters?: {
-  status?: string
-  taxYear?: number
-  searchQuery?: string
-}) {
+export async function getTaxpayerInvoices(
+  firebaseUid: string,
+  filters?: {
+    status?: string
+    taxYear?: number
+    searchQuery?: string
+  },
+) {
   try {
     const supabase = await createClient()
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Not authenticated" }
+    // Get user ID from firebase_uid
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (userError || !userData) {
+      console.error("[v0] Error fetching user:", userError)
+      return { success: false, error: "User not found" }
     }
 
     // Build query
@@ -83,7 +90,7 @@ export async function getTaxpayerInvoices(filters?: {
         )
       `,
       )
-      .eq("taxpayer_id", user.id)
+      .eq("taxpayer_id", userData.id)
       .order("created_at", { ascending: false })
 
     // Apply filters
@@ -113,19 +120,24 @@ export async function getTaxpayerInvoices(filters?: {
   }
 }
 
-export async function getInvoiceStats() {
+export async function getInvoiceStats(firebaseUid: string) {
   try {
     const supabase = await createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Not authenticated" }
+    // Get user ID from firebase_uid
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (userError || !userData) {
+      console.error("[v0] Error fetching user:", userError)
+      return { success: false, error: "User not found" }
     }
 
     // Get all invoices for stats calculation
-    const { data: invoices, error } = await supabase.from("invoices").select("*").eq("taxpayer_id", user.id)
+    const { data: invoices, error } = await supabase.from("invoices").select("*").eq("taxpayer_id", userData.id)
 
     if (error) {
       console.error("[v0] Error fetching invoice stats:", error)
@@ -170,15 +182,20 @@ export async function getInvoiceStats() {
   }
 }
 
-export async function getInvoiceDetails(invoiceId: string) {
+export async function getInvoiceDetails(firebaseUid: string, invoiceId: string) {
   try {
     const supabase = await createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Not authenticated" }
+    // Get user ID from firebase_uid
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (userError || !userData) {
+      console.error("[v0] Error fetching user:", userError)
+      return { success: false, error: "User not found" }
     }
 
     // Get invoice with property and payment details
@@ -202,7 +219,7 @@ export async function getInvoiceDetails(invoiceId: string) {
       `,
       )
       .eq("id", invoiceId)
-      .eq("taxpayer_id", user.id)
+      .eq("taxpayer_id", userData.id)
       .single()
 
     if (invoiceError) {
@@ -244,13 +261,6 @@ export async function downloadInvoicePDF(invoiceId: string) {
 export async function generatePayKadunaInvoice(invoiceId: string) {
   try {
     const supabase = await createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Not authenticated" }
-    }
 
     // Get invoice with related data
     const { data: invoice, error: invoiceError } = await supabase
@@ -394,13 +404,6 @@ export async function createPayKadunaInvoice(invoiceData: {
 }) {
   try {
     const supabase = await createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, error: "Not authenticated" }
-    }
 
     // Get taxpayer and property data
     const { data: taxpayer, error: taxpayerError } = await supabase
