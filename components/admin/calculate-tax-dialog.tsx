@@ -166,7 +166,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
       const currentYears = yearsToCalculate.filter((year) => year >= currentYear)
 
       const calculationPromises = []
-      const createdInvoiceIds: string[] = []
+      let totalInvoicesCreated = 0
 
       if (backlogYears.length > 0) {
         const backlogStartYear = Math.min(...backlogYears)
@@ -199,11 +199,36 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
 
         // Create single backlog calculation
         const backlogPromise = (async () => {
+          let billReference = null
+
+          if (generateInvoice) {
+            const { createPayKadunaInvoice } = await import("@/app/actions/invoices")
+
+            const payKadunaResult = await createPayKadunaInvoice({
+              taxpayerId: property.owner_id,
+              propertyId: property.id,
+              taxYear: backlogEndYear,
+              stampDuty: stampDutyForBacklog,
+              baseTax: baseTax * numBacklogYears,
+              penalty: penaltyForBacklog,
+              interest: interestForBacklog,
+              discount: discountForBacklog,
+              narration: `Backlog tax for ${numBacklogYears} year(s): ${backlogStartYear}-${backlogEndYear}`,
+            })
+
+            if (!payKadunaResult.success) {
+              throw new Error(`PayKaduna API failed: ${payKadunaResult.error}`)
+            }
+
+            billReference = payKadunaResult.data?.billReference
+            console.log("[v0] PayKaduna invoice created with bill reference:", billReference)
+          }
+
           const { data: calculation, error: calcError } = await supabase
             .from("tax_calculations")
             .insert({
               property_id: property.id,
-              tax_year: backlogEndYear, // Use the most recent backlog year as the tax_year
+              tax_year: backlogEndYear,
               annual_rent: rent,
               tax_rate: rate,
               base_tax_amount: baseTax,
@@ -225,12 +250,12 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
 
           if (calcError) throw calcError
 
-          // Generate ONE invoice for all backlog years
           if (generateInvoice && calculation) {
-            const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+            const invoiceNumber = `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
 
-            const { data: invoiceData, error: invoiceError } = await supabase.from("invoices").insert({
+            const { error: invoiceError } = await supabase.from("invoices").insert({
               invoice_number: invoiceNumber,
+              bill_reference: billReference, // Use bill reference from PayKaduna
               taxpayer_id: property.owner_id,
               property_id: property.id,
               tax_calculation_id: calculation.id,
@@ -251,10 +276,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
             })
 
             if (invoiceError) throw invoiceError
-
-            if (invoiceData?.id) {
-              createdInvoiceIds.push(invoiceData.id)
-            }
+            totalInvoicesCreated++
           }
 
           return calculation
@@ -278,7 +300,31 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
 
           const totalTaxForYear = baseTax + penaltyForYear + interestForYear + stampDutyForYear - discountForYear
 
-          // Create tax calculation for current year
+          let billReference = null
+
+          if (generateInvoice) {
+            const { createPayKadunaInvoice } = await import("@/app/actions/invoices")
+
+            const payKadunaResult = await createPayKadunaInvoice({
+              taxpayerId: property.owner_id,
+              propertyId: property.id,
+              taxYear: year,
+              stampDuty: stampDutyForYear,
+              baseTax: baseTax,
+              penalty: penaltyForYear,
+              interest: interestForYear,
+              discount: discountForYear,
+              narration: `Withholding Tax on Rent - ${year}`,
+            })
+
+            if (!payKadunaResult.success) {
+              throw new Error(`PayKaduna API failed: ${payKadunaResult.error}`)
+            }
+
+            billReference = payKadunaResult.data?.billReference
+            console.log("[v0] PayKaduna invoice created for year", year, "with bill reference:", billReference)
+          }
+
           const { data: calculation, error: calcError } = await supabase
             .from("tax_calculations")
             .insert({
@@ -303,12 +349,12 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
 
           if (calcError) throw calcError
 
-          // Generate invoice for current year
           if (generateInvoice && calculation) {
-            const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+            const invoiceNumber = `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
 
-            const { data: invoiceData, error: invoiceError } = await supabase.from("invoices").insert({
+            const { error: invoiceError } = await supabase.from("invoices").insert({
               invoice_number: invoiceNumber,
+              bill_reference: billReference, // Use bill reference from PayKaduna
               taxpayer_id: property.owner_id,
               property_id: property.id,
               tax_calculation_id: calculation.id,
@@ -328,10 +374,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
             })
 
             if (invoiceError) throw invoiceError
-
-            if (invoiceData?.id) {
-              createdInvoiceIds.push(invoiceData.id)
-            }
+            totalInvoicesCreated++
           }
 
           return calculation
@@ -341,34 +384,6 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
       }
 
       await Promise.all(calculationPromises)
-
-      if (generateInvoice && createdInvoiceIds.length > 0) {
-        console.log("[v0] Generating PayKaduna invoices for:", createdInvoiceIds)
-
-        // Import the action
-        const { generatePayKadunaInvoice } = await import("@/app/actions/invoices")
-
-        // Generate PayKaduna invoices in parallel
-        const payKadunaPromises = createdInvoiceIds.map((invoiceId) => generatePayKadunaInvoice(invoiceId))
-        const payKadunaResults = await Promise.allSettled(payKadunaPromises)
-
-        // Log results
-        payKadunaResults.forEach((result, index) => {
-          if (result.status === "fulfilled" && result.value.success) {
-            console.log(
-              `[v0] PayKaduna invoice generated for ${createdInvoiceIds[index]}:`,
-              result.value.data?.billReference,
-            )
-          } else if (result.status === "fulfilled") {
-            console.error(
-              `[v0] Failed to generate PayKaduna invoice for ${createdInvoiceIds[index]}:`,
-              result.value.error,
-            )
-          } else {
-            console.error(`[v0] Error generating PayKaduna invoice for ${createdInvoiceIds[index]}:`, result.reason)
-          }
-        })
-      }
 
       const totalCalculations = (backlogYears.length > 0 ? 1 : 0) + currentYears.length
       let successMessage = ""
@@ -382,7 +397,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
       }
 
       if (generateInvoice) {
-        successMessage += ` and ${totalCalculations} invoice(s) generated with PayKaduna`
+        successMessage += ` and ${totalInvoicesCreated} PayKaduna invoice(s) generated`
       }
 
       toast({
@@ -396,7 +411,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
       console.error("Error calculating tax:", error)
       toast({
         title: "Error",
-        description: "Failed to calculate tax",
+        description: error instanceof Error ? error.message : "Failed to calculate tax",
         variant: "destructive",
       })
     } finally {

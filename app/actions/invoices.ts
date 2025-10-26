@@ -380,3 +380,145 @@ export async function generatePayKadunaInvoice(invoiceId: string) {
     return { success: false, error: "Failed to generate PayKaduna invoice" }
   }
 }
+
+export async function createPayKadunaInvoice(invoiceData: {
+  taxpayerId: string
+  propertyId: string
+  taxYear: number
+  stampDuty: number
+  baseTax: number
+  penalty: number
+  interest: number
+  discount: number
+  narration?: string
+}) {
+  try {
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: "Not authenticated" }
+    }
+
+    // Get taxpayer and property data
+    const { data: taxpayer, error: taxpayerError } = await supabase
+      .from("users")
+      .select(
+        `
+        *,
+        profile:taxpayer_profiles(*)
+      `,
+      )
+      .eq("id", invoiceData.taxpayerId)
+      .single()
+
+    if (taxpayerError || !taxpayer) {
+      console.error("[v0] Error fetching taxpayer:", taxpayerError)
+      return { success: false, error: "Taxpayer not found" }
+    }
+
+    const { data: property, error: propertyError } = await supabase
+      .from("properties")
+      .select(
+        `
+        *,
+        address:addresses(*)
+      `,
+      )
+      .eq("id", invoiceData.propertyId)
+      .single()
+
+    if (propertyError || !property) {
+      console.error("[v0] Error fetching property:", propertyError)
+      return { success: false, error: "Property not found" }
+    }
+
+    // Check for KADIRS ID
+    const taxpayerProfile = taxpayer.profile
+    if (!taxpayerProfile?.kadirs_id) {
+      return { success: false, error: "Taxpayer KADIRS ID not found" }
+    }
+
+    // Build bill items array
+    const billItems = []
+
+    // Add stamp duty if present
+    if (invoiceData.stampDuty && invoiceData.stampDuty > 0) {
+      billItems.push({
+        amount: Number(invoiceData.stampDuty),
+        mdasId: "132",
+        narration: "Stamp Duty",
+      })
+    }
+
+    // Add main tax (withholding tax on rent)
+    const mainTaxAmount =
+      Number(invoiceData.baseTax) +
+      Number(invoiceData.penalty || 0) +
+      Number(invoiceData.interest || 0) -
+      Number(invoiceData.discount || 0)
+
+    billItems.push({
+      amount: mainTaxAmount,
+      mdasId: "132",
+      narration: invoiceData.narration || `Withholding Tax on Rent - ${invoiceData.taxYear}`,
+    })
+
+    // Prepare request body
+    const requestBody = {
+      identifier: taxpayerProfile.kadirs_id,
+      engineCode: "65477",
+      firstname: taxpayer.first_name || "",
+      middlename: taxpayer.middle_name || "",
+      lastName: taxpayer.last_name || "",
+      telephone: taxpayer.phone_number || "",
+      address: property.address?.street_address || property.street_name || "",
+      esBillDetailsDto: billItems,
+    }
+
+    console.log("[v0] Calling PayKaduna API with:", JSON.stringify(requestBody, null, 2))
+
+    // Call PayKaduna API
+    const response = await fetch(
+      "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/085cbdf3-a485-4ae2-8f03-6de83b5923be",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.N8N_WEBHOOK_AUTH_TOKEN}`,
+        },
+        body: JSON.stringify(requestBody),
+      },
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("[v0] PayKaduna API error:", errorText)
+      return { success: false, error: `PayKaduna API error: ${response.statusText}` }
+    }
+
+    const payKadunaResponse = await response.json()
+    console.log("[v0] PayKaduna response:", JSON.stringify(payKadunaResponse, null, 2))
+
+    // Extract bill reference from response
+    const billReference = payKadunaResponse.billItems?.[0]?.billReference
+
+    if (!billReference) {
+      console.error("[v0] No bill reference in PayKaduna response")
+      return { success: false, error: "No bill reference received from PayKaduna" }
+    }
+
+    return {
+      success: true,
+      data: {
+        billReference,
+        payKadunaResponse,
+      },
+    }
+  } catch (error) {
+    console.error("[v0] Error in createPayKadunaInvoice:", error)
+    return { success: false, error: "Failed to create PayKaduna invoice" }
+  }
+}
