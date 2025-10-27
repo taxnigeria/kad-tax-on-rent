@@ -178,6 +178,38 @@ export default function InvoicesPage() {
 
   const loadBills = async () => {
     try {
+      if (!user?.uid) return
+
+      // First get the user's Supabase ID
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("firebase_uid", user.uid)
+        .single()
+
+      if (userError || !userData) {
+        console.error("Error fetching user:", userError)
+        return
+      }
+
+      // Get all properties owned by this user
+      const { data: userProperties, error: propertiesError } = await supabase
+        .from("properties")
+        .select("id")
+        .eq("owner_id", userData.id)
+
+      if (propertiesError) {
+        console.error("Error fetching user properties:", propertiesError)
+        return
+      }
+
+      const propertyIds = (userProperties || []).map((p) => p.id)
+
+      if (propertyIds.length === 0) {
+        setBills([])
+        return
+      }
+
       let query = supabase
         .from("invoices")
         .select(
@@ -215,6 +247,7 @@ export default function InvoicesPage() {
           )
         `,
         )
+        .in("property_id", propertyIds)
         .order("due_date", { ascending: false })
 
       // Apply filters

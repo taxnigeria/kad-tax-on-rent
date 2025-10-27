@@ -26,12 +26,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, MapPin, ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { Loader2, MapPin, ChevronLeft, ChevronRight, Search, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 import { createProperty } from "@/app/actions/create-property"
 import { createClient } from "@/utils/supabase/client"
 import { Progress } from "@/components/ui/progress"
+import { getProfileCompletionStatus } from "@/app/actions/verification"
 
 interface RegisterPropertyModalProps {
   open: boolean
@@ -82,6 +83,10 @@ export function RegisterPropertyModal({
   const { user } = useAuth()
   const supabase = createClient()
 
+  const [showValidationDialog, setShowValidationDialog] = useState(false)
+  const [validationMessage, setValidationMessage] = useState("")
+  const [checkingValidation, setCheckingValidation] = useState(false)
+
   const [cities, setCities] = useState<any[]>([])
   const [lgas, setLgas] = useState<any[]>([])
   const [areaOffices, setAreaOffices] = useState<any[]>([])
@@ -118,8 +123,49 @@ export function RegisterPropertyModal({
     if (open) {
       fetchLocationData()
       fetchSystemSettings()
+      checkUserValidation()
     }
   }, [open])
+
+  async function checkUserValidation() {
+    if (!user?.uid || taxpayerId) {
+      // Skip validation for admin registering for taxpayer
+      return
+    }
+
+    setCheckingValidation(true)
+    try {
+      const result = await getProfileCompletionStatus(user.uid)
+
+      if (!result.success) {
+        console.error("Error checking profile status:", result.error)
+        return
+      }
+
+      const { items } = result
+      const missingItems: string[] = []
+
+      if (!items.emailVerified) {
+        missingItems.push("verify your email")
+      }
+      if (!items.phoneVerified) {
+        missingItems.push("verify your phone number")
+      }
+      if (!items.kadirsIdGenerated) {
+        missingItems.push("generate your KADIRS ID")
+      }
+
+      if (missingItems.length > 0) {
+        const message = `Before registering a property, you need to ${missingItems.join(", ")}. Please complete these steps from your dashboard.`
+        setValidationMessage(message)
+        setShowValidationDialog(true)
+      }
+    } catch (error) {
+      console.error("Error checking validation:", error)
+    } finally {
+      setCheckingValidation(false)
+    }
+  }
 
   async function fetchSystemSettings() {
     try {
@@ -306,7 +352,7 @@ export function RegisterPropertyModal({
     // This function is now only used for form structure, not for triggering confirmation
   }
 
-  const handleRegisterClick = () => {
+  const handleRegisterClick = async () => {
     if (!validateStep(3)) {
       toast({
         title: "Incomplete Information",
@@ -315,6 +361,41 @@ export function RegisterPropertyModal({
       })
       return
     }
+
+    if (!taxpayerId && user?.uid) {
+      setCheckingValidation(true)
+      try {
+        const result = await getProfileCompletionStatus(user.uid)
+
+        if (result.success) {
+          const { items } = result
+          const missingItems: string[] = []
+
+          if (!items.emailVerified) {
+            missingItems.push("verify your email")
+          }
+          if (!items.phoneVerified) {
+            missingItems.push("verify your phone number")
+          }
+          if (!items.kadirsIdGenerated) {
+            missingItems.push("generate your KADIRS ID")
+          }
+
+          if (missingItems.length > 0) {
+            const message = `Before registering a property, you need to ${missingItems.join(", ")}. Please complete these steps from your dashboard.`
+            setValidationMessage(message)
+            setShowValidationDialog(true)
+            setCheckingValidation(false)
+            return
+          }
+        }
+      } catch (error) {
+        console.error("Error checking validation:", error)
+      } finally {
+        setCheckingValidation(false)
+      }
+    }
+
     setShowConfirmation(true)
   }
 
@@ -785,9 +866,8 @@ export function RegisterPropertyModal({
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 ) : (
-                  // This prevents automatic form submission and only shows confirmation when button is clicked
-                  <Button type="button" onClick={handleRegisterClick} disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="button" onClick={handleRegisterClick} disabled={loading || checkingValidation}>
+                    {(loading || checkingValidation) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Register Property
                   </Button>
                 )}
@@ -835,6 +915,29 @@ export function RegisterPropertyModal({
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              Profile Incomplete
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base">{validationMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => {
+                setShowValidationDialog(false)
+                onOpenChange(false)
+              }}
+            >
+              Go to Dashboard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ... existing confirmation dialog ... */}
       <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>

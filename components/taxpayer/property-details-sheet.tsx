@@ -27,7 +27,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabase/client"
-import TaxCalculationDetailsSheet from "@/components/admin/tax-calculation-details-sheet"
+import { TaxBillDetailsSheet } from "@/components/taxpayer/tax-bill-details-sheet"
 
 type PropertyDetailsSheetProps = {
   open: boolean
@@ -42,7 +42,7 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
   const supabase = createClient()
   const [taxCalculations, setTaxCalculations] = useState<any[]>([])
   const [loadingTaxData, setLoadingTaxData] = useState(false)
-  const [taxCalcSheetOpen, setTaxCalcSheetOpen] = useState(false)
+  const [taxBillSheetOpen, setTaxBillSheetOpen] = useState(false)
   const [selectedTaxCalcId, setSelectedTaxCalcId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -454,7 +454,7 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
                               className="cursor-pointer hover:bg-muted/50"
                               onClick={() => {
                                 setSelectedTaxCalcId(calc.id)
-                                setTaxCalcSheetOpen(true)
+                                setTaxBillSheetOpen(true)
                               }}
                             >
                               <TableCell className="font-medium">{calc.tax_year}</TableCell>
@@ -580,9 +580,9 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
         </SheetContent>
       </Sheet>
 
-      <TaxCalculationDetailsSheet
-        open={taxCalcSheetOpen}
-        onOpenChange={setTaxCalcSheetOpen}
+      <TaxBillDetailsSheet
+        open={taxBillSheetOpen}
+        onOpenChange={setTaxBillSheetOpen}
         calculationId={selectedTaxCalcId}
         onUpdate={() => {
           fetchTaxCalculationsAndInvoices()
