@@ -7,6 +7,16 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Calculator,
   FileText,
   Loader2,
@@ -39,6 +49,8 @@ export default function TaxCalculationDetailsSheet({
 }: TaxCalculationDetailsSheetProps) {
   const [calculation, setCalculation] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [showPrintDialog, setShowPrintDialog] = useState(false)
   const { toast } = useToast()
   const supabase = createClient()
@@ -140,10 +152,58 @@ export default function TaxCalculationDetailsSheet({
   async function handleDeleteCalculation() {
     if (!calculation) return
 
-    toast({
-      title: "Delete Calculation",
-      description: "This feature will be implemented",
-    })
+    setDeleting(true)
+    try {
+      const invoice = calculation?.invoices?.[0]
+
+      if (invoice?.id) {
+        const { error: invoiceError } = await supabase.from("invoices").delete().eq("id", invoice.id)
+
+        if (invoiceError) {
+          console.error("Error deleting invoice:", invoiceError)
+          toast({
+            title: "Error",
+            description: "Failed to delete invoice. Please try again.",
+            variant: "destructive",
+          })
+          setDeleting(false)
+          return
+        }
+      }
+
+      const { error: calcError } = await supabase.from("tax_calculations").delete().eq("id", calculationId)
+
+      if (calcError) {
+        console.error("Error deleting tax calculation:", calcError)
+        toast({
+          title: "Error",
+          description: "Failed to delete tax calculation. Please try again.",
+          variant: "destructive",
+        })
+        setDeleting(false)
+        return
+      }
+
+      toast({
+        title: "Success",
+        description: invoice?.id
+          ? "Tax calculation and invoice deleted successfully"
+          : "Tax calculation deleted successfully",
+      })
+
+      onOpenChange(false)
+      onUpdate()
+    } catch (error) {
+      console.error("Error in handleDeleteCalculation:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleting(false)
+      setShowDeleteDialog(false)
+    }
   }
 
   async function handlePrint() {
@@ -238,7 +298,6 @@ export default function TaxCalculationDetailsSheet({
             </div>
           ) : calculation ? (
             <div className="space-y-6 mt-6 mb-6 px-6">
-              {/* Header with Property & Owner Context */}
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
@@ -264,7 +323,6 @@ export default function TaxCalculationDetailsSheet({
                   )}
                 </div>
 
-                {/* Quick Actions */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <Button size="sm" variant="default" className="gap-2 h-8" onClick={handleGenerateInvoice}>
                     <FilePlus className="h-3.5 w-3.5" />
@@ -274,9 +332,10 @@ export default function TaxCalculationDetailsSheet({
                     size="sm"
                     variant="outline"
                     className="gap-2 h-8 bg-transparent text-destructive border-destructive/30 hover:bg-destructive/10"
-                    onClick={handleDeleteCalculation}
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={deleting}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                     Delete
                   </Button>
                   <Button size="sm" variant="outline" className="gap-2 h-8 bg-transparent" onClick={handleDownload}>
@@ -289,7 +348,6 @@ export default function TaxCalculationDetailsSheet({
                   </Button>
                 </div>
 
-                {/* Property & Owner Info - Compact */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg border text-sm">
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
@@ -329,14 +387,12 @@ export default function TaxCalculationDetailsSheet({
 
               <Separator />
 
-              {/* Tax Calculation Section */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Calculator className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-semibold">Tax Calculation</h3>
                 </div>
 
-                {/* Base Calculation */}
                 <div className="grid grid-cols-2 gap-3">
                   <Card className="gap-0 py-0">
                     <CardHeader className="pb-1 pt-3 px-4">
@@ -356,7 +412,6 @@ export default function TaxCalculationDetailsSheet({
                   </Card>
                 </div>
 
-                {/* Tax Breakdown */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between p-3 border rounded-lg bg-card">
                     <div>
@@ -432,7 +487,6 @@ export default function TaxCalculationDetailsSheet({
                 </div>
               </div>
 
-              {/* Visual Flow Indicator */}
               <div className="flex items-center justify-center py-2">
                 <div className="flex flex-col items-center gap-1">
                   <ArrowDown className="h-5 w-5 text-muted-foreground animate-bounce" />
@@ -440,7 +494,6 @@ export default function TaxCalculationDetailsSheet({
                 </div>
               </div>
 
-              {/* Invoice Section */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" />
@@ -465,7 +518,6 @@ export default function TaxCalculationDetailsSheet({
 
                 {invoice ? (
                   <div className="space-y-4">
-                    {/* Invoice Header */}
                     <div className="p-4 bg-muted/30 rounded-lg border space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
@@ -490,7 +542,6 @@ export default function TaxCalculationDetailsSheet({
                       </div>
                     </div>
 
-                    {/* Invoice Amount - Matches calculation total */}
                     <div className="p-4 border-2 rounded-lg bg-card">
                       <div className="flex items-center justify-between mb-3">
                         <div className="text-sm font-medium text-muted-foreground">Invoice Total</div>
@@ -521,7 +572,6 @@ export default function TaxCalculationDetailsSheet({
                       )}
                     </div>
 
-                    {/* Payment Status */}
                     <div className="grid grid-cols-2 gap-3">
                       <Card className="gap-0 py-0 border-green-500/20 bg-green-500/5">
                         <CardHeader className="pb-1 pt-3 px-4">
@@ -545,7 +595,6 @@ export default function TaxCalculationDetailsSheet({
                       </Card>
                     </div>
 
-                    {/* Invoice Actions */}
                     <div className="flex gap-2 pt-2">
                       <Button className="flex-1 gap-2" onClick={handleDownload}>
                         <Download className="h-4 w-4" />
@@ -594,7 +643,42 @@ export default function TaxCalculationDetailsSheet({
         </SheetContent>
       </Sheet>
 
-      {/* Print Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tax Calculation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {invoice ? (
+                <>
+                  This will permanently delete the tax calculation and its associated invoice (
+                  <span className="font-mono font-medium">{invoice.invoice_number}</span>). This action cannot be
+                  undone.
+                </>
+              ) : (
+                "This will permanently delete the tax calculation. This action cannot be undone."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCalculation}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {invoiceData && (
         <InvoicePrintDialog open={showPrintDialog} onOpenChange={setShowPrintDialog} invoiceData={invoiceData} />
       )}
