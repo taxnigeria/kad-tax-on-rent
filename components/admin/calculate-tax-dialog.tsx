@@ -676,7 +676,7 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
                   ₦{preview.baseTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
-              {calculationMode === "range" && (
+              {calculationMode === "range" && preview.backlogYears < preview.yearsInRange && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total Base Tax ({preview.yearsInRange} years)</span>
                   <span className="font-medium">

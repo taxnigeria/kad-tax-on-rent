@@ -68,13 +68,13 @@ export function NavSecondary({
                   asChild={!item.onClick}
                   className={cn(
                     item.isActive && "bg-accent text-accent-foreground font-medium",
-                    item.onClick === "logout" && "text-destructive hover:text-destructive",
+                    item.onClick === "logout" && "text-destructive hover:text-destructive hover:bg-destructive/10",
                   )}
                   onClick={item.onClick ? (e) => handleItemClick(item, e) : undefined}
                 >
                   {item.onClick ? (
                     <div className="flex items-center gap-2 w-full cursor-pointer">
-                      <item.icon />
+                      <item.icon className="size-4" />
                       <span>{item.title}</span>
                     </div>
                   ) : (
