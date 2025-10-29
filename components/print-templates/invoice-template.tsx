@@ -1,5 +1,6 @@
 import { formatCurrency } from "@/lib/utils"
 import { QRCodeSVG } from "qrcode.react"
+import Image from "next/image"
 
 interface InvoiceItem {
   description: string
@@ -13,7 +14,11 @@ interface InvoiceProps {
   propertyName: string
   clientPhone: string
   areaOffice: string
-  items: InvoiceItem[]
+  areaOfficeAddress: string
+  baseAmount: number
+  stampDuty: number
+  interest: number
+  penalty: number
   discount: number
   total: number
   paymentReference: string
@@ -26,96 +31,155 @@ export function InvoiceTemplate({
   propertyName,
   clientPhone,
   areaOffice,
-  items,
+  areaOfficeAddress,
+  baseAmount,
+  stampDuty,
+  interest,
+  penalty,
   discount,
   total,
   paymentReference,
 }: InvoiceProps) {
   return (
-    <div className="invoice-page">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-8">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Invoice</h1>
-          <p className="text-sm">
-            <strong>Invoice #:</strong> {invoiceNumber}
-          </p>
-          <p className="text-sm">
-            <strong>Date:</strong> {date}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="font-bold">Kaduna State Internal Revenue Service</p>
-          <p className="text-sm">{areaOffice}</p>
-          <p className="text-sm">No. 1-3 TMS Building Kachia Road Sabon Tasha, Kaduna</p>
-          <p className="text-sm text-blue-600">https://www.kadtaxonrent.ng</p>
+    <div className="invoice-page bg-white p-12 max-w-[210mm] mx-auto relative overflow-hidden">
+      {/* Watermark Logo */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+        <div className="w-[700px] h-[700px] relative">
+          <Image src="/kaduna-state-government-logo-watermark.jpg" alt="Watermark" fill className="object-contain" />
         </div>
       </div>
 
-      {/* Client Information */}
-      <div className="mb-8 p-4 bg-gray-50 rounded">
-        <h2 className="font-bold mb-2">Client Information</h2>
-        <p className="text-sm">
-          <strong>Name:</strong> {clientName}
-        </p>
-        <p className="text-sm">
-          <strong>Property Name:</strong> {propertyName}
-        </p>
-        <p className="text-sm">
-          <strong>Phone:</strong> {clientPhone}
-        </p>
-      </div>
-
-      {/* Items Table */}
-      <div className="mb-8">
-        <table className="w-full border-collapse border border-gray-300">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 p-2 text-left text-sm font-semibold">ITEM DESCRIPTION</th>
-              <th className="border border-gray-300 p-2 text-right text-sm font-semibold">AMOUNT (₦)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, index) => (
-              <tr key={index}>
-                <td className="border border-gray-300 p-2 text-sm">{item.description}</td>
-                <td className="border border-gray-300 p-2 text-sm text-right">{formatCurrency(item.amount)}</td>
-              </tr>
-            ))}
-            <tr>
-              <td className="border border-gray-300 p-2 text-sm font-semibold">Discount</td>
-              <td className="border border-gray-300 p-2 text-sm text-right">{formatCurrency(discount)}</td>
-            </tr>
-            <tr className="bg-gray-100">
-              <td className="border border-gray-300 p-2 text-sm font-bold">Total</td>
-              <td className="border border-gray-300 p-2 text-sm text-right font-bold">{formatCurrency(total)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Footer with QR Code and Instructions */}
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <h3 className="font-bold mb-2">For Inquiries or Complains</h3>
-          <p className="text-sm">Call: 09114049832</p>
-          <p className="text-sm">Or Visit Our Website:</p>
-          <p className="text-sm text-blue-600">https://www.kadtaxonrent.ng</p>
-
-          <div className="mt-4">
-            <h3 className="font-bold mb-2">Payment Instructions for Paydirect (Bank Branch)</h3>
-            <ol className="text-xs list-decimal list-inside space-y-1">
-              <li>Visit any bank branch</li>
-              <li>Ensure you have your Invoice No./Reference ID with you. (E.g {paymentReference})</li>
-              <li>Ask to make a Paydirect payment</li>
-              <li>Inform the teller that the payment is for Kaduna State_Tax scheme</li>
-            </ol>
+      {/* Content */}
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="flex justify-between items-end mb-4">
+          <div>
+            <h1 className="text-[40px] font-bold text-[#003E2F] leading-none">Invoice</h1>
+            <div className="mt-2 space-y-1">
+              <p className="text-xs">
+                <span className="font-normal">Invoice #: </span>
+                <span className="font-semibold">{invoiceNumber}</span>
+              </p>
+              <p className="text-xs">
+                <span className="font-normal">Date: </span>
+                <span className="font-semibold">{date}</span>
+              </p>
+            </div>
+          </div>
+          <div className="w-[90px] h-[90px] relative">
+            <Image src="/kaduna-state-government-logo.jpg" alt="Kaduna State Logo" fill className="object-contain" />
           </div>
         </div>
 
-        <div className="text-center ml-8">
-          <p className="text-sm font-semibold mb-2">Scan to Pay</p>
-          <QRCodeSVG value={`https://www.kadtaxonrent.ng/pay/${paymentReference}`} size={120} />
+        {/* Divider */}
+        <div className="h-[1px] bg-[#003E2F] mb-4" />
+
+        {/* Two Column Layout */}
+        <div className="flex gap-10 mb-4">
+          {/* KADIRS Info */}
+          <div className="flex-1">
+            <p className="text-xs font-semibold">Kaduna State Internal Revenue Service</p>
+            <p className="text-xs font-semibold">{areaOffice} Area Office</p>
+            <p className="text-xs">{areaOfficeAddress}</p>
+            <p className="text-xs text-[#003E2F]">https://www.kadtaxonrent.com.ng</p>
+          </div>
+
+          {/* Client Info */}
+          <div className="flex-1">
+            <p className="text-xs font-semibold mb-1">Client Information</p>
+            <p className="text-xs">Name: {clientName}</p>
+            <p className="text-xs">Property Name: {propertyName}</p>
+            <p className="text-xs">Phone: {clientPhone}</p>
+          </div>
+        </div>
+
+        {/* Items Table */}
+        <div className="mb-4">
+          {/* Table Header */}
+          <div className="bg-[#003E2F] rounded h-[35px] flex items-center px-4 mb-2">
+            <div className="flex-1">
+              <p className="text-xs font-bold text-white">ITEM DESCRIPTION</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-white">AMOUNT (₦)</p>
+            </div>
+          </div>
+
+          {/* Table Rows */}
+          <div className="space-y-1 mt-3">
+            {/* Base Amount */}
+            <div className="flex justify-between items-center px-4 py-2">
+              <p className="text-[11px]">Withholding Tax on Rent</p>
+              <p className="text-xs font-semibold">{formatCurrency(baseAmount)}</p>
+            </div>
+
+            {/* Stamp Duty */}
+            <div className="flex justify-between items-center px-4 py-1">
+              <p className="text-[11px]">Stamp Duty - 1%</p>
+              <p className="text-xs font-semibold">{formatCurrency(stampDuty)}</p>
+            </div>
+
+            {/* Interest */}
+            <div className="flex justify-between items-center px-4 py-1">
+              <p className="text-[11px]">Interest - 27%</p>
+              <p className="text-xs font-semibold">{formatCurrency(interest)}</p>
+            </div>
+
+            {/* Penalty */}
+            <div className="flex justify-between items-center px-4 py-1">
+              <p className="text-[11px]">Penalty - 10%</p>
+              <p className="text-xs font-semibold">{formatCurrency(penalty)}</p>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="h-[1px] bg-[#003E2F] my-2" />
+
+          {/* Discount */}
+          <div className="flex justify-end items-center px-4 py-1">
+            <div className="flex gap-8 items-center">
+              <p className="text-[11px]">Discount</p>
+              <p className="text-[11px] font-semibold">- {formatCurrency(discount)}</p>
+            </div>
+          </div>
+
+          {/* Total */}
+          <div className="flex justify-end items-center px-4 py-2">
+            <div className="flex gap-8 items-center">
+              <p className="text-xs">Total</p>
+              <p className="text-base font-semibold">{formatCurrency(total)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Section */}
+        <div className="mt-24 flex justify-between items-end">
+          {/* Left Column - Contact and Instructions */}
+          <div className="flex-1">
+            <div className="mb-6">
+              <p className="text-[10px] mb-1">For Inquiries or Complains</p>
+              <p className="text-[11px] font-semibold mb-2">Call: 0902 571 3908</p>
+              <p className="text-[10px] mb-1">Or Visit Our Website:</p>
+              <p className="text-[10px] font-semibold text-[#003E2F]">https://www.kadtaxonrent.com.ng</p>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-semibold mb-2">Payment Instructions for Paydirect (Bank Branch)</p>
+              <ol className="text-[8px] space-y-1 list-decimal list-inside">
+                <li>Visit any bank branch</li>
+                <li>Ensure you have your Invoice Number with you. (E.g 65477000001)</li>
+                <li>Ask to make a Paydirect payment</li>
+                <li>Inform the teller you want to make payment on Paykaduna Scheme</li>
+                <li>Select Withholding Tax on Rent (WHT on Rent)</li>
+              </ol>
+            </div>
+          </div>
+
+          {/* Right Column - QR Code */}
+          <div className="flex flex-col items-center ml-8">
+            <p className="text-[8px] mb-2">Scan to Pay</p>
+            <QRCodeSVG value={`https://paykaduna.com/make_payment_tsp?ref=${paymentReference}`} size={60} level="M" />
+          </div>
         </div>
       </div>
     </div>
