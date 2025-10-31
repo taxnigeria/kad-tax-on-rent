@@ -18,49 +18,22 @@ export default async function InvoicePrintPage({
     notFound()
   }
 
-  const { invoice, payments } = result.data
+  const { invoice } = result.data
 
-  // Calculate demand notice data
   const demandNoticeData = {
     recipientName: invoice.property.registered_property_name,
     recipientAddress:
       `${invoice.property.house_number || ""} ${invoice.property.street_name || ""}, ${invoice.property.address?.city || ""}, ${invoice.property.address?.state || ""}`.trim(),
     date: new Date(invoice.issue_date).toLocaleDateString("en-GB"),
     assessmentYear: `${invoice.tax_year - 1}-${invoice.tax_year}`,
-    actualAmount: invoice.base_amount,
+    actualAmount: invoice.base_amount || 0,
     arrears: 0,
-    stampDuty: invoice.stamp_duty,
-    penalties: invoice.penalty,
-    interest: invoice.interest,
-    totalOutstanding: invoice.total_amount,
+    stampDuty: invoice.stamp_duty || 0,
+    penalties: invoice.penalty || 0,
+    interest: invoice.interest || 0,
+    totalOutstanding: invoice.total_amount || 0,
     officerName: "Williams Joe Fada",
     areaOffice: "Sabon Tasha Area Office",
-  }
-
-  // Calculate invoice data
-  const invoiceItems = [
-    {
-      description: `Withholding Tax on Rent for ${invoice.tax_year}`,
-      amount: invoice.base_amount,
-    },
-    {
-      description: "Stamp Duty",
-      amount: invoice.stamp_duty,
-    },
-  ]
-
-  if (invoice.penalty > 0) {
-    invoiceItems.push({
-      description: "Penalties",
-      amount: invoice.penalty,
-    })
-  }
-
-  if (invoice.interest > 0) {
-    invoiceItems.push({
-      description: "Interest",
-      amount: invoice.interest,
-    })
   }
 
   const invoiceData = {
@@ -68,11 +41,20 @@ export default async function InvoicePrintPage({
     date: new Date(invoice.issue_date).toLocaleDateString("en-GB"),
     clientName: invoice.property.registered_property_name,
     propertyName: invoice.property.registered_property_name,
-    clientPhone: "N/A", // TODO: Get from taxpayer profile
+    clientPhone: "N/A",
     areaOffice: "Sabon Tasha Area Office",
-    items: invoiceItems,
-    discount: invoice.discount,
-    total: invoice.total_amount,
+    recipientAddress:
+      `${invoice.property.house_number || ""} ${invoice.property.street_name || ""}, ${invoice.property.address?.city || ""}, ${invoice.property.address?.state || ""}`.trim(),
+    assessmentYear: `${invoice.tax_year - 1}-${invoice.tax_year}`,
+    actualAmount: invoice.base_amount || 0,
+    arrears: 0,
+    stampDuty: invoice.stamp_duty || 0,
+    penalties: invoice.penalty || 0,
+    interest: invoice.interest || 0,
+    totalOutstanding: invoice.total_amount || 0,
+    officerName: "Williams Joe Fada",
+    discount: invoice.discount || 0,
+    total: invoice.total_amount || 0,
     paymentReference: invoice.bill_reference,
   }
 
@@ -86,12 +68,27 @@ export default async function InvoicePrintPage({
       </div>
 
       {/* Print Content */}
-      <div className="print-container">
+      <div className="print-container space-y-8">
         {/* Page 1: Demand Notice */}
         <DemandNoticeTemplate {...demandNoticeData} />
 
         {/* Page 2: Invoice */}
-        <InvoiceTemplate {...invoiceData} />
+        <InvoiceTemplate
+          invoiceNumber={invoiceData.invoiceNumber}
+          date={invoiceData.date}
+          clientName={invoiceData.clientName}
+          propertyName={invoiceData.propertyName}
+          clientPhone={invoiceData.clientPhone}
+          areaOffice={invoiceData.areaOffice}
+          areaOfficeAddress={invoiceData.recipientAddress}
+          baseAmount={invoiceData.actualAmount}
+          stampDuty={invoiceData.stampDuty}
+          interest={invoiceData.interest}
+          penalty={invoiceData.penalties}
+          discount={invoiceData.discount}
+          total={invoiceData.totalOutstanding}
+          paymentReference={invoiceData.paymentReference}
+        />
       </div>
     </div>
   )

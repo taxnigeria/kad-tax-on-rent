@@ -2,11 +2,6 @@ import { formatCurrency } from "@/lib/utils"
 import { QRCodeSVG } from "qrcode.react"
 import Image from "next/image"
 
-interface InvoiceItem {
-  description: string
-  amount: number
-}
-
 interface InvoiceProps {
   invoiceNumber: string
   date: string
@@ -41,12 +36,16 @@ export function InvoiceTemplate({
   paymentReference,
 }: InvoiceProps) {
   return (
-    <div className="invoice-page bg-white p-12 max-w-[210mm] mx-auto relative overflow-hidden">
+    <div className="invoice-page bg-white p-12 max-w-[210mm] mx-auto relative overflow-hidden border border-gray-300">
       {/* Watermark Logo */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
-        <div className="w-[700px] h-[700px] relative">
-          <Image src="/kaduna-state-government-logo-watermark.jpg" alt="Watermark" fill className="object-contain" />
-        </div>
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+        <Image
+          src="/images/design-mode/kadirs-removebg-preview.png"
+          alt="Watermark"
+          width={700}
+          height={700}
+          className="object-contain"
+        />
       </div>
 
       {/* Content */}
@@ -67,7 +66,13 @@ export function InvoiceTemplate({
             </div>
           </div>
           <div className="w-[90px] h-[90px] relative">
-            <Image src="/kaduna-state-government-logo.jpg" alt="Kaduna State Logo" fill className="object-contain" />
+            <Image
+              src="/images/design-mode/kadirs-removebg-preview.png"
+              alt="Kaduna State Logo"
+              width={90}
+              height={90}
+              className="object-contain"
+            />
           </div>
         </div>
 
@@ -110,25 +115,25 @@ export function InvoiceTemplate({
             {/* Base Amount */}
             <div className="flex justify-between items-center px-4 py-2">
               <p className="text-[11px]">Withholding Tax on Rent</p>
-              <p className="text-xs font-semibold">{formatCurrency(baseAmount)}</p>
+              <p className="text-xs font-semibold">{formatCurrency(baseAmount || 0)}</p>
             </div>
 
             {/* Stamp Duty */}
             <div className="flex justify-between items-center px-4 py-1">
               <p className="text-[11px]">Stamp Duty - 1%</p>
-              <p className="text-xs font-semibold">{formatCurrency(stampDuty)}</p>
+              <p className="text-xs font-semibold">{formatCurrency(stampDuty || 0)}</p>
             </div>
 
             {/* Interest */}
             <div className="flex justify-between items-center px-4 py-1">
               <p className="text-[11px]">Interest - 27%</p>
-              <p className="text-xs font-semibold">{formatCurrency(interest)}</p>
+              <p className="text-xs font-semibold">{formatCurrency(interest || 0)}</p>
             </div>
 
             {/* Penalty */}
             <div className="flex justify-between items-center px-4 py-1">
               <p className="text-[11px]">Penalty - 10%</p>
-              <p className="text-xs font-semibold">{formatCurrency(penalty)}</p>
+              <p className="text-xs font-semibold">{formatCurrency(penalty || 0)}</p>
             </div>
           </div>
 
@@ -139,7 +144,7 @@ export function InvoiceTemplate({
           <div className="flex justify-end items-center px-4 py-1">
             <div className="flex gap-8 items-center">
               <p className="text-[11px]">Discount</p>
-              <p className="text-[11px] font-semibold">- {formatCurrency(discount)}</p>
+              <p className="text-[11px] font-semibold">- {formatCurrency(discount || 0)}</p>
             </div>
           </div>
 
@@ -147,7 +152,7 @@ export function InvoiceTemplate({
           <div className="flex justify-end items-center px-4 py-2">
             <div className="flex gap-8 items-center">
               <p className="text-xs">Total</p>
-              <p className="text-base font-semibold">{formatCurrency(total)}</p>
+              <p className="text-base font-semibold">{formatCurrency(total || 0)}</p>
             </div>
           </div>
         </div>
