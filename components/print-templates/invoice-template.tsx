@@ -36,20 +36,19 @@ export function InvoiceTemplate({
   paymentReference,
 }: InvoiceProps) {
   return (
-    <div className="invoice-page bg-white p-12 max-w-[210mm] mx-auto relative overflow-hidden border border-gray-300">
+    <div className="invoice-page bg-white p-16 min-h-[297mm] max-w-[210mm] mx-auto relative overflow-hidden flex flex-col">
       {/* Watermark Logo */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] opacity-5 pointer-events-none flex items-center justify-center">
         <Image
-          src="/images/design-mode/kadirs-removebg-preview.png"
+          src="https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/kadirs-payment-spyvkx/assets/2z4l4zrvjgu4/kadirs-removebg-preview.png"
           alt="Watermark"
-          width={700}
-          height={700}
+          fill
           className="object-contain"
         />
       </div>
 
       {/* Content */}
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col flex-1">
         {/* Header */}
         <div className="flex justify-between items-end mb-4">
           <div>
@@ -67,7 +66,7 @@ export function InvoiceTemplate({
           </div>
           <div className="w-[90px] h-[90px] relative">
             <Image
-              src="/images/design-mode/kadirs-removebg-preview.png"
+              src="https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/kadirs-payment-spyvkx/assets/2z4l4zrvjgu4/kadirs-removebg-preview.png"
               alt="Kaduna State Logo"
               width={90}
               height={90}
@@ -158,7 +157,7 @@ export function InvoiceTemplate({
         </div>
 
         {/* Footer Section */}
-        <div className="mt-24 flex justify-between items-end">
+        <div className="mt-auto flex justify-between items-end">
           {/* Left Column - Contact and Instructions */}
           <div className="flex-1">
             <div className="mb-6">

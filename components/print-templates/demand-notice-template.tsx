@@ -37,11 +37,17 @@ export function DemandNoticeTemplate({
   const currentYear = new Date().getFullYear()
 
   return (
-    <div className="demand-notice-page bg-white p-12 max-w-[210mm] mx-auto">
+    <div className="demand-notice-page bg-white p-16 min-h-[297mm] max-w-[210mm] mx-auto flex flex-col">
       {/* Logo */}
       <div className="flex justify-center mb-4">
-        <div className="w-[90px] h-[100px] relative">
-          <Image src="/kaduna-state-government-logo.jpg" alt="Kaduna State Logo" fill className="object-contain" />
+        <div className="w-[90px] h-[90px] relative">
+          <Image
+            src="https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/kadirs-payment-spyvkx/assets/2z4l4zrvjgu4/kadirs-removebg-preview.png"
+            alt="Kaduna State Logo"
+            width={90}
+            height={90}
+            className="object-contain"
+          />
         </div>
       </div>
 
@@ -151,7 +157,7 @@ export function DemandNoticeTemplate({
       </div>
 
       {/* Signature Section */}
-      <div className="mt-20">
+      <div className="mt-10">
         <div className="w-[100px] h-[2px] bg-gray-300 rounded mb-2" />
         <p className="text-[13px] font-bold">{officerName}</p>
         <p className="text-xs font-semibold">{areaOffice} Area Office</p>
@@ -159,9 +165,9 @@ export function DemandNoticeTemplate({
       </div>
 
       {/* Footer */}
-      <div className="text-center mt-12">
-        <p className="text-[11px] font-semibold">KADUNA STATE INTERNAL REVENUE SERVICE</p>
-        <p className="text-[11px] font-semibold">{areaOfficeAddress}</p>
+      <div className="text-center mt-auto">
+        <p className="text-[11px] font-semibold uppercase">KADUNA STATE INTERNAL REVENUE SERVICE</p>
+        {areaOfficeAddress && <p className="text-[11px] font-semibold">{areaOfficeAddress}</p>}
       </div>
     </div>
   )
