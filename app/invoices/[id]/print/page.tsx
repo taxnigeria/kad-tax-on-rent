@@ -20,6 +20,8 @@ export default async function InvoicePrintPage({
 
   const { invoice } = result.data
 
+  const areaOfficeName = invoice.property.area_office?.office_name || "Headquarters"
+
   const demandNoticeData = {
     recipientName: invoice.property.registered_property_name,
     recipientAddress:
@@ -33,26 +35,24 @@ export default async function InvoicePrintPage({
     interest: invoice.interest || 0,
     totalOutstanding: invoice.total_amount || 0,
     officerName: "Williams Joe Fada",
-    areaOffice: "Sabon Tasha Area Office",
+    areaOffice: areaOfficeName, // Use fetched area office name
   }
 
   const invoiceData = {
-    invoiceNumber: invoice.invoice_number,
+    invoiceNumber: invoice.bill_reference || invoice.invoice_number, // Use bill_reference as invoice number
     date: new Date(invoice.issue_date).toLocaleDateString("en-GB"),
     clientName: invoice.property.registered_property_name,
     propertyName: invoice.property.registered_property_name,
     clientPhone: "N/A",
-    areaOffice: "Sabon Tasha Area Office",
+    areaOffice: areaOfficeName, // Use fetched area office name
     recipientAddress:
       `${invoice.property.house_number || ""} ${invoice.property.street_name || ""}, ${invoice.property.address?.city || ""}, ${invoice.property.address?.state || ""}`.trim(),
     assessmentYear: `${invoice.tax_year - 1}-${invoice.tax_year}`,
     actualAmount: invoice.base_amount || 0,
     arrears: 0,
     stampDuty: invoice.stamp_duty || 0,
-    penalties: invoice.penalty || 0,
     interest: invoice.interest || 0,
-    totalOutstanding: invoice.total_amount || 0,
-    officerName: "Williams Joe Fada",
+    penalties: invoice.penalty || 0,
     discount: invoice.discount || 0,
     total: invoice.total_amount || 0,
     paymentReference: invoice.bill_reference,

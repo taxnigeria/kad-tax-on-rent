@@ -37,9 +37,9 @@ export function DemandNoticeTemplate({
   const currentYear = new Date().getFullYear()
 
   return (
-    <div className="demand-notice-page bg-white p-16 min-h-[297mm] max-w-[210mm] mx-auto flex flex-col">
+    <div className="demand-notice-page bg-white p-20 min-h-[297mm] max-w-[210mm] mx-auto flex flex-col font-sans">
       {/* Logo */}
-      <div className="flex justify-center mb-4">
+      <div className="flex justify-center mb-8">
         <div className="w-[90px] h-[90px] relative">
           <Image
             src="https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/kadirs-payment-spyvkx/assets/2z4l4zrvjgu4/kadirs-removebg-preview.png"
@@ -52,10 +52,10 @@ export function DemandNoticeTemplate({
       </div>
 
       {/* Header with recipient info and date */}
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex justify-between items-start mb-8">
         <div className="flex-1">
-          <p className="font-semibold text-xs leading-tight">{recipientName}</p>
-          <p className="font-semibold text-xs leading-tight">{recipientAddress}</p>
+          <p className="font-semibold text-xs leading-tight capitalize">{recipientName}</p>
+          <p className="font-semibold text-xs leading-tight capitalize">{recipientAddress}</p>
         </div>
         <div className="text-right">
           <p className="text-xs">Date: {date}</p>
@@ -157,17 +157,17 @@ export function DemandNoticeTemplate({
       </div>
 
       {/* Signature Section */}
-      <div className="mt-10">
+      <div className="mt-auto pb-8">
         <div className="w-[100px] h-[2px] bg-gray-300 rounded mb-2" />
-        <p className="text-[13px] font-bold">{officerName}</p>
-        <p className="text-xs font-semibold">{areaOffice} Area Office</p>
+        <p className="text-[13px] font-bold capitalize">{officerName}</p>
+        <p className="text-xs font-semibold capitalize">{areaOffice} Area Office</p>
         <p className="text-[9px] mt-1">For Executive Chairman</p>
       </div>
 
       {/* Footer */}
-      <div className="text-center mt-auto">
+      <div className="text-center">
         <p className="text-[11px] font-semibold uppercase">KADUNA STATE INTERNAL REVENUE SERVICE</p>
-        {areaOfficeAddress && <p className="text-[11px] font-semibold">{areaOfficeAddress}</p>}
+        {areaOfficeAddress && <p className="text-[11px] font-semibold capitalize">{areaOfficeAddress}</p>}
       </div>
     </div>
   )

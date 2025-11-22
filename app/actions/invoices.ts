@@ -32,6 +32,10 @@ export interface Invoice {
     property_type: string
     house_number?: string
     street_name?: string
+    area_office_id?: string
+    area_office?: {
+      office_name: string
+    }
     address?: {
       street_address?: string
       city?: string
@@ -82,6 +86,8 @@ export async function getTaxpayerInvoices(
           property_type,
           house_number,
           street_name,
+          area_office_id,
+          area_office:area_offices(office_name),
           address:addresses(
             street_address,
             city,
@@ -210,6 +216,8 @@ export async function getInvoiceDetails(firebaseUid: string, invoiceId: string) 
           property_type,
           house_number,
           street_name,
+          area_office_id,
+          area_office:area_offices(office_name),
           address:addresses(
             street_address,
             city,
