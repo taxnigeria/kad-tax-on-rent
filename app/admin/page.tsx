@@ -120,23 +120,29 @@ export default function AdminDashboard() {
       const [
         { data: payments },
         { data: invoices },
-        { data: taxpayers },
+        { data: taxpayersData },
         { data: properties },
         { data: taxCalculations },
-        { data: recentPayments },
+        { data: recentPaymentsData },
       ] = await Promise.all([
         supabase.from("payments").select("amount, verification_status, created_at"),
         supabase.from("invoices").select("total_amount, payment_status, due_date, created_at"),
-        supabase.from("taxpayer_profiles").select("id, is_active, created_at"),
+        // Join taxpayer_profiles with users to get is_active
+        supabase
+          .from("taxpayer_profiles")
+          .select("id, created_at, user_id, users!inner(is_active)"),
         supabase.from("properties").select("id, verification_status, created_at"),
         supabase
           .from("tax_calculations")
-          .select("id, total_tax, property_id, created_at")
+          .select("id, total_tax_due, property_id, created_at, properties(registered_property_name)")
           .order("created_at", { ascending: false })
           .limit(5),
+        // Join payments through invoices to get taxpayer info
         supabase
           .from("payments")
-          .select("id, amount, created_at, verification_status, taxpayer_id")
+          .select(
+            "id, amount, created_at, verification_status, invoice_id, invoices!inner(taxpayer_id, taxpayer_profiles!inner(user_id, users!inner(first_name, last_name)))",
+          )
           .order("created_at", { ascending: false })
           .limit(5),
       ])
@@ -151,10 +157,12 @@ export default function AdminDashboard() {
       // Calculate taxpayer stats
       const now = new Date()
       const newThisMonth =
-        taxpayers?.filter((t) => {
+        taxpayersData?.filter((t) => {
           const created = new Date(t.created_at)
           return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
         }).length || 0
+
+      const activeTaxpayers = taxpayersData?.filter((t: any) => t.users?.is_active === true).length || 0
 
       // Calculate property stats
       const verifiedProps = properties?.filter((p) => p.verification_status === "verified").length || 0
@@ -190,40 +198,26 @@ export default function AdminDashboard() {
         })
       }
 
-      // Process recent payments
-      const recentPaymentsData = await Promise.all(
-        (recentPayments || []).map(async (p) => {
-          const { data: taxpayer } = await supabase
-            .from("taxpayer_profiles")
-            .select("full_name")
-            .eq("id", p.taxpayer_id)
-            .single()
-          return {
-            id: p.id,
-            amount: p.amount || 0,
-            taxpayerName: taxpayer?.full_name || "Unknown",
-            date: new Date(p.created_at).toLocaleDateString(),
-            status: p.verification_status,
-          }
-        }),
-      )
+      const recentPaymentsProcessed = (recentPaymentsData || []).map((p: any) => {
+        const firstName = p.invoices?.taxpayer_profiles?.users?.first_name || ""
+        const lastName = p.invoices?.taxpayer_profiles?.users?.last_name || ""
+        const taxpayerName = `${firstName} ${lastName}`.trim() || "Unknown"
 
-      // Process recent calculations
-      const recentCalcsData = await Promise.all(
-        (taxCalculations || []).map(async (c) => {
-          const { data: property } = await supabase
-            .from("properties")
-            .select("property_name")
-            .eq("id", c.property_id)
-            .single()
-          return {
-            id: c.id,
-            propertyName: property?.property_name || "Unknown",
-            amount: c.total_tax || 0,
-            date: new Date(c.created_at).toLocaleDateString(),
-          }
-        }),
-      )
+        return {
+          id: p.id,
+          amount: p.amount || 0,
+          taxpayerName,
+          date: new Date(p.created_at).toLocaleDateString(),
+          status: p.verification_status,
+        }
+      })
+
+      const recentCalcsData = (taxCalculations || []).map((c: any) => ({
+        id: c.id,
+        propertyName: c.properties?.registered_property_name || "Unknown",
+        amount: c.total_tax_due || 0,
+        date: new Date(c.created_at).toLocaleDateString(),
+      }))
 
       // Recent registrations (properties)
       const recentRegs =
@@ -242,8 +236,8 @@ export default function AdminDashboard() {
           pendingVerification,
         },
         taxpayers: {
-          total: taxpayers?.length || 0,
-          active: taxpayers?.filter((t) => t.is_active).length || 0,
+          total: taxpayersData?.length || 0,
+          active: activeTaxpayers,
           newThisMonth,
         },
         properties: {
@@ -263,7 +257,7 @@ export default function AdminDashboard() {
 
       setMonthlyRevenue(monthlyData)
       setRecentActivity({
-        payments: recentPaymentsData,
+        payments: recentPaymentsProcessed,
         registrations: recentRegs,
         calculations: recentCalcsData,
       })
