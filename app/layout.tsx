@@ -1,7 +1,5 @@
 import type React from "react"
 import type { Metadata } from "next"
-
-import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Suspense } from "react"
@@ -43,7 +41,6 @@ export default function RootLayout({
         <AuthProvider>
           <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
         </AuthProvider>
-        <Analytics />
       </body>
     </html>
   )

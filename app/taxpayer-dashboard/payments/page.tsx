@@ -25,7 +25,7 @@ interface Payment {
   payment_date: string
   payment_method: string
   transaction_id: string
-  status: string
+  verification_status: string
   invoice: {
     id: string
     invoice_number: string
@@ -51,7 +51,7 @@ export default function PaymentsPage() {
   // Stats
   const totalPayments = payments.length
   const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0)
-  const completedPayments = payments.filter((p) => p.status === "completed").length
+  const completedPayments = payments.filter((p) => p.verification_status === "verified").length
 
   useEffect(() => {
     if (!loading) {
@@ -108,7 +108,7 @@ export default function PaymentsPage() {
           payment_date,
           payment_method,
           transaction_id,
-          status,
+          verification_status,
           invoice:invoices (
             id,
             invoice_number,
@@ -142,14 +142,15 @@ export default function PaymentsPage() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      completed: "default",
+      verified: "default",
       pending: "secondary",
+      rejected: "destructive",
       failed: "destructive",
     }
 
     return (
       <Badge variant={variants[status] || "outline"} className="capitalize">
-        {status}
+        {status === "verified" ? "Completed" : status}
       </Badge>
     )
   }
@@ -298,7 +299,7 @@ export default function PaymentsPage() {
                                   <TableCell className="text-right font-semibold">
                                     {formatCurrency(payment.amount)}
                                   </TableCell>
-                                  <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                                  <TableCell>{getStatusBadge(payment.verification_status)}</TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>

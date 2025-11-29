@@ -331,8 +331,48 @@ export default function InvoicesPage() {
 
   const loadStats = async () => {
     try {
-      const { data, error } = await supabase.from("invoices").select(
-        `
+      if (!user?.uid) return
+
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("firebase_uid", user.uid)
+        .single()
+
+      if (userError || !userData) {
+        console.error("Error fetching user for stats:", userError)
+        return
+      }
+
+      // Get all properties owned by this user
+      const { data: userProperties, error: propertiesError } = await supabase
+        .from("properties")
+        .select("id")
+        .eq("owner_id", userData.id)
+
+      if (propertiesError) {
+        console.error("Error fetching user properties for stats:", propertiesError)
+        return
+      }
+
+      const propertyIds = (userProperties || []).map((p) => p.id)
+
+      if (propertyIds.length === 0) {
+        setStats({
+          totalOutstanding: 0,
+          overdueCount: 0,
+          totalPaidThisYear: 0,
+          nextDueDate: null,
+          backlogCount: 0,
+          currentYearCount: 0,
+        })
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("invoices")
+        .select(
+          `
           id,
           balance_due,
           due_date,
@@ -343,7 +383,8 @@ export default function InvoicesPage() {
             backlog_years
           )
         `,
-      )
+        )
+        .in("property_id", propertyIds)
 
       if (error) {
         console.error("Error fetching stats:", error)

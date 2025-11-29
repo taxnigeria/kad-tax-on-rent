@@ -37,7 +37,7 @@ export function DemandNoticeTemplate({
   const currentYear = new Date().getFullYear()
 
   return (
-    <div className="demand-notice-page bg-white p-20 min-h-[297mm] max-w-[210mm] mx-auto flex flex-col font-sans">
+    <div className="demand-notice-page bg-white p-80 min-h-[297mm] max-w-[210mm] mx-auto flex flex-col font-sans">
       {/* Logo */}
       <div className="flex justify-center mb-8">
         <div className="w-[90px] h-[90px] relative">
