@@ -1,14 +1,17 @@
 "use client"
 
+import type React from "react"
+
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { SiteHeader } from "@/components/site-header"
+import { Badge } from "@/components/ui/badge"
 import { DollarSign, Users, Home, FileText, TrendingUp, AlertCircle, CheckCircle, Clock } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import {
@@ -24,8 +27,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Badge } from "@/components/ui/badge"
+import { ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 interface DashboardStats {
   revenue: {
@@ -321,12 +323,18 @@ export default function AdminDashboard() {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset className="overflow-x-hidden">
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6 overflow-x-hidden">
-          {/* Header */}
+        <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
@@ -352,96 +360,156 @@ export default function AdminDashboard() {
           ) : (
             <>
               {/* Revenue Stats */}
-              <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+                <Card className="@container/card">
+                  <CardHeader>
+                    <CardDescription>Total Revenue</CardDescription>
+                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                      {formatCurrency(stats.revenue.total)}
+                    </CardTitle>
+                    <CardAction>
+                      <Badge variant="outline">
+                        <DollarSign className="size-4" />
+                      </Badge>
+                    </CardAction>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(stats.revenue.total)}</div>
-                    <p className="text-xs text-muted-foreground">Collected + Outstanding</p>
-                  </CardContent>
+                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                    <div className="line-clamp-1 flex gap-2 font-medium">All time collection</div>
+                    <div className="text-muted-foreground">Collected + Outstanding</div>
+                  </CardFooter>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Collected</CardTitle>
-                    <CheckCircle className="h-4 w-4 text-green-600" />
+                <Card className="@container/card">
+                  <CardHeader>
+                    <CardDescription>Collected Revenue</CardDescription>
+                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                      {formatCurrency(stats.revenue.collected)}
+                    </CardTitle>
+                    <CardAction>
+                      <Badge variant="outline" className="text-green-600">
+                        <CheckCircle className="size-4" />
+                      </Badge>
+                    </CardAction>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(stats.revenue.collected)}</div>
-                    <p className="text-xs text-muted-foreground">Verified payments</p>
-                  </CardContent>
+                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                    <div className="line-clamp-1 flex gap-2 font-medium">Verified payments</div>
+                    <div className="text-muted-foreground">Successfully collected</div>
+                  </CardFooter>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                <Card className="@container/card">
+                  <CardHeader>
+                    <CardDescription>Outstanding</CardDescription>
+                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                      {formatCurrency(stats.revenue.outstanding)}
+                    </CardTitle>
+                    <CardAction>
+                      <Badge variant="outline" className="text-orange-600">
+                        <AlertCircle className="size-4" />
+                      </Badge>
+                    </CardAction>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(stats.revenue.outstanding)}</div>
-                    <p className="text-xs text-muted-foreground">Unpaid invoices</p>
-                  </CardContent>
+                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                    <div className="line-clamp-1 flex gap-2 font-medium">Unpaid invoices</div>
+                    <div className="text-muted-foreground">Requires attention</div>
+                  </CardFooter>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Pending Verification</CardTitle>
-                    <Clock className="h-4 w-4 text-blue-600" />
+                <Card className="@container/card">
+                  <CardHeader>
+                    <CardDescription>Pending Verification</CardDescription>
+                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                      {stats.revenue.pendingVerification}
+                    </CardTitle>
+                    <CardAction>
+                      <Badge variant="outline" className="text-blue-600">
+                        <Clock className="size-4" />
+                      </Badge>
+                    </CardAction>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.revenue.pendingVerification}</div>
-                    <p className="text-xs text-muted-foreground">Awaiting approval</p>
-                  </CardContent>
+                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                    <div className="line-clamp-1 flex gap-2 font-medium">Awaiting approval</div>
+                    <div className="text-muted-foreground">Payments to review</div>
+                  </CardFooter>
                 </Card>
               </div>
 
               {/* Taxpayer & Property Stats */}
-              <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Total Taxpayers</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
+              <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+                <Card className="@container/card">
+                  <CardHeader>
+                    <CardDescription>Total Taxpayers</CardDescription>
+                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                      {stats.taxpayers.total}
+                    </CardTitle>
+                    <CardAction>
+                      <Badge variant="outline">
+                        <Users className="size-4" />
+                      </Badge>
+                    </CardAction>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.taxpayers.total}</div>
-                    <p className="text-xs text-muted-foreground">{stats.taxpayers.active} active</p>
-                  </CardContent>
+                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                    <div className="line-clamp-1 flex gap-2 font-medium">{stats.taxpayers.active} active taxpayers</div>
+                    <div className="text-muted-foreground">Registered in system</div>
+                  </CardFooter>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">New This Month</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-green-600" />
+                <Card className="@container/card">
+                  <CardHeader>
+                    <CardDescription>New This Month</CardDescription>
+                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                      {stats.taxpayers.newThisMonth}
+                    </CardTitle>
+                    <CardAction>
+                      <Badge variant="outline" className="text-green-600">
+                        <TrendingUp className="size-4" />
+                      </Badge>
+                    </CardAction>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.taxpayers.newThisMonth}</div>
-                    <p className="text-xs text-muted-foreground">New registrations</p>
-                  </CardContent>
+                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                    <div className="line-clamp-1 flex gap-2 font-medium">
+                      New registrations <TrendingUp className="size-4" />
+                    </div>
+                    <div className="text-muted-foreground">Growth this period</div>
+                  </CardFooter>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
-                    <Home className="h-4 w-4 text-muted-foreground" />
+                <Card className="@container/card">
+                  <CardHeader>
+                    <CardDescription>Total Properties</CardDescription>
+                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                      {stats.properties.total}
+                    </CardTitle>
+                    <CardAction>
+                      <Badge variant="outline">
+                        <Home className="size-4" />
+                      </Badge>
+                    </CardAction>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.properties.total}</div>
-                    <p className="text-xs text-muted-foreground">{stats.properties.verified} verified</p>
-                  </CardContent>
+                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                    <div className="line-clamp-1 flex gap-2 font-medium">
+                      {stats.properties.verified} verified properties
+                    </div>
+                    <div className="text-muted-foreground">Registered assets</div>
+                  </CardFooter>
                 </Card>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Pending Properties</CardTitle>
-                    <Clock className="h-4 w-4 text-orange-600" />
+                <Card className="@container/card">
+                  <CardHeader>
+                    <CardDescription>Pending Properties</CardDescription>
+                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                      {stats.properties.pending}
+                    </CardTitle>
+                    <CardAction>
+                      <Badge variant="outline" className="text-orange-600">
+                        <Clock className="size-4" />
+                      </Badge>
+                    </CardAction>
                   </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{stats.properties.pending}</div>
-                    <p className="text-xs text-muted-foreground">Awaiting verification</p>
-                  </CardContent>
+                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
+                    <div className="line-clamp-1 flex gap-2 font-medium">Awaiting verification</div>
+                    <div className="text-muted-foreground">Requires admin action</div>
+                  </CardFooter>
                 </Card>
               </div>
 
@@ -453,15 +521,7 @@ export default function AdminDashboard() {
                     <CardTitle className="text-base">Monthly Revenue Trend</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ChartContainer
-                      config={{
-                        revenue: {
-                          label: "Revenue",
-                          color: "hsl(var(--chart-1))",
-                        },
-                      }}
-                      className="h-[200px]"
-                    >
+                    <div className="h-[200px] flex items-center justify-center">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={monthlyRevenue}>
                           <CartesianGrid strokeDasharray="3 3" />
@@ -471,7 +531,7 @@ export default function AdminDashboard() {
                           <Line type="monotone" dataKey="revenue" stroke="var(--color-revenue)" strokeWidth={2} />
                         </LineChart>
                       </ResponsiveContainer>
-                    </ChartContainer>
+                    </div>
                   </CardContent>
                 </Card>
 
