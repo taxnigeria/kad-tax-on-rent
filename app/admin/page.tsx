@@ -23,11 +23,10 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import { ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 interface DashboardStats {
   revenue: {
@@ -137,11 +136,17 @@ export default function AdminDashboard() {
           .select("id, total_tax_due, property_id, created_at, properties(registered_property_name)")
           .order("created_at", { ascending: false })
           .limit(5),
-        // Join payments through invoices to get taxpayer info
         supabase
           .from("payments")
           .select(
-            "id, amount, created_at, verification_status, invoice_id, invoices!inner(taxpayer_id, taxpayer_profiles!inner(user_id, users!inner(first_name, last_name)))",
+            `id, amount, created_at, verification_status, invoice_id, 
+            invoices!inner(
+              taxpayer_profile_id, 
+              taxpayer_profiles!inner(
+                user_id, 
+                users!inner(first_name, last_name)
+              )
+            )`,
           )
           .order("created_at", { ascending: false })
           .limit(5),
@@ -515,7 +520,15 @@ export default function AdminDashboard() {
                     <CardTitle className="text-base">Monthly Revenue Trend</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[200px] flex items-center justify-center">
+                    <ChartContainer
+                      config={{
+                        revenue: {
+                          label: "Revenue",
+                          color: "hsl(var(--chart-1))",
+                        },
+                      }}
+                      className="h-[200px] w-full"
+                    >
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={monthlyRevenue}>
                           <CartesianGrid strokeDasharray="3 3" />
@@ -525,7 +538,7 @@ export default function AdminDashboard() {
                           <Line type="monotone" dataKey="revenue" stroke="var(--color-revenue)" strokeWidth={2} />
                         </LineChart>
                       </ResponsiveContainer>
-                    </div>
+                    </ChartContainer>
                   </CardContent>
                 </Card>
 
@@ -535,7 +548,23 @@ export default function AdminDashboard() {
                     <CardTitle className="text-base">Invoice Status Distribution</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[200px] flex items-center justify-center">
+                    <ChartContainer
+                      config={{
+                        paid: {
+                          label: "Paid",
+                          color: "#10b981",
+                        },
+                        partial: {
+                          label: "Partial",
+                          color: "#f59e0b",
+                        },
+                        unpaid: {
+                          label: "Unpaid",
+                          color: "#ef4444",
+                        },
+                      }}
+                      className="h-[200px] w-full"
+                    >
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
@@ -551,11 +580,11 @@ export default function AdminDashboard() {
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip />
+                          <ChartTooltip content={<ChartTooltipContent />} />
                           <Legend />
                         </PieChart>
                       </ResponsiveContainer>
-                    </div>
+                    </ChartContainer>
                   </CardContent>
                 </Card>
               </div>
