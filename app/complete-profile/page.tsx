@@ -15,7 +15,7 @@ import { Loader2, ChevronLeft } from "lucide-react"
 import { createUserInDatabase } from "@/app/actions/auth"
 import { normalizeNigerianPhone } from "@/lib/utils/phone"
 
-type UserRole = "taxpayer" | "tenant" | "property_manager"
+type UserRole = "taxpayer" | "tenant" | "property_manager" | "enumerator"
 
 interface RoleOption {
   value: UserRole
@@ -46,6 +46,13 @@ const roleOptions: RoleOption[] = [
     description: "I manage properties on behalf of owners",
     icon: <IconBriefcase className="size-8" />,
     color: "text-purple-600",
+  },
+  {
+    value: "enumerator",
+    label: "Enumerator",
+    description: "I am responsible for data collection",
+    icon: <IconBriefcase className="size-8" />,
+    color: "text-orange-600",
   },
 ]
 
@@ -121,6 +128,8 @@ export default function CompleteProfilePage() {
       router.push("/tenant-dashboard")
     } else if (selectedRole === "taxpayer" || selectedRole === "property_manager") {
       router.push("/taxpayer-dashboard")
+    } else if (selectedRole === "enumerator") {
+      router.push("/enumerator-dashboard")
     } else {
       router.push("/dashboard")
     }

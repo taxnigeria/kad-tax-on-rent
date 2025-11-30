@@ -27,6 +27,8 @@ export default function Page() {
         router.push("/taxpayer-dashboard")
       } else if (userRole === "tenant") {
         router.push("/tenant-dashboard")
+      } else if (userRole === "enumerator") {
+        router.push("/enumerator-dashboard")
       }
     }
   }, [user, userRole, loading, router])
@@ -44,7 +46,7 @@ export default function Page() {
   }
 
   // Don't render dashboard if not authenticated or wrong role
-  if (!user || (userRole && ["taxpayer", "property_manager", "tenant"].includes(userRole))) {
+  if (!user || (userRole && ["taxpayer", "property_manager", "tenant", "enumerator"].includes(userRole))) {
     return null
   }
 

@@ -37,6 +37,8 @@ export function GoogleSignInButton() {
           router.push("/tenant-dashboard")
         } else if (role === "taxpayer" || role === "property_manager") {
           router.push("/taxpayer-dashboard")
+        } else if (role === "enumerator") {
+          router.push("/enumerator-dashboard")
         } else {
           router.push("/dashboard")
         }
