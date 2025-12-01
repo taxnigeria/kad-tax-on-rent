@@ -188,7 +188,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: "#",
         icon: LogOut,
         isActive: false,
-        onClick: () => console.log("logout"),
+        onClick: "logout",
       },
     ],
   }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Search, UserPlus, Camera, MapPin, CheckCircle, ArrowLeft, ArrowRight } from "lucide-react"
-import { getUserRole } from "@/app/actions/get-user-role"
 import { useToast } from "@/hooks/use-toast"
 
 interface Taxpayer {
@@ -30,6 +30,7 @@ interface Taxpayer {
 
 export default function EnumeratePage() {
   const router = useRouter()
+  const { userRole, loading: authLoading } = useAuth()
   const { toast } = useToast()
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1) // 1: Search, 2: Create Taxpayer, 3: Property Form, 4: Review
   const [loading, setLoading] = useState(false)
@@ -37,6 +38,7 @@ export default function EnumeratePage() {
   const [searchType, setSearchType] = useState<"phone" | "email" | "name">("phone")
   const [searchResults, setSearchResults] = useState<Taxpayer[]>([])
   const [selectedTaxpayer, setSelectedTaxpayer] = useState<Taxpayer | null>(null)
+  const [isOnline, setIsOnline] = useState(true)
 
   // GPS coordinates
   const [gpsLoading, setGpsLoading] = useState(false)
@@ -79,15 +81,12 @@ export default function EnumeratePage() {
   const [offlineQueue, setOfflineQueue] = useState<any[]>([])
 
   useEffect(() => {
-    const checkRole = async () => {
-      const role = await getUserRole()
-      if (role !== "enumerator") {
-        router.push("/dashboard")
-      }
+    if (!authLoading && userRole !== "enumerator") {
+      router.push("/login")
     }
+  }, [userRole, authLoading, router])
 
-    checkRole()
-
+  useEffect(() => {
     // Load offline queue from localStorage
     const saved = localStorage.getItem("enumerator_offline_queue")
     if (saved) {
