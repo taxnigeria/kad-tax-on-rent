@@ -35,7 +35,6 @@ export default function EnumeratePage() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1) // 1: Search, 2: Create Taxpayer, 3: Property Form, 4: Review
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [searchType, setSearchType] = useState<"phone" | "email" | "name">("phone")
   const [searchResults, setSearchResults] = useState<Taxpayer[]>([])
   const [selectedTaxpayer, setSelectedTaxpayer] = useState<Taxpayer | null>(null)
   const [isOnline, setIsOnline] = useState(true)
@@ -145,7 +144,7 @@ export default function EnumeratePage() {
       const res = await fetch("/api/enumerator/search-taxpayers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ searchTerm, searchType }),
+        body: JSON.stringify({ searchTerm }),
       })
 
       if (res.ok) {
@@ -365,29 +364,16 @@ export default function EnumeratePage() {
         <Card>
           <CardHeader>
             <CardTitle>Find Taxpayer</CardTitle>
-            <CardDescription>Search for existing taxpayer or create new</CardDescription>
+            <CardDescription>Search by name, email, or phone number</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Search By</Label>
-              <Select value={searchType} onValueChange={(v: any) => setSearchType(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="phone">Phone Number</SelectItem>
-                  <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="name">Name</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="flex gap-2">
               <Input
-                placeholder={`Enter ${searchType}...`}
+                placeholder="Enter name, email, or phone number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && searchTaxpayers()}
+                className="flex-1"
               />
               <Button onClick={searchTaxpayers} disabled={loading}>
                 <Search className="h-4 w-4" />
@@ -401,7 +387,7 @@ export default function EnumeratePage() {
                 {searchResults.map((taxpayer) => (
                   <Card
                     key={taxpayer.id}
-                    className="cursor-pointer hover:border-primary"
+                    className="cursor-pointer hover:border-primary transition-colors"
                     onClick={() => selectTaxpayer(taxpayer)}
                   >
                     <CardContent className="p-4">
@@ -411,6 +397,9 @@ export default function EnumeratePage() {
                             {taxpayer.user.first_name} {taxpayer.user.last_name}
                           </p>
                           <p className="text-sm text-muted-foreground">{taxpayer.user.phone_number}</p>
+                          {taxpayer.user.email && (
+                            <p className="text-xs text-muted-foreground">{taxpayer.user.email}</p>
+                          )}
                           {taxpayer.business_name && (
                             <Badge variant="secondary" className="mt-1">
                               {taxpayer.business_name}
@@ -426,7 +415,7 @@ export default function EnumeratePage() {
             )}
 
             <div className="pt-4 border-t">
-              <Button variant="outline" className="w-full bg-transparent" onClick={() => setStep(2)}>
+              <Button variant="outline" className="w-full bg-transparent" onClick={() => setStep(2)} size="lg">
                 <UserPlus className="mr-2 h-4 w-4" />
                 Create New Taxpayer
               </Button>

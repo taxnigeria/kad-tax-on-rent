@@ -61,51 +61,41 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { searchTerm, searchType } = body // searchType: 'phone', 'email', 'name'
+    const { searchTerm } = body // searchType: 'phone', 'email', 'name'
 
     if (!searchTerm) {
       return NextResponse.json({ error: "Search term is required" }, { status: 400 })
     }
 
-    let query = supabase.from("taxpayer_profiles").select(`
+    const normalized = normalizePhone(searchTerm)
+
+    const { data: results, error } = await supabase
+      .from("taxpayer_profiles")
+      .select(`
         *,
         user:users!inner(id, first_name, last_name, email, phone_number, is_active),
         properties:properties(id, registered_property_name, property_type, verification_status)
       `)
-
-    // Search based on type
-    if (searchType === "phone") {
-      const normalized = normalizePhone(searchTerm)
-      query = query.or(`user.phone_number.ilike.%${searchTerm}%,user.phone_number.ilike.%${normalized}%`)
-    } else if (searchType === "email") {
-      query = query.ilike("user.email", `%${searchTerm}%`)
-    } else {
-      // Name search (first_name, last_name, business_name)
-      query = query.or(
-        `user.first_name.ilike.%${searchTerm}%,user.last_name.ilike.%${searchTerm}%,business_name.ilike.%${searchTerm}%`,
+      .or(
+        `user.first_name.ilike.%${searchTerm}%,user.last_name.ilike.%${searchTerm}%,business_name.ilike.%${searchTerm}%,user.email.ilike.%${searchTerm}%,user.phone_number.ilike.%${searchTerm}%,user.phone_number.ilike.%${normalized}%`,
       )
-    }
-
-    const { data: results, error } = await query
 
     if (error) {
       console.error("[v0] Taxpayer search error:", error)
       return NextResponse.json({ error: "Search failed" }, { status: 500 })
     }
 
-    // Add fuzzy match score for name searches
     const scoredResults =
       results
         ?.map((result) => ({
           ...result,
-          matchScore:
-            searchType === "name"
-              ? Math.max(
-                  fuzzyMatch(searchTerm, result.user.first_name || ""),
-                  fuzzyMatch(searchTerm, result.user.last_name || ""),
-                  fuzzyMatch(searchTerm, result.business_name || ""),
-                )
-              : 1,
+          matchScore: Math.max(
+            fuzzyMatch(searchTerm, result.user.first_name || ""),
+            fuzzyMatch(searchTerm, result.user.last_name || ""),
+            fuzzyMatch(searchTerm, result.business_name || ""),
+            fuzzyMatch(searchTerm, result.user.email || ""),
+            fuzzyMatch(searchTerm, result.user.phone_number || ""),
+          ),
         }))
         .sort((a, b) => b.matchScore - a.matchScore) || []
 
