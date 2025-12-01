@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Building2, Users, CheckCircle, Clock, XCircle, TrendingUp, Plus } from "lucide-react"
-import { getUserRole } from "@/app/actions/get-user-role"
 
 interface EnumeratorStats {
   totalProperties: number
@@ -30,24 +30,27 @@ interface LeaderboardEntry {
 
 export default function EnumeratorDashboard() {
   const router = useRouter()
+  const { user, userRole, loading: authLoading } = useAuth()
   const [stats, setStats] = useState<EnumeratorStats | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [userRank, setUserRank] = useState<number>(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const checkRole = async () => {
-      const role = await getUserRole()
-      if (role !== "enumerator") {
+    if (!authLoading) {
+      if (!user) {
         router.push("/login")
         return
       }
 
-      await loadData()
-    }
+      if (userRole !== "enumerator") {
+        router.push("/login")
+        return
+      }
 
-    checkRole()
-  }, [router])
+      loadData()
+    }
+  }, [user, userRole, authLoading, router])
 
   const loadData = async () => {
     try {
@@ -74,7 +77,7 @@ export default function EnumeratorDashboard() {
     }
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
