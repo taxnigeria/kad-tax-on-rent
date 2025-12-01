@@ -39,7 +39,7 @@ export default function EnumeratorDashboard() {
     const checkRole = async () => {
       const role = await getUserRole()
       if (role !== "enumerator") {
-        router.push("/dashboard")
+        router.push("/login")
         return
       }
 
