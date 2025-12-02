@@ -24,6 +24,7 @@ type TaxBill = {
   calculation_id: string
   invoice_id: string
   invoice_number: string
+  bill_reference: string
 
   // Property info
   property_id: string
@@ -216,6 +217,7 @@ export default function InvoicesPage() {
           `
           id,
           invoice_number,
+          bill_reference,
           issue_date,
           due_date,
           payment_status,
@@ -278,6 +280,7 @@ export default function InvoicesPage() {
           calculation_id: calc.id,
           invoice_id: item.id,
           invoice_number: item.invoice_number,
+          bill_reference: item.bill_reference,
           property_id: prop.id,
           property_name: prop.registered_property_name,
           property_reference: prop.property_reference,
@@ -608,7 +611,9 @@ export default function InvoicesPage() {
                       <CardHeader>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <CardTitle className="text-base truncate font-bold">{bill.invoice_number}</CardTitle>
+                            <CardTitle className="text-base truncate font-bold">
+                              {bill.bill_reference || bill.invoice_number}
+                            </CardTitle>
                             <CardDescription className="text-xs mt-1">{bill.property_name}</CardDescription>
                           </div>
                           <Badge

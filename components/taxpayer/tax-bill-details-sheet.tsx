@@ -17,6 +17,7 @@ import {
   AlertCircle,
   CheckCircle,
   ArrowDown,
+  RefreshCw,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabase/client"
@@ -78,6 +79,7 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
           invoices (
             id,
             invoice_number,
+            bill_reference,
             payment_status,
             total_amount,
             balance_due,
@@ -110,6 +112,14 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
   }
 
   function handleDownload() {
+    if (!invoice?.bill_reference) {
+      toast({
+        title: "Invalid Invoice",
+        description: "This invoice needs a bill reference before it can be downloaded. Please generate one first.",
+        variant: "destructive",
+      })
+      return
+    }
     if (invoice?.id) {
       setShowPrintDialog(true)
     } else {
@@ -122,6 +132,14 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
   }
 
   function handlePrint() {
+    if (!invoice?.bill_reference) {
+      toast({
+        title: "Invalid Invoice",
+        description: "This invoice needs a bill reference before it can be printed. Please generate one first.",
+        variant: "destructive",
+      })
+      return
+    }
     if (invoice?.id) {
       setShowPrintDialog(true)
     } else {
@@ -134,11 +152,58 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
   }
 
   function handlePayNow() {
+    if (!invoice?.bill_reference) {
+      toast({
+        title: "Invalid Invoice",
+        description: "This invoice needs a bill reference before payment can be processed. Please contact support.",
+        variant: "destructive",
+      })
+      return
+    }
     toast({
       title: "Payment",
       description: "Redirecting to payment gateway...",
     })
     // TODO: Implement payment logic
+  }
+
+  async function handleGenerateBillReference() {
+    if (!invoice?.id) return
+
+    setLoading(true)
+    try {
+      const response = await fetch("/api/generate-bill-reference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceId: invoice.id }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: "Bill Reference Generated",
+          description: `Bill Reference: ${result.billReference}`,
+        })
+        await fetchCalculationDetails()
+        if (onUpdate) onUpdate()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to generate bill reference",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error generating bill reference:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate bill reference. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -249,20 +314,29 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2">
-                  {invoice?.payment_status !== "paid" && (
-                    <Button onClick={handlePayNow} className="gap-2">
-                      <CreditCard className="h-4 w-4" />
-                      Pay Now
+                  {!invoice?.bill_reference ? (
+                    <Button onClick={handleGenerateBillReference} disabled={loading} className="gap-2">
+                      <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                      Generate Bill Reference
                     </Button>
+                  ) : (
+                    <>
+                      {invoice?.payment_status !== "paid" && (
+                        <Button onClick={handlePayNow} className="gap-2">
+                          <CreditCard className="h-4 w-4" />
+                          Pay Now
+                        </Button>
+                      )}
+                      <Button variant="outline" onClick={handleDownload} className="gap-2 bg-transparent">
+                        <Download className="h-4 w-4" />
+                        Download
+                      </Button>
+                      <Button variant="outline" onClick={handlePrint} className="gap-2 bg-transparent">
+                        <Printer className="h-4 w-4" />
+                        Print
+                      </Button>
+                    </>
                   )}
-                  <Button variant="outline" onClick={handleDownload} className="gap-2 bg-transparent">
-                    <Download className="h-4 w-4" />
-                    Download
-                  </Button>
-                  <Button variant="outline" onClick={handlePrint} className="gap-2 bg-transparent">
-                    <Printer className="h-4 w-4" />
-                    Print
-                  </Button>
                 </div>
               </div>
 
@@ -389,6 +463,19 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
 
                   <Card className="border-border/50">
                     <CardContent className="pt-6 space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Bill Reference</span>
+                        {invoice.bill_reference ? (
+                          <span className="font-mono text-xs font-semibold text-green-600">
+                            {invoice.bill_reference}
+                          </span>
+                        ) : (
+                          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                            Not Generated
+                          </Badge>
+                        )}
+                      </div>
+
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Invoice Number</span>
                         <span className="font-mono text-xs">{invoice.invoice_number}</span>
