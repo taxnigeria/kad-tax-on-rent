@@ -30,7 +30,7 @@ interface Taxpayer {
 
 export default function EnumeratePage() {
   const router = useRouter()
-  const { userRole, loading: authLoading } = useAuth()
+  const { user, userRole, loading: authLoading } = useAuth()
   const { toast } = useToast()
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1) // 1: Search, 2: Create Taxpayer, 3: Property Form, 4: Review
   const [loading, setLoading] = useState(false)
@@ -144,7 +144,7 @@ export default function EnumeratePage() {
       const res = await fetch("/api/enumerator/search-taxpayers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ searchTerm }),
+        body: JSON.stringify({ query: searchTerm }),
       })
 
       if (res.ok) {
@@ -187,12 +187,27 @@ export default function EnumeratePage() {
       return
     }
 
+    if (!user?.uid) {
+      toast({
+        title: "Authentication Error",
+        description: "Please log in again",
+        variant: "destructive",
+      })
+      return
+    }
+
     setLoading(true)
     try {
       const res = await fetch("/api/enumerator/create-taxpayer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newTaxpayer),
+        body: JSON.stringify({
+          name: `${newTaxpayer.firstName} ${newTaxpayer.lastName}`,
+          phone: newTaxpayer.phoneNumber,
+          email: newTaxpayer.email || null,
+          address: newTaxpayer.residentialAddress || null,
+          firebaseUid: user.uid,
+        }),
       })
 
       if (res.ok) {
@@ -202,14 +217,13 @@ export default function EnumeratePage() {
           description: `${newTaxpayer.firstName} ${newTaxpayer.lastName} has been registered`,
         })
 
-        // Set as selected taxpayer
         setSelectedTaxpayer({
           id: data.taxpayer.id,
           user: {
-            first_name: data.taxpayer.firstName,
-            last_name: data.taxpayer.lastName,
-            email: data.taxpayer.email || "",
-            phone_number: data.taxpayer.phoneNumber,
+            first_name: newTaxpayer.firstName,
+            last_name: newTaxpayer.lastName,
+            email: newTaxpayer.email || "",
+            phone_number: newTaxpayer.phoneNumber,
           },
           properties: [],
         })

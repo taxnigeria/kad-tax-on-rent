@@ -160,7 +160,7 @@ export function InvoicePrintDialog({ open, onOpenChange, invoiceData }: InvoiceP
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-7xl w-[95vw] h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+        <DialogContent className="!max-w-7xl !w-[95vw] h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 py-4 border-b flex flex-row items-center justify-between space-y-0 bg-muted/10 shrink-0">
             <div className="flex flex-col gap-1">
               <DialogTitle>Print Preview</DialogTitle>

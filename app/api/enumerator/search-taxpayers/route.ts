@@ -44,20 +44,18 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const body = await request.json()
+    const { firebaseUid, query, searchTerm } = body
 
-    if (authError || !user) {
-      console.error("[v0] Auth error:", authError)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!firebaseUid) {
+      return NextResponse.json({ error: "Firebase UID is required" }, { status: 401 })
     }
 
+    // Verify user is an enumerator
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id, role")
-      .eq("id", user.id)
+      .eq("firebase_uid", firebaseUid)
       .single()
 
     if (userError || !userData) {
@@ -69,14 +67,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - Enumerator access only" }, { status: 403 })
     }
 
-    const body = await request.json()
-    const { searchTerm } = body
+    const searchValue = query || searchTerm
 
-    if (!searchTerm) {
+    if (!searchValue) {
       return NextResponse.json({ error: "Search term is required" }, { status: 400 })
     }
 
-    const normalized = normalizePhone(searchTerm)
+    const normalized = normalizePhone(searchValue)
 
     const { data: results, error } = await supabase
       .from("taxpayer_profiles")
@@ -86,7 +83,7 @@ export async function POST(request: NextRequest) {
         properties:properties(id, registered_property_name, property_type, verification_status)
       `)
       .or(
-        `user.first_name.ilike.%${searchTerm}%,user.last_name.ilike.%${searchTerm}%,business_name.ilike.%${searchTerm}%,user.email.ilike.%${searchTerm}%,user.phone_number.ilike.%${searchTerm}%,user.phone_number.ilike.%${normalized}%`,
+        `user.first_name.ilike.%${searchValue}%,user.last_name.ilike.%${searchValue}%,business_name.ilike.%${searchValue}%,user.email.ilike.%${searchValue}%,user.phone_number.ilike.%${searchValue}%,user.phone_number.ilike.%${normalized}%`,
       )
       .limit(20)
 
@@ -100,11 +97,11 @@ export async function POST(request: NextRequest) {
         ?.map((result) => ({
           ...result,
           matchScore: Math.max(
-            fuzzyMatch(searchTerm, result.user.first_name || ""),
-            fuzzyMatch(searchTerm, result.user.last_name || ""),
-            fuzzyMatch(searchTerm, result.business_name || ""),
-            fuzzyMatch(searchTerm, result.user.email || ""),
-            fuzzyMatch(searchTerm, result.user.phone_number || ""),
+            fuzzyMatch(searchValue, result.user.first_name || ""),
+            fuzzyMatch(searchValue, result.user.last_name || ""),
+            fuzzyMatch(searchValue, result.business_name || ""),
+            fuzzyMatch(searchValue, result.user.email || ""),
+            fuzzyMatch(searchValue, result.user.phone_number || ""),
           ),
         }))
         .sort((a, b) => b.matchScore - a.matchScore) || []
