@@ -44,24 +44,33 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Check authentication
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
+
     if (authError || !user) {
+      console.error("[v0] Auth error:", authError)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user is enumerator
-    const { data: userData } = await supabase.from("users").select("role").eq("id", user.id).single()
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("id", user.id)
+      .single()
 
-    if (userData?.role !== "enumerator") {
+    if (userError || !userData) {
+      console.error("[v0] User lookup error:", userError)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (userData.role !== "enumerator") {
       return NextResponse.json({ error: "Forbidden - Enumerator access only" }, { status: 403 })
     }
 
     const body = await request.json()
-    const { searchTerm } = body // searchType: 'phone', 'email', 'name'
+    const { searchTerm } = body
 
     if (!searchTerm) {
       return NextResponse.json({ error: "Search term is required" }, { status: 400 })
@@ -79,6 +88,7 @@ export async function POST(request: NextRequest) {
       .or(
         `user.first_name.ilike.%${searchTerm}%,user.last_name.ilike.%${searchTerm}%,business_name.ilike.%${searchTerm}%,user.email.ilike.%${searchTerm}%,user.phone_number.ilike.%${searchTerm}%,user.phone_number.ilike.%${normalized}%`,
       )
+      .limit(20)
 
     if (error) {
       console.error("[v0] Taxpayer search error:", error)
