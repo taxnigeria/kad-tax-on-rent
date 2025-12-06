@@ -94,8 +94,11 @@ export default function TaxpayerDashboardPage() {
         .select(
           `
           *,
-          tax_calculations!inner(
-            properties!inner(owner_id)
+          tax_calculations!inner (
+            id,
+            properties!inner (
+              owner_id
+            )
           )
         `,
         )
