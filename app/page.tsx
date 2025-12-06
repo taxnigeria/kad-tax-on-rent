@@ -53,6 +53,38 @@ export default function LandingPage() {
           background-size: 200% 200%;
           animation: gradientMove 6s ease infinite;
         }
+        /* Slowed down floating animations significantly (10-14s instead of 3.5-5s) */
+        @keyframes float1 {
+          0%, 100% { transform: translateY(0px) rotate(-1deg); }
+          50% { transform: translateY(-8px) rotate(0deg); }
+        }
+        @keyframes float2 {
+          0%, 100% { transform: translateY(0px) rotate(0.5deg); }
+          50% { transform: translateY(-10px) rotate(1deg); }
+        }
+        @keyframes float3 {
+          0%, 100% { transform: translateY(0px) rotate(-0.5deg); }
+          50% { transform: translateY(-6px) rotate(0deg); }
+        }
+        @keyframes float4 {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-5px); }
+        }
+        .float-card-1 {
+          animation: float1 10s ease-in-out infinite;
+        }
+        .float-card-2 {
+          animation: float2 12s ease-in-out infinite;
+          animation-delay: 1s;
+        }
+        .float-card-3 {
+          animation: float3 11s ease-in-out infinite;
+          animation-delay: 2s;
+        }
+        .float-card-4 {
+          animation: float4 14s ease-in-out infinite;
+          animation-delay: 0.5s;
+        }
       `}</style>
 
       {/* Navigation */}
@@ -172,17 +204,210 @@ export default function LandingPage() {
           </div>
 
           <div
-            className="relative lg:h-[600px] flex items-center justify-center lg:justify-end fade-in-up"
+            className="relative lg:h-[700px] flex items-center justify-center fade-in-up"
             style={{ animationDelay: "0.2s" }}
           >
-            <div className="relative w-full max-w-md aspect-[4/5] rounded-sm overflow-hidden shadow-2xl bg-emerald-50 border-[8px] border-white shadow-emerald-900/10">
-              <Image
-                src="https://hoirqrkdgbmvpwutwuwj.supabase.co/storage/v1/object/public/assets/assets/917d6f93-fb36-439a-8c48-884b67b35381_1600w.jpg"
-                alt="Kaduna State Development"
-                fill
-                className="object-cover contrast-[1.1] saturate-[0.8]"
-              />
+            {/* Dashboard Mockup */}
+            <div className="relative w-full max-w-md">
+              {/* Main Dashboard Card */}
+              <div className="bg-white rounded-xl shadow-2xl shadow-emerald-900/10 border border-emerald-100 overflow-hidden">
+                {/* Dashboard Header */}
+                <div className="bg-emerald-900 px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 bg-white/20 rounded flex items-center justify-center">
+                      <Building2 className="w-3.5 h-3.5 text-white" strokeWidth={1.5} />
+                    </div>
+                    <span className="text-white text-xs font-medium">Tax Portal Dashboard</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                  </div>
+                </div>
+
+                {/* Dashboard Content - Extended content for taller layout */}
+                <div className="p-4 space-y-4">
+                  {/* Stats Row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">Properties</p>
+                      <p className="text-xl font-semibold text-emerald-900 mt-1">12</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">Paid</p>
+                      <p className="text-xl font-semibold text-emerald-900 mt-1">₦2.4M</p>
+                    </div>
+                    <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
+                      <p className="text-[10px] text-amber-600 font-medium uppercase tracking-wide">Pending</p>
+                      <p className="text-xl font-semibold text-amber-900 mt-1">₦650K</p>
+                    </div>
+                  </div>
+
+                  {/* Chart Placeholder */}
+                  <div className="bg-gray-50 rounded-lg border border-gray-100 p-3">
+                    <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide mb-2">
+                      Payment History
+                    </p>
+                    <div className="flex items-end justify-between h-16 gap-1">
+                      <div className="bg-emerald-200 rounded-t w-full h-[30%]" />
+                      <div className="bg-emerald-300 rounded-t w-full h-[50%]" />
+                      <div className="bg-emerald-400 rounded-t w-full h-[70%]" />
+                      <div className="bg-emerald-500 rounded-t w-full h-[45%]" />
+                      <div className="bg-emerald-400 rounded-t w-full h-[85%]" />
+                      <div className="bg-emerald-600 rounded-t w-full h-[100%]" />
+                    </div>
+                    <div className="flex justify-between mt-2 text-[8px] text-gray-400">
+                      <span>Jan</span>
+                      <span>Feb</span>
+                      <span>Mar</span>
+                      <span>Apr</span>
+                      <span>May</span>
+                      <span>Jun</span>
+                    </div>
+                  </div>
+
+                  {/* Property List Header */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">My Properties</p>
+                    <span className="text-[9px] text-emerald-600 font-medium">View All</span>
+                  </div>
+
+                  {/* Property List */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-emerald-100 rounded flex items-center justify-center">
+                          <Building2 className="w-4 h-4 text-emerald-700" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-900">15 Ahmadu Bello Way</p>
+                          <p className="text-[10px] text-gray-500">Kaduna North</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        Paid
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-emerald-100 rounded flex items-center justify-center">
+                          <Building2 className="w-4 h-4 text-emerald-700" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-900">7 Rabah Road</p>
+                          <p className="text-[10px] text-gray-500">Barnawa</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                        Pending
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-emerald-100 rounded flex items-center justify-center">
+                          <Building2 className="w-4 h-4 text-emerald-700" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-900">23 Sultan Road</p>
+                          <p className="text-[10px] text-gray-500">Unguwar Rimi</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        Paid
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-emerald-100 rounded flex items-center justify-center">
+                          <Building2 className="w-4 h-4 text-emerald-700" strokeWidth={1.5} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-900">12 Katsina Road</p>
+                          <p className="text-[10px] text-gray-500">Malali</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                        Overdue
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating Card 1 - Payment Success */}
+              <div className="absolute -top-6 right-0 lg:-right-8 float-card-1 z-10 hidden sm:block">
+                <div className="bg-white rounded-lg shadow-xl shadow-emerald-900/10 border border-emerald-100 p-3 w-48">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
+                      <svg
+                        className="w-4 h-4 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-emerald-600 font-medium">Payment Successful</p>
+                      <p className="text-sm font-semibold text-gray-900">₦650,000</p>
+                    </div>
+                  </div>
+                  <div className="text-[9px] text-gray-400">Just now</div>
+                </div>
+              </div>
+
+              {/* Floating Card 2 - Invoice */}
+              <div className="absolute top-1/4 left-0 lg:-left-12 float-card-2 z-10 hidden sm:block">
+                <div className="bg-white rounded-lg shadow-xl shadow-emerald-900/10 border border-emerald-100 p-3 w-44">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 bg-blue-100 rounded flex items-center justify-center">
+                      <ScrollText className="w-3.5 h-3.5 text-blue-600" strokeWidth={1.5} />
+                    </div>
+                    <p className="text-[10px] font-medium text-gray-700">New Invoice</p>
+                  </div>
+                  <p className="text-[9px] text-gray-500 font-mono">REF: KAD-2025-0847</p>
+                  <p className="text-sm font-semibold text-gray-900 mt-1">₦320,000</p>
+                </div>
+              </div>
+
+              {/* Floating Card 3 - Property Added */}
+              <div className="absolute bottom-1/4 left-0 lg:-left-6 float-card-3 z-10 hidden sm:block">
+                <div className="bg-white rounded-lg shadow-xl shadow-emerald-900/10 border border-emerald-100 p-3 w-48">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                      <Building2 className="w-4 h-4 text-purple-600" strokeWidth={1.5} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-purple-600 font-medium">Property Added</p>
+                      <p className="text-[9px] text-gray-500 truncate w-28">23 Sultan Road, Unguwar...</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating Card 4 - Notification Badge */}
+              <div className="absolute -bottom-4 right-0 lg:-right-6 float-card-4 z-10 hidden sm:block">
+                <div className="bg-white rounded-lg shadow-xl shadow-emerald-900/10 border border-emerald-100 p-2.5 flex items-center gap-2">
+                  <div className="relative">
+                    <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                      <BellRing className="w-4 h-4 text-amber-600" strokeWidth={1.5} />
+                    </div>
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                      3
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-gray-700">New Invoices</p>
+                    <p className="text-[9px] text-gray-400">Due in 7 days</p>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            {/* Background blurs */}
             <div className="absolute -z-10 top-20 right-20 w-72 h-72 bg-emerald-200/40 rounded-full blur-[100px]" />
             <div className="absolute -z-10 bottom-10 left-10 w-64 h-64 bg-teal-200/40 rounded-full blur-[80px]" />
           </div>
@@ -524,7 +749,7 @@ export default function LandingPage() {
 
       {/* CTA Section */}
       <section className="overflow-hidden animate-gradient bg-emerald-900 pt-24 pb-24 relative">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTAgMGg0MHY0MEgwVjB6bTEgMWgzOHYzOEgxVjF6IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiLz48L3N2Zz4=')] opacity-30" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTAgMGg0MHY0MEg0MFYwWjFtMSAxaDM4VjM4SDFWMXoiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvc3ZnPg==')] opacity-30" />
         <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
           <h2 className="text-4xl md:text-5xl font-medium tracking-tighter text-white mb-6">Ready to get started?</h2>
           <p className="text-emerald-100 text-lg mb-10 font-light max-w-2xl mx-auto">
@@ -647,6 +872,101 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      <style jsx>{`
+        .bg-grid-corporate {
+          background-size: 50px 50px;
+          background-image: linear-gradient(to right, rgba(5, 150, 105, 0.03) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(5, 150, 105, 0.03) 1px, transparent 1px);
+        }
+        .text-gradient {
+          background: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .gradient-animated {
+          background: linear-gradient(135deg, #065f46 0%, #059669 25%, #10b981 50%, #059669 75%, #065f46 100%);
+          background-size: 400% 400%;
+          animation: gradientMove 8s ease infinite;
+        }
+        @keyframes gradientMove {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+        .fade-in-up {
+          animation: fadeInUp 0.8s ease-out forwards;
+          opacity: 0;
+        }
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes float1 {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-12px);
+          }
+        }
+        @keyframes float2 {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
+        }
+        @keyframes float3 {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-14px);
+          }
+        }
+        @keyframes float4 {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-8px);
+          }
+        }
+        .float-card-1 {
+          animation: float1 10s ease-in-out infinite;
+        }
+        .float-card-2 {
+          animation: float2 12s ease-in-out infinite;
+          animation-delay: 1s;
+        }
+        .float-card-3 {
+          animation: float3 14s ease-in-out infinite;
+          animation-delay: 2s;
+        }
+        .float-card-4 {
+          animation: float4 11s ease-in-out infinite;
+          animation-delay: 0.5s;
+        }
+      `}</style>
     </div>
   )
 }
