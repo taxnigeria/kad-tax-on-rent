@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server"
 import { listFirebaseUsers } from "@/lib/firebase-admin"
 import { NextResponse } from "next/server"
 
+const EXCLUDED_ROLES = ["taxpayer", "tenant", "property_manager"]
+const STAFF_ROLES = ["super_admin", "admin", "staff", "enumerator", "area_officer", "qa"]
+
 export async function GET() {
   const supabase = await createClient()
 
@@ -28,14 +31,43 @@ export async function GET() {
     // Get set of firebase_uids that exist in Supabase
     const supabaseFirebaseUids = new Set(supabaseUsers?.map((u) => u.firebase_uid).filter(Boolean))
 
-    // Filter Firebase users that don't exist in Supabase
-    const unmigrated = firebaseUsers.filter((user) => !supabaseFirebaseUids.has(user.uid))
+    // 1. Not already in Supabase
+    // 2. Role (from customClaims) is not taxpayer/tenant/property_manager
+    const unmigrated = firebaseUsers.filter((user) => {
+      // Skip if already in Supabase
+      if (supabaseFirebaseUids.has(user.uid)) return false
+
+      // Get role from custom claims
+      const userRole = user.customClaims?.role as string | undefined
+
+      // Include if no role set (needs migration) or if role is a staff role
+      if (!userRole) return true
+      if (EXCLUDED_ROLES.includes(userRole)) return false
+
+      return true
+    })
 
     return NextResponse.json({
       firebaseConfigured: true,
-      users: unmigrated,
-      totalFirebaseUsers: firebaseUsers.length,
-      totalMigrated: firebaseUsers.length - unmigrated.length,
+      users: unmigrated.map((user) => ({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        phoneNumber: user.phoneNumber,
+        emailVerified: user.emailVerified,
+        disabled: user.disabled,
+        role: user.customClaims?.role || null,
+        createdAt: user.metadata?.creationTime,
+        lastSignIn: user.metadata?.lastSignInTime,
+      })),
+      totalFirebaseUsers: firebaseUsers.filter((u) => {
+        const role = u.customClaims?.role as string | undefined
+        return !role || !EXCLUDED_ROLES.includes(role)
+      }).length,
+      totalMigrated: firebaseUsers.filter((u) => {
+        const role = u.customClaims?.role as string | undefined
+        return supabaseFirebaseUids.has(u.uid) && (!role || !EXCLUDED_ROLES.includes(role))
+      }).length,
     })
   } catch (error) {
     console.error("[API] Unexpected error:", error)
@@ -48,10 +80,14 @@ export async function POST(request: Request) {
   const supabase = await createClient()
 
   try {
-    const { firebaseUser, role = "taxpayer" } = await request.json()
+    const { firebaseUser, role = "staff" } = await request.json()
 
     if (!firebaseUser || !firebaseUser.uid) {
       return NextResponse.json({ error: "Missing Firebase user data" }, { status: 400 })
+    }
+
+    if (!STAFF_ROLES.includes(role)) {
+      return NextResponse.json({ error: "Invalid role for staff migration" }, { status: 400 })
     }
 
     // Parse display name into first/last name
@@ -78,13 +114,6 @@ export async function POST(request: Request) {
     if (error) {
       console.error("[API] Error creating user:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    // Create taxpayer profile if role is taxpayer
-    if (role === "taxpayer") {
-      await supabase.from("taxpayer_profiles").insert({
-        user_id: newUser.id,
-      })
     }
 
     return NextResponse.json({ user: newUser })

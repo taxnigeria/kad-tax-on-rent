@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
@@ -10,7 +10,25 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Users, UserCheck, UserX, Shield, Search, Download, MoreHorizontal, Mail, Phone, AlertTriangle, RefreshCw, UserPlus, CheckCircle2, XCircle, Clock, MapPin, Building2, FileText, KeyRound, User } from 'lucide-react'
+import {
+  Users,
+  UserCheck,
+  UserX,
+  Shield,
+  Search,
+  Download,
+  MoreHorizontal,
+  Mail,
+  Phone,
+  AlertTriangle,
+  RefreshCw,
+  UserPlus,
+  CheckCircle2,
+  XCircle,
+  MapPin,
+  Building2,
+  KeyRound,
+} from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -52,7 +70,7 @@ const STAFF_ROLES = ["super_admin", "superadmin", "admin", "staff", "enumerator"
 
 const PER_PAGE = 50
 
-interface User {
+interface StaffUser {
   id: string
   firebase_uid: string
   email: string
@@ -98,8 +116,8 @@ export default function UsersPage() {
   const { user, userRole, loading: authLoading } = useAuth()
 
   // Supabase users state
-  const [users, setUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const [users, setUsers] = useState<StaffUser[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<StaffUser[]>([])
   const [loading, setLoading] = useState(true)
 
   // Firebase users state
@@ -118,10 +136,10 @@ export default function UsersPage() {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
 
   // Sheet/Dialog state
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedUser, setSelectedUser] = useState<StaffUser | null>(null)
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [userToDelete, setUserToDelete] = useState<StaffUser | null>(null)
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
   const [newUserData, setNewUserData] = useState({
@@ -172,7 +190,7 @@ export default function UsersPage() {
         toast.error("Failed to load users")
         setUsers([])
       } else {
-        const staffUsers = (data.users || []).filter((u: User) => STAFF_ROLES.includes(u.role))
+        const staffUsers = (data.users || []).filter((u: StaffUser) => STAFF_ROLES.includes(u.role))
         setUsers(staffUsers)
       }
     } catch (error) {
@@ -397,7 +415,7 @@ export default function UsersPage() {
       setEnumerationStats({
         total_properties: properties?.length || 0,
         total_taxpayers: taxpayerCount || 0,
-        recent_enumerations: (properties || []).slice(0, 5).map(p => ({
+        recent_enumerations: (properties || []).slice(0, 5).map((p) => ({
           id: p.id,
           kadirs_id: p.kadirs_id || "—",
           address: p.address || "—",
@@ -413,7 +431,7 @@ export default function UsersPage() {
     }
   }
 
-  const handleViewUser = (user: User) => {
+  const handleViewUser = (user: StaffUser) => {
     setSelectedUser(user)
     setIsDetailsSheetOpen(true)
     if (["enumerator", "area_officer", "staff", "admin", "super_admin", "superadmin"].includes(user.role)) {
@@ -812,13 +830,14 @@ export default function UsersPage() {
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t">
                       <p className="text-sm text-muted-foreground">
-                        Showing {((currentPage - 1) * PER_PAGE) + 1} to {Math.min(currentPage * PER_PAGE, filteredUsers.length)} of {filteredUsers.length} users
+                        Showing {(currentPage - 1) * PER_PAGE + 1} to{" "}
+                        {Math.min(currentPage * PER_PAGE, filteredUsers.length)} of {filteredUsers.length} users
                       </p>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                           disabled={currentPage === 1}
                         >
                           Previous
@@ -829,7 +848,7 @@ export default function UsersPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                           disabled={currentPage === totalPages}
                         >
                           Next
@@ -996,11 +1015,12 @@ export default function UsersPage() {
           </SheetHeader>
           {selectedUser && (
             <TooltipProvider>
-              <div className="py-6 space-y-6">
+              <div className="py-6 px-6 space-y-6">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
                     <AvatarFallback className="text-lg bg-primary/10 text-primary">
-                      {selectedUser.first_name?.[0]}{selectedUser.last_name?.[0]}
+                      {selectedUser.first_name?.[0]}
+                      {selectedUser.last_name?.[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div>
@@ -1021,14 +1041,18 @@ export default function UsersPage() {
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">{selectedUser.email || "—"}</span>
                       {selectedUser.email_verified && (
-                        <Badge variant="secondary" className="text-xs">Verified</Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          Verified
+                        </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-3">
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">{selectedUser.phone_number || "—"}</span>
                       {selectedUser.phone_verified && (
-                        <Badge variant="secondary" className="text-xs">Verified</Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          Verified
+                        </Badge>
                       )}
                     </div>
                   </div>
