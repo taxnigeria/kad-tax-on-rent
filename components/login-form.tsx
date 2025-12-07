@@ -43,8 +43,16 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
             router.push("/taxpayer-dashboard")
           } else if (role === "enumerator") {
             router.push("/enumerator-dashboard")
+          } else if (
+            role === "admin" ||
+            role === "super_admin" ||
+            role === "superadmin" ||
+            role === "staff" ||
+            role === "qa"
+          ) {
+            router.push("/admin")
           } else {
-            router.push("/dashboard")
+            router.push("/taxpayer-dashboard")
           }
         } else {
           console.error("[v0] Could not fetch user role, defaulting to taxpayer dashboard")

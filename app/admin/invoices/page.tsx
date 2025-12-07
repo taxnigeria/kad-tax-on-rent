@@ -16,7 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { createBrowserClient } from "@/utils/supabase/client"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { users } from "@/types/users" // Import users type
+import { InvoiceDetailModal } from "@/components/invoices/invoice-detail-modal"
+import type { users } from "@/types/users"
 
 type Invoice = {
   id: string
@@ -70,6 +71,8 @@ export default function AdminInvoicesPage() {
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(50)
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
 
   const supabase = createBrowserClient()
 
@@ -191,7 +194,8 @@ export default function AdminInvoicesPage() {
   }
 
   function handleViewInvoice(invId: string) {
-    console.log("View invoice:", invId)
+    setSelectedInvoiceId(invId)
+    setDetailsModalOpen(true)
   }
 
   const totalPages = Math.ceil(filteredInvoices.length / rowsPerPage)
@@ -598,8 +602,19 @@ export default function AdminInvoicesPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Invoice Detail Modal */}
+          {selectedInvoiceId && (
+            <InvoiceDetailModal
+              invoiceId={selectedInvoiceId}
+              isOpen={detailsModalOpen}
+              onClose={() => setDetailsModalOpen(false)}
+            />
+          )}
         </div>
       </SidebarInset>
+
+      <InvoiceDetailModal invoiceId={selectedInvoiceId} open={detailsModalOpen} onOpenChange={setDetailsModalOpen} />
     </SidebarProvider>
   )
 }
