@@ -1,12 +1,14 @@
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app"
 import { getAuth, type Auth } from "firebase-admin/auth"
+import { getFirestore, type Firestore } from "firebase-admin/firestore"
 
 let adminApp: App | null = null
 let adminAuth: Auth | null = null
+let adminFirestore: Firestore | null = null
 
 function getFirebaseAdmin() {
-  if (adminApp && adminAuth) {
-    return { app: adminApp, auth: adminAuth }
+  if (adminApp && adminAuth && adminFirestore) {
+    return { app: adminApp, auth: adminAuth, firestore: adminFirestore }
   }
 
   // Check if we have the required environment variables
@@ -16,7 +18,7 @@ function getFirebaseAdmin() {
 
   if (!projectId || !clientEmail || !privateKey) {
     console.warn("[Firebase Admin] Missing credentials - some features will be unavailable")
-    return { app: null, auth: null }
+    return { app: null, auth: null, firestore: null }
   }
 
   try {
@@ -32,10 +34,33 @@ function getFirebaseAdmin() {
       adminApp = getApps()[0]
     }
     adminAuth = getAuth(adminApp)
-    return { app: adminApp, auth: adminAuth }
+    adminFirestore = getFirestore(adminApp)
+    return { app: adminApp, auth: adminAuth, firestore: adminFirestore }
   } catch (error) {
     console.error("[Firebase Admin] Initialization error:", error)
-    return { app: null, auth: null }
+    return { app: null, auth: null, firestore: null }
+  }
+}
+
+export async function getFirestoreUserRoles(): Promise<Map<string, string | null>> {
+  const { firestore } = getFirebaseAdmin()
+  const rolesMap = new Map<string, string | null>()
+
+  if (!firestore) {
+    return rolesMap
+  }
+
+  try {
+    const usersSnapshot = await firestore.collection("users").get()
+    usersSnapshot.forEach((doc) => {
+      const data = doc.data()
+      // The document ID is typically the user's UID
+      rolesMap.set(doc.id, data.role || null)
+    })
+    return rolesMap
+  } catch (error) {
+    console.error("[Firebase Admin] Error fetching Firestore users:", error)
+    return rolesMap
   }
 }
 
@@ -57,6 +82,7 @@ export async function listFirebaseUsers(maxResults = 1000) {
         phoneNumber: user.phoneNumber || null,
         photoURL: user.photoURL || null,
         disabled: user.disabled,
+        customClaims: user.customClaims || null,
         creationTime: user.metadata.creationTime,
         lastSignInTime: user.metadata.lastSignInTime,
         providerData: user.providerData,
@@ -87,6 +113,7 @@ export async function getFirebaseUser(uid: string) {
         phoneNumber: user.phoneNumber || null,
         photoURL: user.photoURL || null,
         disabled: user.disabled,
+        customClaims: user.customClaims || null,
         creationTime: user.metadata.creationTime,
         lastSignInTime: user.metadata.lastSignInTime,
       },

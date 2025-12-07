@@ -28,6 +28,8 @@ import {
   MapPin,
   Building2,
   KeyRound,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -109,6 +111,7 @@ interface FirebaseUser {
   disabled: boolean
   creationTime: string
   lastSignInTime: string
+  role?: string // Added for migration role
 }
 
 export default function UsersPage() {
@@ -153,6 +156,9 @@ export default function UsersPage() {
 
   // Migration state
   const [migratingUser, setMigratingUser] = useState<string | null>(null)
+  const [migrationSearch, setMigrationSearch] = useState("")
+  const [migrationPage, setMigrationPage] = useState(1)
+  const MIGRATION_PER_PAGE = 20
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -293,7 +299,7 @@ export default function UsersPage() {
       const response = await fetch("/api/admin/users", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.JSON.stringify({ userId, updates: { is_active: !isActive } }),
+        body: JSON.stringify({ userId, updates: { is_active: !isActive } }),
       })
       const data = await response.json()
 
@@ -482,6 +488,22 @@ export default function UsersPage() {
 
   const totalPages = Math.ceil(filteredUsers.length / PER_PAGE)
   const paginatedUsers = filteredUsers.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE)
+
+  const filteredFirebaseUsers = firebaseUsers.filter((fu) => {
+    if (!migrationSearch) return true
+    const search = migrationSearch.toLowerCase()
+    return (
+      fu.email?.toLowerCase().includes(search) ||
+      fu.displayName?.toLowerCase().includes(search) ||
+      fu.phoneNumber?.includes(search)
+    )
+  })
+
+  const migrationTotalPages = Math.ceil(filteredFirebaseUsers.length / MIGRATION_PER_PAGE)
+  const paginatedFirebaseUsers = filteredFirebaseUsers.slice(
+    (migrationPage - 1) * MIGRATION_PER_PAGE,
+    migrationPage * MIGRATION_PER_PAGE,
+  )
 
   if (authLoading || (!user && !authLoading)) {
     return (
@@ -914,9 +936,26 @@ export default function UsersPage() {
                     </Card>
                   </div>
 
-                  {/* Refresh Button */}
-                  <div className="flex justify-end mb-4">
-                    <Button variant="outline" size="sm" onClick={fetchFirebaseUsers} disabled={firebaseLoading}>
+                  <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by email, name, phone..."
+                        className="pl-9 h-9"
+                        value={migrationSearch}
+                        onChange={(e) => {
+                          setMigrationSearch(e.target.value)
+                          setMigrationPage(1)
+                        }}
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 bg-transparent"
+                      onClick={fetchFirebaseUsers}
+                      disabled={firebaseLoading}
+                    >
                       <RefreshCw className={`h-4 w-4 mr-2 ${firebaseLoading ? "animate-spin" : ""}`} />
                       Refresh
                     </Button>
@@ -931,14 +970,14 @@ export default function UsersPage() {
                             <TableHead>Email</TableHead>
                             <TableHead>Display Name</TableHead>
                             <TableHead>Phone</TableHead>
+                            <TableHead>Firebase Role</TableHead>
                             <TableHead>Created</TableHead>
-                            <TableHead>Last Sign In</TableHead>
                             <TableHead className="w-32">Migrate As</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {firebaseLoading ? (
-                            Array.from({ length: 3 }).map((_, i) => (
+                            Array.from({ length: 5 }).map((_, i) => (
                               <TableRow key={i}>
                                 <TableCell>
                                   <Skeleton className="h-4 w-32" />
@@ -950,7 +989,7 @@ export default function UsersPage() {
                                   <Skeleton className="h-4 w-20" />
                                 </TableCell>
                                 <TableCell>
-                                  <Skeleton className="h-4 w-20" />
+                                  <Skeleton className="h-4 w-16" />
                                 </TableCell>
                                 <TableCell>
                                   <Skeleton className="h-4 w-20" />
@@ -960,28 +999,40 @@ export default function UsersPage() {
                                 </TableCell>
                               </TableRow>
                             ))
-                          ) : firebaseUsers.length === 0 ? (
+                          ) : paginatedFirebaseUsers.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                No pending migrations
+                                {migrationSearch ? "No matching users found" : "No pending migrations"}
                               </TableCell>
                             </TableRow>
                           ) : (
-                            firebaseUsers.map((fu) => (
+                            paginatedFirebaseUsers.map((fu) => (
                               <TableRow key={fu.uid}>
-                                <TableCell>{fu.email || "—"}</TableCell>
+                                <TableCell className="font-medium">{fu.email || "—"}</TableCell>
                                 <TableCell>{fu.displayName || "—"}</TableCell>
                                 <TableCell>{fu.phoneNumber || "—"}</TableCell>
+                                <TableCell>
+                                  {fu.role ? (
+                                    <Badge variant="outline" className="capitalize">
+                                      {fu.role}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">No role</span>
+                                  )}
+                                </TableCell>
                                 <TableCell>{formatDate(fu.creationTime)}</TableCell>
-                                <TableCell>{formatDate(fu.lastSignInTime)}</TableCell>
                                 <TableCell>
                                   <Select
-                                    defaultValue="staff"
+                                    defaultValue={fu.role || "staff"}
                                     onValueChange={(role) => handleMigrateUser(fu, role)}
                                     disabled={migratingUser === fu.uid}
                                   >
                                     <SelectTrigger className="h-8 w-28">
-                                      <SelectValue />
+                                      {migratingUser === fu.uid ? (
+                                        <RefreshCw className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <SelectValue />
+                                      )}
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="staff">Staff</SelectItem>
@@ -998,6 +1049,39 @@ export default function UsersPage() {
                         </TableBody>
                       </Table>
                     </CardContent>
+
+                    {filteredFirebaseUsers.length > 0 && (
+                      <div className="flex items-center justify-between px-4 py-3 border-t">
+                        <p className="text-sm text-muted-foreground">
+                          Showing {(migrationPage - 1) * MIGRATION_PER_PAGE + 1} to{" "}
+                          {Math.min(migrationPage * MIGRATION_PER_PAGE, filteredFirebaseUsers.length)} of{" "}
+                          {filteredFirebaseUsers.length} users
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMigrationPage((p) => Math.max(1, p - 1))}
+                            disabled={migrationPage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                          </Button>
+                          <span className="text-sm text-muted-foreground">
+                            Page {migrationPage} of {migrationTotalPages}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMigrationPage((p) => Math.min(migrationTotalPages, p + 1))}
+                            disabled={migrationPage === migrationTotalPages}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </Card>
                 </>
               )}

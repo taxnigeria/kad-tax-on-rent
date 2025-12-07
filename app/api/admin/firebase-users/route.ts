@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { listFirebaseUsers } from "@/lib/firebase-admin"
+import { listFirebaseUsers, getFirestoreUserRoles } from "@/lib/firebase-admin"
 import { NextResponse } from "next/server"
 
 const EXCLUDED_ROLES = ["taxpayer", "tenant", "property_manager"]
@@ -9,7 +9,7 @@ export async function GET() {
   const supabase = await createClient()
 
   try {
-    // Get Firebase users
+    // Get Firebase Auth users
     const { users: firebaseUsers, error: firebaseError } = await listFirebaseUsers()
 
     if (firebaseError) {
@@ -19,6 +19,8 @@ export async function GET() {
         users: [],
       })
     }
+
+    const firestoreRoles = await getFirestoreUserRoles()
 
     // Get all Supabase users with firebase_uid
     const { data: supabaseUsers, error: supabaseError } = await supabase.from("users").select("firebase_uid")
@@ -31,43 +33,48 @@ export async function GET() {
     // Get set of firebase_uids that exist in Supabase
     const supabaseFirebaseUids = new Set(supabaseUsers?.map((u) => u.firebase_uid).filter(Boolean))
 
-    // 1. Not already in Supabase
-    // 2. Role (from customClaims) is not taxpayer/tenant/property_manager
+    // Filter to unmigrated staff users
     const unmigrated = firebaseUsers.filter((user) => {
       // Skip if already in Supabase
       if (supabaseFirebaseUids.has(user.uid)) return false
 
-      // Get role from custom claims
-      const userRole = user.customClaims?.role as string | undefined
+      const firestoreRole = firestoreRoles.get(user.uid)
+      const customClaimsRole = user.customClaims?.role as string | undefined
+      const userRole = firestoreRole || customClaimsRole
 
-      // Include if no role set (needs migration) or if role is a staff role
-      if (!userRole) return true
-      if (EXCLUDED_ROLES.includes(userRole)) return false
+      // If role is explicitly an excluded role, skip
+      if (userRole && EXCLUDED_ROLES.includes(userRole.toLowerCase())) return false
 
+      // Include if no role set or role is a staff role
       return true
+    })
+
+    const staffFirebaseUsers = firebaseUsers.filter((u) => {
+      const firestoreRole = firestoreRoles.get(u.uid)
+      const customClaimsRole = u.customClaims?.role as string | undefined
+      const role = firestoreRole || customClaimsRole
+      return !role || !EXCLUDED_ROLES.includes(role.toLowerCase())
     })
 
     return NextResponse.json({
       firebaseConfigured: true,
-      users: unmigrated.map((user) => ({
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        phoneNumber: user.phoneNumber,
-        emailVerified: user.emailVerified,
-        disabled: user.disabled,
-        role: user.customClaims?.role || null,
-        createdAt: user.metadata?.creationTime,
-        lastSignIn: user.metadata?.lastSignInTime,
-      })),
-      totalFirebaseUsers: firebaseUsers.filter((u) => {
-        const role = u.customClaims?.role as string | undefined
-        return !role || !EXCLUDED_ROLES.includes(role)
-      }).length,
-      totalMigrated: firebaseUsers.filter((u) => {
-        const role = u.customClaims?.role as string | undefined
-        return supabaseFirebaseUids.has(u.uid) && (!role || !EXCLUDED_ROLES.includes(role))
-      }).length,
+      users: unmigrated.map((user) => {
+        const firestoreRole = firestoreRoles.get(user.uid)
+        const customClaimsRole = user.customClaims?.role as string | undefined
+        return {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          phoneNumber: user.phoneNumber,
+          emailVerified: user.emailVerified,
+          disabled: user.disabled,
+          role: firestoreRole || customClaimsRole || null,
+          createdAt: user.creationTime,
+          lastSignIn: user.lastSignInTime,
+        }
+      }),
+      totalFirebaseUsers: staffFirebaseUsers.length,
+      totalMigrated: staffFirebaseUsers.filter((u) => supabaseFirebaseUids.has(u.uid)).length,
     })
   } catch (error) {
     console.error("[API] Unexpected error:", error)
