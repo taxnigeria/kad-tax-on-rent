@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { createBrowserClient } from "@/utils/supabase/client"
 import { Skeleton } from "@/components/ui/skeleton"
-import { InvoiceDetailModal } from "@/components/invoices/invoice-detail-modal"
+import TaxCalculationDetailsSheet from "@/components/admin/tax-calculation-details-sheet"
 import type { users } from "@/types/users"
 
 type Invoice = {
@@ -71,8 +71,8 @@ export default function AdminInvoicesPage() {
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(50)
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
+  const [detailsSheetOpen, setDetailsSheetOpen] = useState(false)
+  const [selectedCalculationId, setSelectedCalculationId] = useState<string | null>(null)
 
   const supabase = createBrowserClient()
 
@@ -193,9 +193,9 @@ export default function AdminInvoicesPage() {
     console.log("Exporting invoices:", selectedInvoices.length > 0 ? selectedInvoices : "all")
   }
 
-  function handleViewInvoice(invId: string) {
-    setSelectedInvoiceId(invId)
-    setDetailsModalOpen(true)
+  function handleViewInvoice(invoice: Invoice) {
+    setSelectedCalculationId(invoice.tax_calculation_id)
+    setDetailsSheetOpen(true)
   }
 
   const totalPages = Math.ceil(filteredInvoices.length / rowsPerPage)
@@ -521,7 +521,7 @@ export default function AdminInvoicesPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice.id)}>
+                            <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice)}>
                               View
                             </Button>
                           </TableCell>
@@ -603,18 +603,15 @@ export default function AdminInvoicesPage() {
             </CardContent>
           </Card>
 
-          {/* Invoice Detail Modal */}
-          {selectedInvoiceId && (
-            <InvoiceDetailModal
-              invoiceId={selectedInvoiceId}
-              isOpen={detailsModalOpen}
-              onClose={() => setDetailsModalOpen(false)}
-            />
-          )}
+          {/* Tax Calculation Details Sheet */}
+          <TaxCalculationDetailsSheet
+            open={detailsSheetOpen}
+            onOpenChange={setDetailsSheetOpen}
+            calculationId={selectedCalculationId}
+            onUpdate={fetchInvoices}
+          />
         </div>
       </SidebarInset>
-
-      <InvoiceDetailModal invoiceId={selectedInvoiceId} open={detailsModalOpen} onOpenChange={setDetailsModalOpen} />
     </SidebarProvider>
   )
 }

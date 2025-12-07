@@ -335,7 +335,11 @@ export default function TaxCalculationDetailsSheet({
                     onClick={() => setShowDeleteDialog(true)}
                     disabled={deleting}
                   >
-                    {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    {deleting ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
                     Delete
                   </Button>
                   <Button size="sm" variant="outline" className="gap-2 h-8 bg-transparent" onClick={handleDownload}>
@@ -679,7 +683,7 @@ export default function TaxCalculationDetailsSheet({
         </AlertDialogContent>
       </AlertDialog>
 
-      {invoiceData && (
+      {showPrintDialog && invoiceData && (
         <InvoicePrintDialog open={showPrintDialog} onOpenChange={setShowPrintDialog} invoiceData={invoiceData} />
       )}
     </>
