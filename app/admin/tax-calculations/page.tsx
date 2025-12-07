@@ -7,7 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Calculator, Search, Filter, Download, DollarSign, TrendingUp, FileText } from "lucide-react"
@@ -253,135 +253,126 @@ export default function TaxCalculationsPage() {
 
           {/* Stats Grid */}
           {loading ? (
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-4">
               {[...Array(4)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <Skeleton className="h-4 w-24" />
+                <Card key={i} className="py-3">
+                  <CardContent className="flex items-center justify-between p-0 px-4">
+                    <div>
+                      <Skeleton className="h-3 w-20 mb-1" />
+                      <Skeleton className="h-5 w-16" />
+                    </div>
                     <Skeleton className="h-4 w-4 rounded" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-8 w-32 mb-2" />
-                    <Skeleton className="h-3 w-24" />
                   </CardContent>
                 </Card>
               ))}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Calculations</CardTitle>
-                  <Calculator className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.total}</div>
-                  <p className="text-xs text-muted-foreground mt-1">All tax calculations</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Tax Due</CardTitle>
-                  <DollarSign className="h-4 w-4 text-green-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    ₦{stats.totalTaxDue.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+            <div className="grid gap-3 md:grid-cols-4">
+              <Card className="py-3">
+                <CardContent className="flex items-center justify-between p-0 px-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Calculations</p>
+                    <p className="text-lg font-bold">{stats.total}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Combined tax amount</p>
+                  <Calculator className="h-4 w-4 text-muted-foreground" />
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Invoiced</CardTitle>
+              <Card className="py-3">
+                <CardContent className="flex items-center justify-between p-0 px-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Tax Due</p>
+                    <p className="text-lg font-bold text-green-600">
+                      ₦{stats.totalTaxDue.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                  <DollarSign className="h-4 w-4 text-green-500" />
+                </CardContent>
+              </Card>
+
+              <Card className="py-3">
+                <CardContent className="flex items-center justify-between p-0 px-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Invoiced</p>
+                    <p className="text-lg font-bold">{stats.invoiced}</p>
+                  </div>
                   <FileText className="h-4 w-4 text-blue-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.invoiced}</div>
-                  <p className="text-xs text-muted-foreground mt-1">With invoices generated</p>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active Calculations</CardTitle>
+              <Card className="py-3">
+                <CardContent className="flex items-center justify-between p-0 px-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Active Calculations</p>
+                    <p className="text-lg font-bold">{stats.active}</p>
+                  </div>
                   <TrendingUp className="h-4 w-4 text-yellow-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.active}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Currently active</p>
                 </CardContent>
               </Card>
             </div>
           )}
 
           {/* Filters */}
-          <Card>
-            <CardContent className="pt-3">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by property, owner, KADIRS ID, or year..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Select value={yearFilter} onValueChange={setYearFilter}>
-                    <SelectTrigger className="w-[140px]">
-                      <Filter className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Tax Year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Years</SelectItem>
-                      {availableYears.map((year) => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by property, owner, KADIRS ID, or year..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Select value={yearFilter} onValueChange={setYearFilter}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Tax Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {availableYears.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-                  <Select value={propertyTypeFilter} onValueChange={setPropertyTypeFilter}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="Property Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="residential">Residential</SelectItem>
-                      <SelectItem value="commercial">Commercial</SelectItem>
-                      <SelectItem value="industrial">Industrial</SelectItem>
-                      <SelectItem value="mixed">Mixed Use</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <Select value={propertyTypeFilter} onValueChange={setPropertyTypeFilter}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <SelectValue placeholder="Property Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="residential">Residential</SelectItem>
+                  <SelectItem value="commercial">Commercial</SelectItem>
+                  <SelectItem value="industrial">Industrial</SelectItem>
+                  <SelectItem value="mixed">Mixed Use</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="invoiced">Invoiced</SelectItem>
-                      <SelectItem value="not_invoiced">Not Invoiced</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="invoiced">Invoiced</SelectItem>
+                  <SelectItem value="not_invoiced">Not Invoiced</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  {selectedCalculations.length > 0 && (
-                    <Button variant="outline" className="gap-2 bg-transparent" onClick={handleExport}>
-                      <Download className="h-4 w-4" />
-                      Export ({selectedCalculations.length})
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              {selectedCalculations.length > 0 && (
+                <Button variant="outline" className="gap-2 bg-transparent h-9" onClick={handleExport}>
+                  <Download className="h-4 w-4" />
+                  Export ({selectedCalculations.length})
+                </Button>
+              )}
+            </div>
+          </div>
 
           {/* Tax Calculations Table */}
           <Tabs defaultValue="all" className="w-full">
