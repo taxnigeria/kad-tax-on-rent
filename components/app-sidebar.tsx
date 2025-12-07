@@ -154,20 +154,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Users & Roles",
-        url: "/dashboard/users",
+        url: "/admin/users",
         icon: Shield,
         items: [
           {
-            title: "Admin Users",
-            url: "/dashboard/users",
+            title: "Staff Users",
+            url: "/admin/users",
           },
           {
             title: "Roles & Permissions",
-            url: "/dashboard/users/roles",
+            url: "/admin/users/roles",
           },
           {
             title: "Activity Log",
-            url: "/dashboard/users/activity",
+            url: "/admin/users/activity",
           },
         ],
       },

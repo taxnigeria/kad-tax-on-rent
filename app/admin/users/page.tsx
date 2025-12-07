@@ -20,10 +20,13 @@ import {
   MoreHorizontal,
   Mail,
   Phone,
-  Building2,
   AlertTriangle,
   RefreshCw,
   UserPlus,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  MapPin,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -48,7 +51,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "sonner"
+
+const STAFF_ROLES = ["super_admin", "superadmin", "admin", "staff", "enumerator", "qa", "area_officer"]
 
 interface User {
   id: string
@@ -65,12 +80,6 @@ interface User {
   created_at: string
   last_login: string
   property_count: number
-  taxpayer_profiles?: {
-    kadirs_id: string
-    tin: string
-    business_name: string
-    is_business: boolean
-  }
 }
 
 interface FirebaseUser {
@@ -114,6 +123,16 @@ export default function AdminUsersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
 
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false)
+  const [newUserData, setNewUserData] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone_number: "",
+    role: "staff",
+  })
+  const [addingUser, setAddingUser] = useState(false)
+
   // Migration state
   const [migratingUser, setMigratingUser] = useState<string | null>(null)
 
@@ -148,7 +167,8 @@ export default function AdminUsersPage() {
         toast.error("Failed to load users")
         setUsers([])
       } else {
-        setUsers(data.users || [])
+        const staffUsers = (data.users || []).filter((u: User) => STAFF_ROLES.includes(u.role))
+        setUsers(staffUsers)
       }
     } catch (error) {
       console.error("Error in fetchUsers:", error)
@@ -198,8 +218,7 @@ export default function AdminUsersPage() {
           u.first_name?.toLowerCase().includes(query) ||
           u.last_name?.toLowerCase().includes(query) ||
           u.email?.toLowerCase().includes(query) ||
-          u.phone_number?.includes(query) ||
-          u.taxpayer_profiles?.kadirs_id?.toLowerCase().includes(query),
+          u.phone_number?.includes(query),
       )
     }
 
@@ -287,7 +306,43 @@ export default function AdminUsersPage() {
     }
   }
 
-  async function handleMigrateUser(firebaseUser: FirebaseUser, role = "taxpayer") {
+  async function handleAddUser() {
+    if (!newUserData.first_name || !newUserData.last_name || !newUserData.email) {
+      toast.error("Please fill in all required fields")
+      return
+    }
+
+    try {
+      setAddingUser(true)
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUserData),
+      })
+      const data = await response.json()
+
+      if (data.error) {
+        toast.error(data.error)
+      } else {
+        toast.success("User added successfully")
+        setIsAddUserDialogOpen(false)
+        setNewUserData({
+          first_name: "",
+          last_name: "",
+          email: "",
+          phone_number: "",
+          role: "staff",
+        })
+        fetchUsers()
+      }
+    } catch (error) {
+      toast.error("Failed to add user")
+    } finally {
+      setAddingUser(false)
+    }
+  }
+
+  async function handleMigrateUser(firebaseUser: FirebaseUser, role = "staff") {
     try {
       setMigratingUser(firebaseUser.uid)
       const response = await fetch("/api/admin/firebase-users", {
@@ -301,7 +356,6 @@ export default function AdminUsersPage() {
         toast.error(data.error)
       } else {
         toast.success("User migrated successfully")
-        // Refresh both lists
         fetchUsers()
         fetchFirebaseUsers()
       }
@@ -328,6 +382,8 @@ export default function AdminUsersPage() {
         return "secondary"
       case "enumerator":
         return "outline"
+      case "area_officer":
+        return "default"
       case "qa":
         return "secondary"
       default:
@@ -344,15 +400,14 @@ export default function AdminUsersPage() {
     })
   }
 
-  // Stats calculations
   const stats = {
     total: users.length,
     active: users.filter((u) => u.is_active).length,
     inactive: users.filter((u) => !u.is_active).length,
-    admins: users.filter((u) => ["admin", "super_admin", "superadmin", "staff"].includes(u.role)).length,
-    taxpayers: users.filter((u) => u.role === "taxpayer").length,
+    admins: users.filter((u) => ["admin", "super_admin", "superadmin"].includes(u.role)).length,
     enumerators: users.filter((u) => u.role === "enumerator").length,
-    tenants: users.filter((u) => u.role === "tenant").length,
+    areaOfficers: users.filter((u) => u.role === "area_officer").length,
+    qa: users.filter((u) => u.role === "qa").length,
   }
 
   if (authLoading || (!user && !authLoading)) {
@@ -367,656 +422,654 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader />
-        <div className="flex flex-1 flex-col p-4 md:p-6">
-          <div className="mb-4">
-            <h1 className="text-2xl font-bold">Users & Roles</h1>
-            <p className="text-sm text-muted-foreground">Manage users, roles, and permissions</p>
-          </div>
+    <TooltipProvider>
+      <SidebarProvider>
+        <AppSidebar variant="inset" />
+        <SidebarInset>
+          <SiteHeader />
+          <div className="flex flex-1 flex-col p-4 md:p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold">Staff Management</h1>
+                <p className="text-sm text-muted-foreground">Manage staff users, roles, and permissions</p>
+              </div>
+              <Button onClick={() => setIsAddUserDialogOpen(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </div>
 
-          {/* Stats Cards - Compact */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-4">
-            <Card className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Users</p>
-                  {loading ? (
-                    <Skeleton className="h-5 w-12 mt-1" />
-                  ) : (
-                    <p className="text-lg font-bold">{stats.total}</p>
-                  )}
+            {/* Stats Cards - Compact */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-4">
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Staff</p>
+                    {loading ? (
+                      <Skeleton className="h-5 w-12 mt-1" />
+                    ) : (
+                      <p className="text-lg font-bold">{stats.total}</p>
+                    )}
+                  </div>
+                  <Users className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Card>
-            <Card className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Active</p>
-                  {loading ? (
-                    <Skeleton className="h-5 w-12 mt-1" />
-                  ) : (
-                    <p className="text-lg font-bold text-green-600">{stats.active}</p>
-                  )}
-                </div>
-                <UserCheck className="h-4 w-4 text-green-600" />
-              </div>
-            </Card>
-            <Card className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Inactive</p>
-                  {loading ? (
-                    <Skeleton className="h-5 w-12 mt-1" />
-                  ) : (
-                    <p className="text-lg font-bold text-red-600">{stats.inactive}</p>
-                  )}
-                </div>
-                <UserX className="h-4 w-4 text-red-600" />
-              </div>
-            </Card>
-            <Card className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Admins</p>
-                  {loading ? (
-                    <Skeleton className="h-5 w-12 mt-1" />
-                  ) : (
-                    <p className="text-lg font-bold">{stats.admins}</p>
-                  )}
-                </div>
-                <Shield className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Card>
-            <Card className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Taxpayers</p>
-                  {loading ? (
-                    <Skeleton className="h-5 w-12 mt-1" />
-                  ) : (
-                    <p className="text-lg font-bold">{stats.taxpayers}</p>
-                  )}
-                </div>
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Card>
-            <Card className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Enumerators</p>
-                  {loading ? (
-                    <Skeleton className="h-5 w-12 mt-1" />
-                  ) : (
-                    <p className="text-lg font-bold">{stats.enumerators}</p>
-                  )}
-                </div>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Card>
-            <Card className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Tenants</p>
-                  {loading ? (
-                    <Skeleton className="h-5 w-12 mt-1" />
-                  ) : (
-                    <p className="text-lg font-bold">{stats.tenants}</p>
-                  )}
-                </div>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </Card>
-          </div>
-
-          {/* Tabs */}
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) => {
-              setActiveTab(value)
-              if (value === "migration" && firebaseUsers.length === 0 && firebaseConfigured) {
-                fetchFirebaseUsers()
-              }
-            }}
-          >
-            <TabsList>
-              <TabsTrigger value="all-users">All Users</TabsTrigger>
-              <TabsTrigger value="migration">
-                Migration
-                {firebaseUsers.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {firebaseUsers.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-
-            {/* All Users Tab */}
-            <TabsContent value="all-users" className="mt-4">
-              {/* Filters - Compact */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by name, email, phone, KADIRS ID..."
-                    className="pl-9 h-9"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-[140px] h-9">
-                    <SelectValue placeholder="All Roles" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="staff">Staff</SelectItem>
-                    <SelectItem value="taxpayer">Taxpayer</SelectItem>
-                    <SelectItem value="enumerator">Enumerator</SelectItem>
-                    <SelectItem value="tenant">Tenant</SelectItem>
-                    <SelectItem value="qa">QA</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px] h-9">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="verified">Email Verified</SelectItem>
-                    <SelectItem value="unverified">Unverified</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" className="h-9 bg-transparent">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-              </div>
-
-              {/* Users Table */}
-              <Card>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox
-                            checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
-                            onCheckedChange={(checked) => {
-                              setSelectedUsers(checked ? filteredUsers.map((u) => u.id) : [])
-                            }}
-                          />
-                        </TableHead>
-                        <TableHead>User</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Properties</TableHead>
-                        <TableHead>Joined</TableHead>
-                        <TableHead className="w-12"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loading ? (
-                        Array.from({ length: 5 }).map((_, i) => (
-                          <TableRow key={i}>
-                            <TableCell>
-                              <Skeleton className="h-4 w-4" />
-                            </TableCell>
-                            <TableCell>
-                              <Skeleton className="h-4 w-32" />
-                            </TableCell>
-                            <TableCell>
-                              <Skeleton className="h-4 w-24" />
-                            </TableCell>
-                            <TableCell>
-                              <Skeleton className="h-4 w-16" />
-                            </TableCell>
-                            <TableCell>
-                              <Skeleton className="h-4 w-16" />
-                            </TableCell>
-                            <TableCell>
-                              <Skeleton className="h-4 w-8" />
-                            </TableCell>
-                            <TableCell>
-                              <Skeleton className="h-4 w-20" />
-                            </TableCell>
-                            <TableCell>
-                              <Skeleton className="h-4 w-4" />
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : filteredUsers.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                            No users found
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredUsers.map((u) => (
-                          <TableRow
-                            key={u.id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleViewUser(u)}
-                          >
-                            <TableCell onClick={(e) => e.stopPropagation()}>
-                              <Checkbox
-                                checked={selectedUsers.includes(u.id)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedUsers(
-                                    checked ? [...selectedUsers, u.id] : selectedUsers.filter((id) => id !== u.id),
-                                  )
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">
-                                  {u.first_name} {u.last_name}
-                                </p>
-                                {u.taxpayer_profiles?.kadirs_id && (
-                                  <p className="text-xs text-muted-foreground">{u.taxpayer_profiles.kadirs_id}</p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p className="flex items-center gap-1">
-                                  <Mail className="h-3 w-3" />
-                                  {u.email || "—"}
-                                </p>
-                                <p className="flex items-center gap-1 text-muted-foreground">
-                                  <Phone className="h-3 w-3" />
-                                  {u.phone_number || "—"}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={getRoleBadgeVariant(u.role)}>{u.role?.replace("_", " ")}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-col gap-1">
-                                <Badge variant={u.is_active ? "default" : "secondary"}>
-                                  {u.is_active ? "Active" : "Inactive"}
-                                </Badge>
-                                {u.email_verified && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Verified
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>{u.property_count}</TableCell>
-                            <TableCell>{formatDate(u.created_at)}</TableCell>
-                            <TableCell onClick={(e) => e.stopPropagation()}>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleViewUser(u)}>View Details</DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleToggleStatus(u.id, u.is_active)}>
-                                    {u.is_active ? "Deactivate" : "Activate"}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => {
-                                      setUserToDelete(u)
-                                      setIsDeleteDialogOpen(true)
-                                    }}
-                                  >
-                                    Delete User
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
               </Card>
-            </TabsContent>
-
-            {/* Migration Tab */}
-            <TabsContent value="migration" className="mt-4">
-              {!firebaseConfigured ? (
-                <Card className="p-8">
-                  <div className="text-center">
-                    <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Firebase Admin Not Configured</h3>
-                    <p className="text-muted-foreground mb-4">
-                      To view Firebase users for migration, you need to configure Firebase Admin credentials.
-                    </p>
-                    <p className="text-sm text-muted-foreground">Add the following environment variables:</p>
-                    <ul className="text-sm text-muted-foreground mt-2 space-y-1">
-                      <li>
-                        <code className="bg-muted px-1 rounded">FIREBASE_CLIENT_EMAIL</code>
-                      </li>
-                      <li>
-                        <code className="bg-muted px-1 rounded">FIREBASE_PRIVATE_KEY</code>
-                      </li>
-                    </ul>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Active</p>
+                    {loading ? (
+                      <Skeleton className="h-5 w-12 mt-1" />
+                    ) : (
+                      <p className="text-lg font-bold text-green-600">{stats.active}</p>
+                    )}
                   </div>
-                </Card>
-              ) : (
-                <>
-                  {/* Migration Stats */}
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    <Card className="py-3 px-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Firebase Users</p>
-                          <p className="text-lg font-bold">{firebaseStats.total}</p>
-                        </div>
-                        <Users className="h-4 w-4 text-orange-500" />
-                      </div>
-                    </Card>
-                    <Card className="py-3 px-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Migrated</p>
-                          <p className="text-lg font-bold text-green-600">{firebaseStats.migrated}</p>
-                        </div>
-                        <UserCheck className="h-4 w-4 text-green-600" />
-                      </div>
-                    </Card>
-                    <Card className="py-3 px-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Pending</p>
-                          <p className="text-lg font-bold text-yellow-600">{firebaseUsers.length}</p>
-                        </div>
-                        <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                      </div>
-                    </Card>
+                  <UserCheck className="h-4 w-4 text-green-600" />
+                </div>
+              </Card>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Inactive</p>
+                    {loading ? (
+                      <Skeleton className="h-5 w-12 mt-1" />
+                    ) : (
+                      <p className="text-lg font-bold text-red-600">{stats.inactive}</p>
+                    )}
                   </div>
-
-                  {/* Refresh Button */}
-                  <div className="flex justify-end mb-4">
-                    <Button variant="outline" size="sm" onClick={fetchFirebaseUsers} disabled={firebaseLoading}>
-                      <RefreshCw className={`h-4 w-4 mr-2 ${firebaseLoading ? "animate-spin" : ""}`} />
-                      Refresh
-                    </Button>
+                  <UserX className="h-4 w-4 text-red-600" />
+                </div>
+              </Card>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Admins</p>
+                    {loading ? (
+                      <Skeleton className="h-5 w-12 mt-1" />
+                    ) : (
+                      <p className="text-lg font-bold">{stats.admins}</p>
+                    )}
                   </div>
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </Card>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Enumerators</p>
+                    {loading ? (
+                      <Skeleton className="h-5 w-12 mt-1" />
+                    ) : (
+                      <p className="text-lg font-bold">{stats.enumerators}</p>
+                    )}
+                  </div>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </Card>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Area Officers</p>
+                    {loading ? (
+                      <Skeleton className="h-5 w-12 mt-1" />
+                    ) : (
+                      <p className="text-lg font-bold">{stats.areaOfficers}</p>
+                    )}
+                  </div>
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </Card>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">QA</p>
+                    {loading ? <Skeleton className="h-5 w-12 mt-1" /> : <p className="text-lg font-bold">{stats.qa}</p>}
+                  </div>
+                  <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </Card>
+            </div>
 
-                  {/* Firebase Users Table */}
-                  <Card>
-                    <CardContent className="p-0">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>User</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Phone</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Created</TableHead>
-                            <TableHead>Last Sign In</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {firebaseLoading ? (
-                            Array.from({ length: 5 }).map((_, i) => (
-                              <TableRow key={i}>
-                                <TableCell>
-                                  <Skeleton className="h-4 w-32" />
-                                </TableCell>
-                                <TableCell>
-                                  <Skeleton className="h-4 w-40" />
-                                </TableCell>
-                                <TableCell>
-                                  <Skeleton className="h-4 w-24" />
-                                </TableCell>
-                                <TableCell>
-                                  <Skeleton className="h-4 w-16" />
-                                </TableCell>
-                                <TableCell>
-                                  <Skeleton className="h-4 w-20" />
-                                </TableCell>
-                                <TableCell>
-                                  <Skeleton className="h-4 w-20" />
-                                </TableCell>
-                                <TableCell>
-                                  <Skeleton className="h-4 w-24" />
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          ) : firebaseUsers.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                No pending Firebase users to migrate
+            {/* Tabs */}
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => {
+                setActiveTab(value)
+                if (value === "migration" && firebaseUsers.length === 0 && firebaseConfigured) {
+                  fetchFirebaseUsers()
+                }
+              }}
+            >
+              <TabsList>
+                <TabsTrigger value="all-users">All Staff</TabsTrigger>
+                <TabsTrigger value="migration">
+                  Migration
+                  {firebaseUsers.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {firebaseUsers.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              {/* All Users Tab */}
+              <TabsContent value="all-users" className="mt-4">
+                {/* Filters - Compact */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, email, phone..."
+                      className="pl-9 h-9"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="w-[150px] h-9">
+                      <SelectValue placeholder="All Roles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="enumerator">Enumerator</SelectItem>
+                      <SelectItem value="area_officer">Area Officer</SelectItem>
+                      <SelectItem value="qa">QA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[140px] h-9">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="unverified">Unverified</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" className="h-9 bg-transparent">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </div>
+
+                {/* Users Table */}
+                <Card>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12">
+                            <Checkbox
+                              checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                              onCheckedChange={(checked) => {
+                                setSelectedUsers(checked ? filteredUsers.map((u) => u.id) : [])
+                              }}
+                            />
+                          </TableHead>
+                          <TableHead>User</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead className="w-20 text-center">Status</TableHead>
+                          <TableHead>Joined</TableHead>
+                          <TableHead className="w-12"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {loading ? (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <TableRow key={i}>
+                              <TableCell>
+                                <Skeleton className="h-4 w-4" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="h-4 w-32" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="h-4 w-24" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="h-4 w-16" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="h-4 w-8 mx-auto" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="h-4 w-20" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="h-4 w-4" />
                               </TableCell>
                             </TableRow>
-                          ) : (
-                            firebaseUsers.map((fu) => (
-                              <TableRow key={fu.uid}>
-                                <TableCell>
-                                  <div>
-                                    <p className="font-medium">{fu.displayName || "No Name"}</p>
-                                    <p className="text-xs text-muted-foreground font-mono">{fu.uid.slice(0, 12)}...</p>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    {fu.email || "—"}
-                                    {fu.emailVerified && (
-                                      <Badge variant="outline" className="text-xs">
-                                        Verified
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>{fu.phoneNumber || "—"}</TableCell>
-                                <TableCell>
-                                  <Badge variant={fu.disabled ? "destructive" : "default"}>
-                                    {fu.disabled ? "Disabled" : "Active"}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>{formatDate(fu.creationTime)}</TableCell>
-                                <TableCell>{formatDate(fu.lastSignInTime)}</TableCell>
-                                <TableCell className="text-right">
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="outline" size="sm" disabled={migratingUser === fu.uid}>
-                                        {migratingUser === fu.uid ? (
-                                          <RefreshCw className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                          <>
-                                            <UserPlus className="h-4 w-4 mr-2" />
-                                            Migrate
-                                          </>
-                                        )}
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => handleMigrateUser(fu, "taxpayer")}>
-                                        As Taxpayer
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleMigrateUser(fu, "enumerator")}>
-                                        As Enumerator
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleMigrateUser(fu, "tenant")}>
-                                        As Tenant
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem onClick={() => handleMigrateUser(fu, "staff")}>
-                                        As Staff
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleMigrateUser(fu, "admin")}>
-                                        As Admin
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                          ))
+                        ) : filteredUsers.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                              No staff members found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredUsers.map((u) => (
+                            <TableRow
+                              key={u.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => handleViewUser(u)}
+                            >
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                  checked={selectedUsers.includes(u.id)}
+                                  onCheckedChange={(checked) => {
+                                    setSelectedUsers(
+                                      checked ? [...selectedUsers, u.id] : selectedUsers.filter((id) => id !== u.id),
+                                    )
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium">
+                                    {u.first_name} {u.last_name}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <p className="flex items-center gap-1">
+                                    <Mail className="h-3 w-3" />
+                                    {u.email || "—"}
+                                  </p>
+                                  <p className="flex items-center gap-1 text-muted-foreground">
+                                    <Phone className="h-3 w-3" />
+                                    {u.phone_number || "—"}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={getRoleBadgeVariant(u.role)}>{u.role?.replace("_", " ")}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center justify-center gap-2">
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      {u.is_active ? (
+                                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                      ) : (
+                                        <XCircle className="h-4 w-4 text-red-600" />
+                                      )}
+                                    </TooltipTrigger>
+                                    <TooltipContent>{u.is_active ? "Active" : "Inactive"}</TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      {u.email_verified ? (
+                                        <Mail className="h-4 w-4 text-blue-600" />
+                                      ) : (
+                                        <Clock className="h-4 w-4 text-yellow-600" />
+                                      )}
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {u.email_verified ? "Email Verified" : "Email Unverified"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </TableCell>
+                              <TableCell>{formatDate(u.created_at)}</TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleViewUser(u)}>View Details</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleToggleStatus(u.id, u.is_active)}>
+                                      {u.is_active ? "Deactivate" : "Activate"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-red-600"
+                                      onClick={() => {
+                                        setUserToDelete(u)
+                                        setIsDeleteDialogOpen(true)
+                                      }}
+                                    >
+                                      Delete User
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Migration Tab */}
+              <TabsContent value="migration" className="mt-4">
+                {!firebaseConfigured ? (
+                  <Card className="p-8">
+                    <div className="text-center">
+                      <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Firebase Admin Not Configured</h3>
+                      <p className="text-muted-foreground mb-4">
+                        To view Firebase users for migration, you need to configure Firebase Admin credentials.
+                      </p>
+                      <p className="text-sm text-muted-foreground">Add the following environment variables:</p>
+                      <ul className="text-sm text-muted-foreground mt-2 space-y-1">
+                        <li>
+                          <code className="bg-muted px-1 rounded">FIREBASE_CLIENT_EMAIL</code>
+                        </li>
+                        <li>
+                          <code className="bg-muted px-1 rounded">FIREBASE_PRIVATE_KEY</code>
+                        </li>
+                      </ul>
+                    </div>
+                  </Card>
+                ) : (
+                  <>
+                    {/* Migration Stats */}
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <Card className="py-3 px-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Firebase Users</p>
+                            <p className="text-lg font-bold">{firebaseStats.total}</p>
+                          </div>
+                          <Users className="h-4 w-4 text-orange-500" />
+                        </div>
+                      </Card>
+                      <Card className="py-3 px-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Migrated</p>
+                            <p className="text-lg font-bold text-green-600">{firebaseStats.migrated}</p>
+                          </div>
+                          <UserCheck className="h-4 w-4 text-green-600" />
+                        </div>
+                      </Card>
+                      <Card className="py-3 px-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Pending</p>
+                            <p className="text-lg font-bold text-yellow-600">{firebaseUsers.length}</p>
+                          </div>
+                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                        </div>
+                      </Card>
+                    </div>
+
+                    {/* Refresh Button */}
+                    <div className="flex justify-end mb-4">
+                      <Button variant="outline" size="sm" onClick={fetchFirebaseUsers} disabled={firebaseLoading}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${firebaseLoading ? "animate-spin" : ""}`} />
+                        Refresh
+                      </Button>
+                    </div>
+
+                    {/* Firebase Users Table */}
+                    <Card>
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Display Name</TableHead>
+                              <TableHead>Phone</TableHead>
+                              <TableHead>Created</TableHead>
+                              <TableHead>Last Sign In</TableHead>
+                              <TableHead className="w-32">Migrate As</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {firebaseLoading ? (
+                              Array.from({ length: 3 }).map((_, i) => (
+                                <TableRow key={i}>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-32" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-24" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-20" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-20" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-20" />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Skeleton className="h-4 w-24" />
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : firebaseUsers.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                  No pending migrations
                                 </TableCell>
                               </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
+                            ) : (
+                              firebaseUsers.map((fu) => (
+                                <TableRow key={fu.uid}>
+                                  <TableCell>{fu.email || "—"}</TableCell>
+                                  <TableCell>{fu.displayName || "—"}</TableCell>
+                                  <TableCell>{fu.phoneNumber || "—"}</TableCell>
+                                  <TableCell>{formatDate(fu.creationTime)}</TableCell>
+                                  <TableCell>{formatDate(fu.lastSignInTime)}</TableCell>
+                                  <TableCell>
+                                    <Select
+                                      defaultValue="staff"
+                                      onValueChange={(role) => handleMigrateUser(fu, role)}
+                                      disabled={migratingUser === fu.uid}
+                                    >
+                                      <SelectTrigger className="h-8 w-28">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="staff">Staff</SelectItem>
+                                        <SelectItem value="admin">Admin</SelectItem>
+                                        <SelectItem value="enumerator">Enumerator</SelectItem>
+                                        <SelectItem value="area_officer">Area Officer</SelectItem>
+                                        <SelectItem value="qa">QA</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
 
-        {/* User Details Sheet */}
-        <Sheet open={isDetailsSheetOpen} onOpenChange={setIsDetailsSheetOpen}>
-          <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-            {selectedUser && (
-              <>
-                <SheetHeader>
-                  <SheetTitle>
+      {/* User Details Sheet */}
+      <Sheet open={isDetailsSheetOpen} onOpenChange={setIsDetailsSheetOpen}>
+        <SheetContent className="sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>User Details</SheetTitle>
+            <SheetDescription>View and manage user information</SheetDescription>
+          </SheetHeader>
+          {selectedUser && (
+            <div className="mt-6 space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-muted-foreground text-xs">Full Name</Label>
+                  <p className="font-medium">
                     {selectedUser.first_name} {selectedUser.last_name}
-                  </SheetTitle>
-                  <SheetDescription>User ID: {selectedUser.id.slice(0, 8)}...</SheetDescription>
-                </SheetHeader>
-
-                <div className="mt-6 space-y-6">
-                  {/* Basic Info */}
-                  <div>
-                    <h4 className="text-sm font-medium mb-3">Basic Information</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Email</span>
-                        <span>{selectedUser.email || "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Phone</span>
-                        <span>{selectedUser.phone_number || "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">KADIRS ID</span>
-                        <span>{selectedUser.taxpayer_profiles?.kadirs_id || "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">TIN</span>
-                        <span>{selectedUser.taxpayer_profiles?.tin || "—"}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Role Management */}
-                  <div>
-                    <h4 className="text-sm font-medium mb-3">Role & Permissions</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Current Role</span>
-                        <Badge variant={getRoleBadgeVariant(selectedUser.role)}>
-                          {selectedUser.role?.replace("_", " ")}
-                        </Badge>
-                      </div>
-                      <Select
-                        value={selectedUser.role}
-                        onValueChange={(value) => handleUpdateRole(selectedUser.id, value)}
-                      >
-                        <SelectTrigger className="w-full h-9">
-                          <SelectValue placeholder="Change Role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="taxpayer">Taxpayer</SelectItem>
-                          <SelectItem value="tenant">Tenant</SelectItem>
-                          <SelectItem value="enumerator">Enumerator</SelectItem>
-                          <SelectItem value="qa">QA</SelectItem>
-                          <SelectItem value="staff">Staff</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="super_admin">Super Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <div>
-                    <h4 className="text-sm font-medium mb-3">Account Status</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Status</span>
-                        <Badge variant={selectedUser.is_active ? "default" : "secondary"}>
-                          {selectedUser.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Email Verified</span>
-                        <Badge variant={selectedUser.email_verified ? "default" : "outline"}>
-                          {selectedUser.email_verified ? "Yes" : "No"}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Properties</span>
-                        <span>{selectedUser.property_count}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Joined</span>
-                        <span>{formatDate(selectedUser.created_at)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Last Login</span>
-                        <span>{formatDate(selectedUser.last_login)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="pt-4 border-t space-y-2">
-                    <Button
-                      variant="outline"
-                      className="w-full bg-transparent"
-                      onClick={() => handleToggleStatus(selectedUser.id, selectedUser.is_active)}
-                    >
-                      {selectedUser.is_active ? "Deactivate Account" : "Activate Account"}
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      className="w-full"
-                      onClick={() => {
-                        setUserToDelete(selectedUser)
-                        setIsDeleteDialogOpen(true)
-                        setIsDetailsSheetOpen(false)
-                      }}
-                    >
-                      Delete User
-                    </Button>
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Email</Label>
+                  <p className="font-medium">{selectedUser.email || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Phone</Label>
+                  <p className="font-medium">{selectedUser.phone_number || "—"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Role</Label>
+                  <Select value={selectedUser.role} onValueChange={(value) => handleUpdateRole(selectedUser.id, value)}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="enumerator">Enumerator</SelectItem>
+                      <SelectItem value="area_officer">Area Officer</SelectItem>
+                      <SelectItem value="qa">QA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Status</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant={selectedUser.is_active ? "default" : "secondary"}>
+                      {selectedUser.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                    {selectedUser.email_verified && <Badge variant="outline">Email Verified</Badge>}
                   </div>
                 </div>
-              </>
-            )}
-          </SheetContent>
-        </Sheet>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Joined</Label>
+                  <p className="font-medium">{formatDate(selectedUser.created_at)}</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => handleToggleStatus(selectedUser.id, selectedUser.is_active)}>
+                  {selectedUser.is_active ? "Deactivate User" : "Activate User"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setUserToDelete(selectedUser)
+                    setIsDeleteDialogOpen(true)
+                    setIsDetailsSheetOpen(false)
+                  }}
+                >
+                  Delete User
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete User</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete {userToDelete?.first_name} {userToDelete?.last_name}? This will
-                deactivate their account. This action can be reversed by an admin.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700">
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </SidebarInset>
-    </SidebarProvider>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will deactivate the user account for {userToDelete?.first_name} {userToDelete?.last_name}. The user
+              will no longer be able to access the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700">
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Staff User</DialogTitle>
+            <DialogDescription>
+              Create a new staff account. They will receive an email to set their password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">First Name *</Label>
+                <Input
+                  id="first_name"
+                  value={newUserData.first_name}
+                  onChange={(e) => setNewUserData({ ...newUserData, first_name: e.target.value })}
+                  placeholder="John"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Last Name *</Label>
+                <Input
+                  id="last_name"
+                  value={newUserData.last_name}
+                  onChange={(e) => setNewUserData({ ...newUserData, last_name: e.target.value })}
+                  placeholder="Doe"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newUserData.email}
+                onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                placeholder="john.doe@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                value={newUserData.phone_number}
+                onChange={(e) => setNewUserData({ ...newUserData, phone_number: e.target.value })}
+                placeholder="08012345678"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Role *</Label>
+              <Select
+                value={newUserData.role}
+                onValueChange={(value) => setNewUserData({ ...newUserData, role: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="enumerator">Enumerator</SelectItem>
+                  <SelectItem value="area_officer">Area Officer</SelectItem>
+                  <SelectItem value="qa">QA</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddUserDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddUser} disabled={addingUser}>
+              {addingUser ? "Adding..." : "Add User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </TooltipProvider>
   )
 }

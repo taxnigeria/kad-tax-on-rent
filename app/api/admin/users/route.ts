@@ -1,23 +1,16 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
+const STAFF_ROLES = ["super_admin", "superadmin", "admin", "staff", "enumerator", "qa", "area_officer"]
+
 export async function GET() {
   const supabase = await createClient()
 
   try {
-    // Fetch all users with their profiles
     const { data: users, error } = await supabase
       .from("users")
-      .select(`
-        *,
-        taxpayer_profiles (
-          kadirs_id,
-          tin,
-          business_name,
-          is_business,
-          area_office_id
-        )
-      `)
+      .select("*")
+      .in("role", STAFF_ROLES)
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -25,23 +18,55 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Get property counts per user
-    const { data: propertyCounts } = await supabase.from("properties").select("owner_id")
+    return NextResponse.json({ users })
+  } catch (error) {
+    console.error("[API] Unexpected error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
 
-    const propertyCountMap: Record<string, number> = {}
-    propertyCounts?.forEach((p) => {
-      if (p.owner_id) {
-        propertyCountMap[p.owner_id] = (propertyCountMap[p.owner_id] || 0) + 1
-      }
-    })
+export async function POST(request: Request) {
+  const supabase = await createClient()
 
-    // Enhance users with property counts
-    const enhancedUsers = users?.map((user) => ({
-      ...user,
-      property_count: propertyCountMap[user.id] || 0,
-    }))
+  try {
+    const { first_name, last_name, email, phone_number, role } = await request.json()
 
-    return NextResponse.json({ users: enhancedUsers })
+    if (!first_name || !last_name || !email || !role) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    if (!STAFF_ROLES.includes(role)) {
+      return NextResponse.json({ error: "Invalid role for staff user" }, { status: 400 })
+    }
+
+    // Check if email already exists
+    const { data: existingUser } = await supabase.from("users").select("id").eq("email", email).single()
+
+    if (existingUser) {
+      return NextResponse.json({ error: "User with this email already exists" }, { status: 400 })
+    }
+
+    // Create user in Supabase
+    const { data, error } = await supabase
+      .from("users")
+      .insert({
+        first_name,
+        last_name,
+        email,
+        phone_number,
+        role,
+        is_active: true,
+        email_verified: false,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("[API] Error creating user:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ user: data })
   } catch (error) {
     console.error("[API] Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -56,6 +81,10 @@ export async function PUT(request: Request) {
 
     if (!userId || !updates) {
       return NextResponse.json({ error: "Missing userId or updates" }, { status: 400 })
+    }
+
+    if (updates.role && !STAFF_ROLES.includes(updates.role)) {
+      return NextResponse.json({ error: "Invalid role for staff user" }, { status: 400 })
     }
 
     const { data, error } = await supabase.from("users").update(updates).eq("id", userId).select().single()
