@@ -7,7 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Building2, Plus, Search, Filter, Download, CheckCircle, Clock, Home } from "lucide-react"
@@ -235,132 +235,118 @@ export default function AdminPropertiesPage() {
 
           {/* Stats Grid */}
           {loading ? (
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-4">
               {[...Array(4)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-4 rounded" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-8 w-32 mb-2" />
-                    <Skeleton className="h-3 w-24" />
-                  </CardContent>
+                <Card key={i} className="py-3 px-4">
+                  <Skeleton className="h-4 w-20 mb-2" />
+                  <Skeleton className="h-5 w-16" />
                 </Card>
               ))}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-semibold">Total Properties</CardTitle>
-                  <Building2 className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="text-3xl font-bold">{stats.total}</div>
-                  <p className="text-sm text-muted-foreground">Registered properties</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-semibold">Verified Properties</CardTitle>
-                  <CheckCircle className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="text-3xl font-bold">{stats.verified}</div>
-                  <p className="text-sm text-muted-foreground">Approved properties</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-semibold">Pending Verification</CardTitle>
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="text-3xl font-bold">{stats.pending}</div>
-                  <p className="text-sm text-muted-foreground">Awaiting review</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-semibold">Total Annual Rent</CardTitle>
-                  <Home className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="text-3xl font-bold">
-                    ₦{stats.totalRent.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+            <div className="grid gap-3 md:grid-cols-4">
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Total Properties</p>
+                    <p className="text-lg font-bold">{stats.total}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">Combined annual rent</p>
-                </CardContent>
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </Card>
+
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Verified</p>
+                    <p className="text-lg font-bold text-green-600">{stats.verified}</p>
+                  </div>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                </div>
+              </Card>
+
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Pending</p>
+                    <p className="text-lg font-bold text-yellow-600">{stats.pending}</p>
+                  </div>
+                  <Clock className="h-4 w-4 text-yellow-500" />
+                </div>
+              </Card>
+
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Total Annual Rent</p>
+                    <p className="text-lg font-bold">
+                      ₦{stats.totalRent.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                  <Home className="h-4 w-4 text-muted-foreground" />
+                </div>
               </Card>
             </div>
           )}
 
           {/* Filters */}
-          <Card>
-            <CardContent className="pt-3">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by property name, reference, owner, or address..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Select value={propertyTypeFilter} onValueChange={setPropertyTypeFilter}>
-                    <SelectTrigger className="w-[160px]">
-                      <Filter className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Property Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="residential">Residential</SelectItem>
-                      <SelectItem value="commercial">Commercial</SelectItem>
-                      <SelectItem value="industrial">Industrial</SelectItem>
-                      <SelectItem value="mixed">Mixed Use</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by property name, reference, owner, or address..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Select value={propertyTypeFilter} onValueChange={setPropertyTypeFilter}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="residential">Residential</SelectItem>
+                  <SelectItem value="commercial">Commercial</SelectItem>
+                  <SelectItem value="industrial">Industrial</SelectItem>
+                  <SelectItem value="mixed">Mixed Use</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  <Select value={verificationStatusFilter} onValueChange={setVerificationStatusFilter}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Verification" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Verification</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                      <SelectItem value="needs_info">Needs Info</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <Select value={verificationStatusFilter} onValueChange={setVerificationStatusFilter}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <SelectValue placeholder="Verification" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Verification</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="needs_info">Needs Info</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[120px] h-9">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  {selectedProperties.length > 0 && (
-                    <Button variant="outline" className="gap-2 bg-transparent" onClick={handleExport}>
-                      <Download className="h-4 w-4" />
-                      Export ({selectedProperties.length})
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              {selectedProperties.length > 0 && (
+                <Button variant="outline" size="sm" className="gap-2 h-9 bg-transparent" onClick={handleExport}>
+                  <Download className="h-4 w-4" />
+                  Export ({selectedProperties.length})
+                </Button>
+              )}
+            </div>
+          </div>
 
           {/* Properties Table */}
           <Card>

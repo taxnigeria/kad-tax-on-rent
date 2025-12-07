@@ -7,7 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Receipt, Search, Filter, Download, DollarSign, CheckCircle2, Clock } from "lucide-react"
@@ -277,120 +277,106 @@ export default function AdminPaymentsPage() {
 
           {/* Stats Grid */}
           {loading ? (
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-4">
               {[...Array(4)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-4 rounded" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-8 w-32 mb-2" />
-                    <Skeleton className="h-3 w-24" />
-                  </CardContent>
+                <Card key={i} className="py-3 px-4">
+                  <Skeleton className="h-4 w-20 mb-2" />
+                  <Skeleton className="h-5 w-16" />
                 </Card>
               ))}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
-                  <Receipt className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.total}</div>
-                  <p className="text-xs text-muted-foreground mt-1">All transactions</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
-                  <DollarSign className="h-4 w-4 text-blue-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    ₦{stats.totalAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+            <div className="grid gap-3 md:grid-cols-4">
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Total Payments</p>
+                    <p className="text-lg font-bold">{stats.total}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Total received</p>
-                </CardContent>
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                </div>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Verified</CardTitle>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Total Amount</p>
+                    <p className="text-lg font-bold text-blue-600">
+                      ₦{stats.totalAmount.toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                  <DollarSign className="h-4 w-4 text-blue-500" />
+                </div>
+              </Card>
+
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Verified</p>
+                    <p className="text-lg font-bold text-green-600">{stats.verified}</p>
+                  </div>
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.verified}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Confirmed payments</p>
-                </CardContent>
+                </div>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Pending</CardTitle>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Pending</p>
+                    <p className="text-lg font-bold text-yellow-600">{stats.pending}</p>
+                  </div>
                   <Clock className="h-4 w-4 text-yellow-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.pending}</div>
-                  <p className="text-xs text-muted-foreground mt-1">Awaiting verification</p>
-                </CardContent>
+                </div>
               </Card>
             </div>
           )}
 
           {/* Filters */}
-          <Card>
-            <CardContent className="pt-3">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by receipt, transaction ID, invoice, property, or taxpayer..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[160px]">
-                      <Filter className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="verified">Verified</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by receipt, transaction ID, invoice, property, or taxpayer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  <Select value={methodFilter} onValueChange={setMethodFilter}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="Payment Method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Methods</SelectItem>
-                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="card">Card</SelectItem>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="pos">POS</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <Select value={methodFilter} onValueChange={setMethodFilter}>
+                <SelectTrigger className="w-[150px] h-9">
+                  <SelectValue placeholder="Method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Methods</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="pos">POS</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  {selectedPayments.length > 0 && (
-                    <Button variant="outline" className="gap-2 bg-transparent" onClick={handleExport}>
-                      <Download className="h-4 w-4" />
-                      Export ({selectedPayments.length})
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              {selectedPayments.length > 0 && (
+                <Button variant="outline" size="sm" className="gap-2 h-9 bg-transparent" onClick={handleExport}>
+                  <Download className="h-4 w-4" />
+                  Export ({selectedPayments.length})
+                </Button>
+              )}
+            </div>
+          </div>
 
           {/* Payments Table */}
           <Card>

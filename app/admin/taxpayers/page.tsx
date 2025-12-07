@@ -7,7 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Users, UserPlus, AlertCircle, UserCheck, Search, Filter, Download } from "lucide-react"
@@ -168,115 +168,101 @@ export default function AdminTaxpayersPage() {
 
           {/* Stats Grid */}
           {loading ? (
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-4">
               {[...Array(4)].map((_, i) => (
-                <Card key={i}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-4 rounded" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-8 w-32 mb-2" />
-                    <Skeleton className="h-3 w-24" />
-                  </CardContent>
+                <Card key={i} className="py-3 px-4">
+                  <Skeleton className="h-4 w-20 mb-2" />
+                  <Skeleton className="h-5 w-16" />
                 </Card>
               ))}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-semibold">Total Taxpayers</CardTitle>
-                  <Users className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="text-3xl font-bold">{stats.total}</div>
-                  <p className="text-sm text-muted-foreground">Registered accounts</p>
-                </CardContent>
+            <div className="grid gap-3 md:grid-cols-4">
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Total Taxpayers</p>
+                    <p className="text-lg font-bold">{stats.total}</p>
+                  </div>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </div>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-semibold">Active</CardTitle>
-                  <UserCheck className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="text-3xl font-bold">{stats.active}</div>
-                  <p className="text-sm text-muted-foreground">Active accounts</p>
-                </CardContent>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Active</p>
+                    <p className="text-lg font-bold text-green-600">{stats.active}</p>
+                  </div>
+                  <UserCheck className="h-4 w-4 text-green-500" />
+                </div>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-semibold">Inactive</CardTitle>
-                  <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="text-3xl font-bold">{stats.inactive}</div>
-                  <p className="text-sm text-muted-foreground">Inactive accounts</p>
-                </CardContent>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Inactive</p>
+                    <p className="text-lg font-bold text-red-600">{stats.inactive}</p>
+                  </div>
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                </div>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-base font-semibold">New This Month</CardTitle>
-                  <UserPlus className="h-5 w-5 text-muted-foreground" />
-                </CardHeader>
-                <CardContent className="space-y-1">
-                  <div className="text-3xl font-bold">{stats.newThisMonth}</div>
-                  <p className="text-sm text-muted-foreground">Recent registrations</p>
-                </CardContent>
+              <Card className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">New This Month</p>
+                    <p className="text-lg font-bold text-blue-600">{stats.newThisMonth}</p>
+                  </div>
+                  <UserPlus className="h-4 w-4 text-blue-500" />
+                </div>
               </Card>
             </div>
           )}
 
           {/* Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by name, email, TIN, or KADIRS ID..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[140px]">
-                      <Filter className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, TIN, or KADIRS ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="taxpayer">Taxpayer</SelectItem>
-                      <SelectItem value="property_manager">Property Manager</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-[150px] h-9">
+                  <SelectValue placeholder="Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="taxpayer">Taxpayer</SelectItem>
+                  <SelectItem value="property_manager">Property Manager</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  {selectedTaxpayers.length > 0 && (
-                    <Button variant="outline" className="gap-2 bg-transparent" onClick={handleExport}>
-                      <Download className="h-4 w-4" />
-                      Export ({selectedTaxpayers.length})
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              {selectedTaxpayers.length > 0 && (
+                <Button variant="outline" size="sm" className="gap-2 h-9 bg-transparent" onClick={handleExport}>
+                  <Download className="h-4 w-4" />
+                  Export ({selectedTaxpayers.length})
+                </Button>
+              )}
+            </div>
+          </div>
 
           {/* Taxpayers Table */}
           <Card>
@@ -428,44 +414,39 @@ export default function AdminTaxpayersPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage(1)}
-                          disabled={currentPage === 1}
-                        >
-                          First
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                          disabled={currentPage === 1}
-                        >
-                          Previous
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                          disabled={currentPage === totalPages}
-                        >
-                          Next
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage(totalPages)}
-                          disabled={currentPage === totalPages}
-                        >
-                          Last
-                        </Button>
-                      </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                      >
+                        First
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Last
+                      </Button>
                     </div>
                   </div>
                 </div>
