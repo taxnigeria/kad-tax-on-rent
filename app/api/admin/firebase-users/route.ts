@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { listFirebaseUsers, getFirestoreUserRoles } from "@/lib/firebase-admin"
+import { listFirebaseUsers, getFirestoreUserData } from "@/lib/firebase-admin"
 import { NextResponse } from "next/server"
 
 const EXCLUDED_ROLES = ["taxpayer", "tenant", "property_manager"]
@@ -20,7 +20,7 @@ export async function GET() {
       })
     }
 
-    const firestoreRoles = await getFirestoreUserRoles()
+    const firestoreUserData = await getFirestoreUserData()
 
     // Get all Supabase users with firebase_uid
     const { data: supabaseUsers, error: supabaseError } = await supabase.from("users").select("firebase_uid")
@@ -38,7 +38,8 @@ export async function GET() {
       // Skip if already in Supabase
       if (supabaseFirebaseUids.has(user.uid)) return false
 
-      const firestoreRole = firestoreRoles.get(user.uid)
+      const firestoreData = firestoreUserData.get(user.uid)
+      const firestoreRole = firestoreData?.role
       const customClaimsRole = user.customClaims?.role as string | undefined
       const userRole = firestoreRole || customClaimsRole
 
@@ -50,7 +51,8 @@ export async function GET() {
     })
 
     const staffFirebaseUsers = firebaseUsers.filter((u) => {
-      const firestoreRole = firestoreRoles.get(u.uid)
+      const firestoreData = firestoreUserData.get(u.uid)
+      const firestoreRole = firestoreData?.role
       const customClaimsRole = u.customClaims?.role as string | undefined
       const role = firestoreRole || customClaimsRole
       return !role || !EXCLUDED_ROLES.includes(role.toLowerCase())
@@ -59,17 +61,21 @@ export async function GET() {
     return NextResponse.json({
       firebaseConfigured: true,
       users: unmigrated.map((user) => {
-        const firestoreRole = firestoreRoles.get(user.uid)
+        const firestoreData = firestoreUserData.get(user.uid)
+        const firestoreRole = firestoreData?.role
         const customClaimsRole = user.customClaims?.role as string | undefined
         return {
           uid: user.uid,
           email: user.email,
-          displayName: user.displayName,
-          phoneNumber: user.phoneNumber,
+          // Prefer Firestore displayName, fallback to Firebase Auth displayName
+          displayName: firestoreData?.displayName || user.displayName,
+          // Prefer Firestore phone, fallback to Firebase Auth phoneNumber
+          phoneNumber: firestoreData?.phone || user.phoneNumber,
           emailVerified: user.emailVerified,
           disabled: user.disabled,
           role: firestoreRole || customClaimsRole || null,
-          createdAt: user.creationTime,
+          // Prefer Firestore created_time, fallback to Firebase Auth creationTime
+          createdAt: firestoreData?.createdTime || user.creationTime,
           lastSignIn: user.lastSignInTime,
         }
       }),
@@ -82,7 +88,6 @@ export async function GET() {
   }
 }
 
-// Migrate a Firebase user to Supabase
 export async function POST(request: Request) {
   const supabase = await createClient()
 
@@ -98,7 +103,8 @@ export async function POST(request: Request) {
     }
 
     // Parse display name into first/last name
-    const nameParts = (firebaseUser.displayName || "").split(" ")
+    const displayName = firebaseUser.displayName || ""
+    const nameParts = displayName.split(" ")
     const firstName = nameParts[0] || ""
     const lastName = nameParts.slice(1).join(" ") || ""
 

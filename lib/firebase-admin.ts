@@ -42,26 +42,61 @@ function getFirebaseAdmin() {
   }
 }
 
-export async function getFirestoreUserRoles(): Promise<Map<string, string | null>> {
+export interface FirestoreUserData {
+  role: string | null
+  displayName: string | null
+  phone: string | null
+  createdTime: string | null
+}
+
+export async function getFirestoreUserData(): Promise<Map<string, FirestoreUserData>> {
   const { firestore } = getFirebaseAdmin()
-  const rolesMap = new Map<string, string | null>()
+  const usersMap = new Map<string, FirestoreUserData>()
 
   if (!firestore) {
-    return rolesMap
+    return usersMap
   }
 
   try {
     const usersSnapshot = await firestore.collection("users").get()
     usersSnapshot.forEach((doc) => {
       const data = doc.data()
-      // The document ID is typically the user's UID
-      rolesMap.set(doc.id, data.role || null)
+
+      // Display name: display_name OR firstname + lastname
+      let displayName: string | null = null
+      if (data.display_name) {
+        displayName = data.display_name
+      } else if (data.firstname || data.lastname) {
+        displayName = [data.firstname, data.lastname].filter(Boolean).join(" ")
+      }
+
+      // Phone: phone_number OR phoneNumber OR phone
+      const phone = data.phone_number || data.phoneNumber || data.phone || null
+
+      // Created: created_time
+      const createdTime = data.created_time || null
+
+      usersMap.set(doc.id, {
+        role: data.role || null,
+        displayName,
+        phone,
+        createdTime,
+      })
     })
-    return rolesMap
+    return usersMap
   } catch (error) {
     console.error("[Firebase Admin] Error fetching Firestore users:", error)
-    return rolesMap
+    return usersMap
   }
+}
+
+export async function getFirestoreUserRoles(): Promise<Map<string, string | null>> {
+  const userData = await getFirestoreUserData()
+  const rolesMap = new Map<string, string | null>()
+  userData.forEach((data, uid) => {
+    rolesMap.set(uid, data.role)
+  })
+  return rolesMap
 }
 
 export async function listFirebaseUsers(maxResults = 1000) {
