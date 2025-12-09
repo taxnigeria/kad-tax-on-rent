@@ -14,6 +14,7 @@ import {
   Settings,
   HelpCircle,
   LogOut,
+  MapPin,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -168,6 +169,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {
             title: "Activity Log",
             url: "/admin/users/activity",
+          },
+        ],
+      },
+      {
+        title: "Locations",
+        url: "/admin/locations",
+        icon: MapPin,
+        items: [
+          {
+            title: "Area Offices",
+            url: "/admin/locations?tab=area-offices",
+          },
+          {
+            title: "LGAs",
+            url: "/admin/locations?tab=lgas",
+          },
+          {
+            title: "Cities",
+            url: "/admin/locations?tab=cities",
           },
         ],
       },
