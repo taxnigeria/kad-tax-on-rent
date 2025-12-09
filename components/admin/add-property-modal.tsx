@@ -52,8 +52,7 @@ type City = {
   id: string
   name: string
   lga_id: string
-  area_office_id: string
-  state: string
+  area_office_id: string | null
 }
 
 type LGA = {
@@ -67,6 +66,7 @@ type AreaOffice = {
   id: string
   office_name: string
   office_code: string
+  lga_id: string
 }
 
 export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyModalProps) {
@@ -132,19 +132,23 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
   )
 
   useEffect(() => {
-    async function fetchLocationData() {
-      const [citiesRes, lgasRes, officesRes] = await Promise.all([
-        supabase.from("cities").select("*").order("name"),
-        supabase.from("lgas").select("*").order("name"),
-        supabase.from("area_offices").select("id, office_name, office_code").eq("is_active", true).order("office_name"),
+    async function fetchData() {
+      const supabaseClient = supabase
+      const [citiesRes, lgasRes, areaOfficesRes] = await Promise.all([
+        supabaseClient.from("cities").select("id, name, lga_id, area_office_id").order("name"),
+        supabaseClient.from("lgas").select("id, name").order("name"),
+        supabaseClient.from("area_offices").select("id, office_name, office_code, lga_id").order("office_name"),
       ])
 
-      if (!citiesRes.error) setCities(citiesRes.data || [])
-      if (!lgasRes.error) setLgas(lgasRes.data || [])
-      if (!officesRes.error) setAreaOffices(officesRes.data || [])
+      if (citiesRes.data) setCities(citiesRes.data)
+      if (lgasRes.data) setLgas(lgasRes.data)
+      if (areaOfficesRes.data) setAreaOffices(areaOfficesRes.data)
     }
-    fetchLocationData()
-  }, [])
+
+    if (open) {
+      fetchData()
+    }
+  }, [open])
 
   useEffect(() => {
     async function fetchDefaultState() {
@@ -291,7 +295,10 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
 
     const cityLga = lgas.find((l) => l.id === selectedCity.lga_id)
 
-    const cityAreaOffice = areaOffices.find((a) => a.lga_id === selectedCity.lga_id)
+    // Area office is now directly on the city
+    const cityAreaOffice = selectedCity.area_office_id
+      ? areaOffices.find((a) => a.id === selectedCity.area_office_id)
+      : null
 
     setFormData({
       ...formData,

@@ -92,6 +92,8 @@ interface City {
   state: string
   lga_id: string
   lga_name?: string
+  area_office_id?: string
+  area_office_name?: string
   created_at: string
   properties_count?: number
 }
@@ -150,7 +152,7 @@ export default function LocationsPage() {
     lga_id: "",
   })
   const [lgaForm, setLgaForm] = useState({ name: "", state: "Kaduna" })
-  const [cityForm, setCityForm] = useState({ name: "", state: "Kaduna", lga_id: "" })
+  const [cityForm, setCityForm] = useState({ name: "", lga_id: "", area_office_id: "", state: "Kaduna" })
 
   // Related data for side panels
   const [lgaAreaOffices, setLgaAreaOffices] = useState<AreaOffice[]>([]) // Area offices for an LGA
@@ -229,17 +231,25 @@ export default function LocationsPage() {
   const fetchCities = async () => {
     setCitiesLoading(true)
     try {
-      const { data, error } = await supabase.from("cities").select(`*, lgas(name)`).order("name")
+      const { data, error } = await supabase
+        .from("cities")
+        .select(`
+          *,
+          lgas(name),
+          area_offices(office_name)
+        `)
+        .order("name")
 
       if (error) throw error
 
       // Get property counts per city
       const { data: addresses } = await supabase.from("addresses").select("id, city")
 
-      const citiesWithCounts = (data || []).map((city) => ({
-        ...city,
-        lga_name: city.lgas?.name,
-        properties_count: addresses?.filter((a) => a.city?.toLowerCase() === city.name?.toLowerCase()).length || 0,
+      const citiesWithCounts = (data || []).map((c: any) => ({
+        ...c,
+        lga_name: c.lgas?.name,
+        area_office_name: c.area_offices?.office_name,
+        properties_count: addresses?.filter((a) => a.city?.toLowerCase() === c.name?.toLowerCase()).length || 0,
       }))
 
       setCities(citiesWithCounts)
@@ -406,8 +416,9 @@ export default function LocationsPage() {
     try {
       const payload = {
         name: cityForm.name,
-        state: cityForm.state,
         lga_id: cityForm.lga_id,
+        area_office_id: cityForm.area_office_id || null,
+        state: cityForm.state,
       }
 
       if (editMode && selectedCity) {
@@ -422,8 +433,9 @@ export default function LocationsPage() {
 
       setAddCityOpen(false)
       setEditMode(false)
-      setCityForm({ name: "", state: "Kaduna", lga_id: "" })
+      setCityForm({ name: "", lga_id: "", area_office_id: "", state: "Kaduna" })
       fetchCities()
+      fetchAreaOffices() // Refresh area office city counts
     } catch (error) {
       console.error("Error saving city:", error)
       toast.error("Failed to save city")
@@ -977,7 +989,7 @@ export default function LocationsPage() {
                   size="sm"
                   onClick={() => {
                     setEditMode(false)
-                    setCityForm({ name: "", state: "Kaduna", lga_id: "" })
+                    setCityForm({ name: "", lga_id: "", area_office_id: "", state: "Kaduna" })
                     setAddCityOpen(true)
                   }}
                 >
@@ -1040,8 +1052,9 @@ export default function LocationsPage() {
                                     setSelectedCity(city)
                                     setCityForm({
                                       name: city.name,
-                                      state: city.state,
                                       lga_id: city.lga_id,
+                                      area_office_id: city.area_office_id || "",
+                                      state: city.state,
                                     })
                                     setAddCityOpen(true)
                                   }}
@@ -1378,7 +1391,7 @@ export default function LocationsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Add/Edit City Dialog - Removed area office selector */}
+        {/* Add/Edit City Dialog - Added area office selector */}
         <Dialog open={addCityOpen} onOpenChange={setAddCityOpen}>
           <DialogContent>
             <DialogHeader>
@@ -1398,7 +1411,9 @@ export default function LocationsPage() {
                 <Label>LGA</Label>
                 <Select
                   value={cityForm.lga_id || "none"}
-                  onValueChange={(val) => setCityForm({ ...cityForm, lga_id: val === "none" ? "" : val })}
+                  onValueChange={(val) =>
+                    setCityForm({ ...cityForm, lga_id: val === "none" ? "" : val, area_office_id: "" })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select LGA" />
@@ -1410,6 +1425,28 @@ export default function LocationsPage() {
                         {lga.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Area Office</Label>
+                <Select
+                  value={cityForm.area_office_id || "none"}
+                  onValueChange={(val) => setCityForm({ ...cityForm, area_office_id: val === "none" ? "" : val })}
+                  disabled={!cityForm.lga_id}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={cityForm.lga_id ? "Select Area Office" : "Select LGA first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select an Area Office</SelectItem>
+                    {areaOffices
+                      .filter((ao) => ao.lga_id === cityForm.lga_id)
+                      .map((ao) => (
+                        <SelectItem key={ao.id} value={ao.id}>
+                          {ao.office_name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

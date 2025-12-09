@@ -191,7 +191,7 @@ export function RegisterPropertyModal({
       console.log("[v0] Fetching location data...")
 
       const [citiesRes, lgasRes, officesRes] = await Promise.all([
-        supabase.from("cities").select("id, name, lga_id").order("name"),
+        supabase.from("cities").select("id, name, lga_id, area_office_id").order("name"),
         supabase.from("lgas").select("id, name, lga_id").order("name"),
         supabase.from("area_offices").select("id, office_name, area_office_id, lga_id").order("office_name"),
       ])
@@ -231,7 +231,7 @@ export function RegisterPropertyModal({
     const city = cities.find((c) => c.id === cityId)
     if (city) {
       const lga = lgas.find((l) => l.id === city.lga_id)
-      const areaOffice = areaOffices.find((a) => a.lga_id === city.lga_id)
+      const cityAreaOffice = city.area_office_id ? areaOffices.find((a) => a.id === city.area_office_id) : null
 
       setFormData({
         ...formData,
@@ -239,8 +239,8 @@ export function RegisterPropertyModal({
         cityName: city.name,
         lgaId: city.lga_id?.toString() || "",
         lgaName: lga?.name || "",
-        areaOfficeId: areaOffice?.id?.toString() || "",
-        areaOfficeName: areaOffice?.office_name || "",
+        areaOfficeId: cityAreaOffice?.id?.toString() || "",
+        areaOfficeName: cityAreaOffice?.office_name || "",
       })
       setCityDialogOpen(false)
       setCitySearchQuery("")
