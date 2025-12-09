@@ -70,8 +70,9 @@ interface AreaOffice {
   phone_number?: string
   email?: string
   is_active: boolean
+  lga_id?: string // Area office now belongs to one LGA
+  lga_name?: string
   created_at: string
-  lgas_count?: number
   cities_count?: number
 }
 
@@ -80,10 +81,9 @@ interface LGA {
   lga_id?: string
   name: string
   state: string
-  area_office_id?: string
-  area_office_name?: string
   created_at: string
   cities_count?: number
+  area_offices_count?: number // Count of area offices in this LGA
 }
 
 interface City {
@@ -92,8 +92,6 @@ interface City {
   state: string
   lga_id: string
   lga_name?: string
-  area_office_id: string
-  area_office_name?: string
   created_at: string
   properties_count?: number
 }
@@ -111,6 +109,7 @@ export default function LocationsPage() {
   const [areaOfficesLoading, setAreaOfficesLoading] = useState(true)
   const [areaOfficeSearch, setAreaOfficeSearch] = useState("")
   const [areaOfficePage, setAreaOfficePage] = useState(1)
+  const [areaOfficeLgaFilter, setAreaOfficeLgaFilter] = useState("all") // Filter offices by LGA
   const [selectedAreaOffice, setSelectedAreaOffice] = useState<AreaOffice | null>(null)
   const [areaOfficeSheetOpen, setAreaOfficeSheetOpen] = useState(false)
 
@@ -119,7 +118,6 @@ export default function LocationsPage() {
   const [lgasLoading, setLgasLoading] = useState(true)
   const [lgaSearch, setLgaSearch] = useState("")
   const [lgaPage, setLgaPage] = useState(1)
-  const [lgaAreaOfficeFilter, setLgaAreaOfficeFilter] = useState("all")
   const [selectedLga, setSelectedLga] = useState<LGA | null>(null)
   const [lgaSheetOpen, setLgaSheetOpen] = useState(false)
 
@@ -149,34 +147,42 @@ export default function LocationsPage() {
     address: "",
     phone_number: "",
     email: "",
+    lga_id: "",
   })
-  const [lgaForm, setLgaForm] = useState({ name: "", state: "Kaduna", area_office_id: "" })
-  const [cityForm, setCityForm] = useState({ name: "", state: "Kaduna", lga_id: "", area_office_id: "" })
+  const [lgaForm, setLgaForm] = useState({ name: "", state: "Kaduna" })
+  const [cityForm, setCityForm] = useState({ name: "", state: "Kaduna", lga_id: "" })
 
   // Related data for side panels
-  const [areaOfficeLgas, setAreaOfficeLgas] = useState<LGA[]>([])
+  const [lgaAreaOffices, setLgaAreaOffices] = useState<AreaOffice[]>([]) // Area offices for an LGA
   const [lgaCities, setLgaCities] = useState<City[]>([])
 
   // Fetch Area Offices
   const fetchAreaOffices = async () => {
     setAreaOfficesLoading(true)
     try {
-      const { data: offices, error } = await supabase.from("area_offices").select("*").order("office_name")
+      const { data: offices, error } = await supabase.from("area_offices").select(`*, lgas(name)`).order("office_name")
 
       if (error) throw error
 
-      // Get LGA counts per area office
-      const { data: lgaCounts } = await supabase.from("lgas").select("area_office_id")
-
-      // Get city counts per area office
-      const { data: cityCounts } = await supabase.from("cities").select("area_office_id")
-
-      const officesWithCounts = (offices || []).map((office) => ({
-        ...office,
-        is_active: office.is_active ?? true,
-        lgas_count: lgaCounts?.filter((l) => l.area_office_id === office.id).length || 0,
-        cities_count: cityCounts?.filter((c) => c.area_office_id === office.id).length || 0,
-      }))
+      // Get city counts per area office via LGA
+      const officesWithCounts = await Promise.all(
+        (offices || []).map(async (office) => {
+          let citiesCount = 0
+          if (office.lga_id) {
+            const { count } = await supabase
+              .from("cities")
+              .select("*", { count: "exact", head: true })
+              .eq("lga_id", office.lga_id)
+            citiesCount = count || 0
+          }
+          return {
+            ...office,
+            is_active: office.is_active ?? true,
+            lga_name: office.lgas?.name,
+            cities_count: citiesCount,
+          }
+        }),
+      )
 
       setAreaOffices(officesWithCounts)
     } catch (error) {
@@ -191,24 +197,24 @@ export default function LocationsPage() {
   const fetchLgas = async () => {
     setLgasLoading(true)
     try {
-      const { data, error } = await supabase
-        .from("lgas")
-        .select(`
-          *,
-          area_offices(office_name)
-        `)
-        .order("name")
+      const { data, error } = await supabase.from("lgas").select(`*`).order("name")
 
       if (error) throw error
 
-      // Get city counts per LGA
-      const { data: cityCounts } = await supabase.from("cities").select("lga_id")
-
-      const lgasWithCounts = (data || []).map((lga) => ({
-        ...lga,
-        area_office_name: lga.area_offices?.office_name,
-        cities_count: cityCounts?.filter((c) => c.lga_id === lga.id).length || 0,
-      }))
+      // Get city counts and area office counts per LGA
+      const lgasWithCounts = await Promise.all(
+        (data || []).map(async (lga) => {
+          const [citiesRes, officesRes] = await Promise.all([
+            supabase.from("cities").select("*", { count: "exact", head: true }).eq("lga_id", lga.id),
+            supabase.from("area_offices").select("*", { count: "exact", head: true }).eq("lga_id", lga.id),
+          ])
+          return {
+            ...lga,
+            cities_count: citiesRes.count || 0,
+            area_offices_count: officesRes.count || 0,
+          }
+        }),
+      )
 
       setLgas(lgasWithCounts)
     } catch (error) {
@@ -223,24 +229,16 @@ export default function LocationsPage() {
   const fetchCities = async () => {
     setCitiesLoading(true)
     try {
-      const { data, error } = await supabase
-        .from("cities")
-        .select(`
-          *,
-          lgas(name),
-          area_offices(office_name)
-        `)
-        .order("name")
+      const { data, error } = await supabase.from("cities").select(`*, lgas(name)`).order("name")
 
       if (error) throw error
 
-      // Get property counts per city - match by address city field
+      // Get property counts per city
       const { data: addresses } = await supabase.from("addresses").select("id, city")
 
       const citiesWithCounts = (data || []).map((city) => ({
         ...city,
         lga_name: city.lgas?.name,
-        area_office_name: city.area_offices?.office_name,
         properties_count: addresses?.filter((a) => a.city?.toLowerCase() === city.name?.toLowerCase()).length || 0,
       }))
 
@@ -264,13 +262,15 @@ export default function LocationsPage() {
   }, [user, authLoading])
 
   const filteredAreaOffices = useMemo(() => {
-    return areaOffices.filter(
-      (o) =>
+    return areaOffices.filter((o) => {
+      const matchesSearch =
         o.office_name?.toLowerCase().includes(areaOfficeSearch.toLowerCase()) ||
         o.office_code?.toLowerCase().includes(areaOfficeSearch.toLowerCase()) ||
-        o.address?.toLowerCase().includes(areaOfficeSearch.toLowerCase()),
-    )
-  }, [areaOffices, areaOfficeSearch])
+        o.address?.toLowerCase().includes(areaOfficeSearch.toLowerCase())
+      const matchesLga = areaOfficeLgaFilter === "all" || o.lga_id === areaOfficeLgaFilter
+      return matchesSearch && matchesLga
+    })
+  }, [areaOffices, areaOfficeSearch, areaOfficeLgaFilter])
 
   const paginatedAreaOffices = useMemo(() => {
     const start = (areaOfficePage - 1) * PER_PAGE
@@ -278,12 +278,8 @@ export default function LocationsPage() {
   }, [filteredAreaOffices, areaOfficePage])
 
   const filteredLgas = useMemo(() => {
-    return lgas.filter((l) => {
-      const matchesSearch = l.name.toLowerCase().includes(lgaSearch.toLowerCase())
-      const matchesOffice = lgaAreaOfficeFilter === "all" || l.area_office_id === lgaAreaOfficeFilter
-      return matchesSearch && matchesOffice
-    })
-  }, [lgas, lgaSearch, lgaAreaOfficeFilter])
+    return lgas.filter((l) => l.name.toLowerCase().includes(lgaSearch.toLowerCase()))
+  }, [lgas, lgaSearch])
 
   const paginatedLgas = useMemo(() => {
     const start = (lgaPage - 1) * PER_PAGE
@@ -308,12 +304,13 @@ export default function LocationsPage() {
     total: areaOffices.length,
     active: areaOffices.filter((o) => o.is_active).length,
     inactive: areaOffices.filter((o) => !o.is_active).length,
+    assigned: areaOffices.filter((o) => o.lga_id).length, // Count offices assigned to an LGA
   }
 
   const lgaStats = {
     total: lgas.length,
-    assigned: lgas.filter((l) => l.area_office_id).length,
-    unassigned: lgas.filter((l) => !l.area_office_id).length,
+    withOffices: lgas.filter((l) => (l.area_offices_count || 0) > 0).length,
+    withoutOffices: lgas.filter((l) => (l.area_offices_count || 0) === 0).length,
   }
 
   const cityStats = {
@@ -325,25 +322,19 @@ export default function LocationsPage() {
   const handleViewAreaOffice = async (office: AreaOffice) => {
     setSelectedAreaOffice(office)
     setAreaOfficeSheetOpen(true)
-
-    // Fetch LGAs for this area office
-    const { data } = await supabase.from("lgas").select("*").eq("area_office_id", office.id).order("name")
-
-    setAreaOfficeLgas(data || [])
   }
 
-  // View LGA details
   const handleViewLga = async (lga: LGA) => {
     setSelectedLga(lga)
     setLgaSheetOpen(true)
 
-    const { data } = await supabase
-      .from("cities")
-      .select("*, area_offices(office_name)")
-      .eq("lga_id", lga.id)
-      .order("name")
+    // Fetch area offices for this LGA
+    const { data: offices } = await supabase.from("area_offices").select("*").eq("lga_id", lga.id).order("office_name")
+    setLgaAreaOffices(offices || [])
 
-    setLgaCities((data || []).map((c) => ({ ...c, area_office_name: c.area_offices?.office_name })))
+    // Fetch cities for this LGA
+    const { data: citiesData } = await supabase.from("cities").select("*").eq("lga_id", lga.id).order("name")
+    setLgaCities(citiesData || [])
   }
 
   // View city details
@@ -354,52 +345,56 @@ export default function LocationsPage() {
 
   const handleSaveAreaOffice = async () => {
     try {
-      if (editMode && selectedAreaOffice) {
-        const { error } = await supabase.from("area_offices").update(areaOfficeForm).eq("id", selectedAreaOffice.id)
+      const payload = {
+        office_name: areaOfficeForm.office_name,
+        office_code: areaOfficeForm.office_code || null,
+        address: areaOfficeForm.address || null,
+        phone_number: areaOfficeForm.phone_number || null,
+        email: areaOfficeForm.email || null,
+        lga_id: areaOfficeForm.lga_id || null,
+      }
 
+      if (editMode && selectedAreaOffice) {
+        const { error } = await supabase.from("area_offices").update(payload).eq("id", selectedAreaOffice.id)
         if (error) throw error
         toast.success("Area office updated")
       } else {
-        const { error } = await supabase.from("area_offices").insert({ ...areaOfficeForm, is_active: true })
-
+        const { error } = await supabase.from("area_offices").insert({ ...payload, is_active: true })
         if (error) throw error
         toast.success("Area office created")
       }
 
       setAddAreaOfficeOpen(false)
       setEditMode(false)
-      setAreaOfficeForm({ office_name: "", office_code: "", address: "", phone_number: "", email: "" })
+      setAreaOfficeForm({ office_name: "", office_code: "", address: "", phone_number: "", email: "", lga_id: "" })
       fetchAreaOffices()
+      fetchLgas() // Refresh LGA counts
     } catch (error) {
       console.error("Error saving area office:", error)
       toast.error("Failed to save area office")
     }
   }
 
-  // Add/Edit LGA
   const handleSaveLga = async () => {
     try {
       const payload = {
         name: lgaForm.name,
         state: lgaForm.state,
-        area_office_id: lgaForm.area_office_id || null,
       }
 
       if (editMode && selectedLga) {
         const { error } = await supabase.from("lgas").update(payload).eq("id", selectedLga.id)
-
         if (error) throw error
         toast.success("LGA updated")
       } else {
         const { error } = await supabase.from("lgas").insert(payload)
-
         if (error) throw error
         toast.success("LGA created")
       }
 
       setAddLgaOpen(false)
       setEditMode(false)
-      setLgaForm({ name: "", state: "Kaduna", area_office_id: "" })
+      setLgaForm({ name: "", state: "Kaduna" })
       fetchLgas()
     } catch (error) {
       console.error("Error saving LGA:", error)
@@ -407,38 +402,27 @@ export default function LocationsPage() {
     }
   }
 
-  // Add/Edit City
   const handleSaveCity = async () => {
     try {
-      // Get area_office_id from selected LGA if not specified
-      let areaOfficeId = cityForm.area_office_id
-      if (!areaOfficeId && cityForm.lga_id) {
-        const lga = lgas.find((l) => l.id === cityForm.lga_id)
-        areaOfficeId = lga?.area_office_id || ""
-      }
-
       const payload = {
         name: cityForm.name,
         state: cityForm.state,
         lga_id: cityForm.lga_id,
-        area_office_id: areaOfficeId || null,
       }
 
       if (editMode && selectedCity) {
         const { error } = await supabase.from("cities").update(payload).eq("id", selectedCity.id)
-
         if (error) throw error
         toast.success("City updated")
       } else {
         const { error } = await supabase.from("cities").insert(payload)
-
         if (error) throw error
         toast.success("City created")
       }
 
       setAddCityOpen(false)
       setEditMode(false)
-      setCityForm({ name: "", state: "Kaduna", lga_id: "", area_office_id: "" })
+      setCityForm({ name: "", state: "Kaduna", lga_id: "" })
       fetchCities()
     } catch (error) {
       console.error("Error saving city:", error)
@@ -451,15 +435,15 @@ export default function LocationsPage() {
     if (!selectedAreaOffice) return
     try {
       const { error } = await supabase.from("area_offices").delete().eq("id", selectedAreaOffice.id)
-
       if (error) throw error
       toast.success("Area office deleted")
       setDeleteAreaOfficeOpen(false)
       setAreaOfficeSheetOpen(false)
       fetchAreaOffices()
+      fetchLgas() // Refresh LGA counts
     } catch (error) {
       console.error("Error deleting area office:", error)
-      toast.error("Failed to delete area office. It may have LGAs or cities assigned.")
+      toast.error("Failed to delete area office")
     }
   }
 
@@ -467,7 +451,6 @@ export default function LocationsPage() {
     if (!selectedLga) return
     try {
       const { error } = await supabase.from("lgas").delete().eq("id", selectedLga.id)
-
       if (error) throw error
       toast.success("LGA deleted")
       setDeleteLgaOpen(false)
@@ -475,7 +458,7 @@ export default function LocationsPage() {
       fetchLgas()
     } catch (error) {
       console.error("Error deleting LGA:", error)
-      toast.error("Failed to delete LGA. It may have cities assigned.")
+      toast.error("Failed to delete LGA. It may have cities or area offices assigned.")
     }
   }
 
@@ -483,7 +466,6 @@ export default function LocationsPage() {
     if (!selectedCity) return
     try {
       const { error } = await supabase.from("cities").delete().eq("id", selectedCity.id)
-
       if (error) throw error
       toast.success("City deleted")
       setDeleteCityOpen(false)
@@ -503,7 +485,6 @@ export default function LocationsPage() {
         .from("area_offices")
         .update({ is_active: !selectedAreaOffice.is_active })
         .eq("id", selectedAreaOffice.id)
-
       if (error) throw error
       toast.success(selectedAreaOffice.is_active ? "Area office deactivated" : "Area office activated")
       setAreaOfficeSheetOpen(false)
@@ -553,8 +534,8 @@ export default function LocationsPage() {
 
             {/* Area Offices Tab */}
             <TabsContent value="area-offices" className="space-y-4">
-              {/* Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Stats - Updated to show assigned count */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card className="py-3 px-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -582,9 +563,18 @@ export default function LocationsPage() {
                     <XCircle className="h-4 w-4 text-red-600" />
                   </div>
                 </Card>
+                <Card className="py-3 px-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Assigned to LGA</p>
+                      <p className="text-lg font-bold text-blue-600">{areaOfficeStats.assigned}</p>
+                    </div>
+                    <Landmark className="h-4 w-4 text-blue-600" />
+                  </div>
+                </Card>
               </div>
 
-              {/* Filters */}
+              {/* Filters - Added LGA filter for area offices */}
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -595,11 +585,31 @@ export default function LocationsPage() {
                     className="pl-9 h-9"
                   />
                 </div>
+                <Select value={areaOfficeLgaFilter} onValueChange={setAreaOfficeLgaFilter}>
+                  <SelectTrigger className="w-[180px] h-9">
+                    <SelectValue placeholder="Filter by LGA" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All LGAs</SelectItem>
+                    {lgas.map((lga) => (
+                      <SelectItem key={lga.id} value={lga.id}>
+                        {lga.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   size="sm"
                   onClick={() => {
                     setEditMode(false)
-                    setAreaOfficeForm({ office_name: "", office_code: "", address: "", phone_number: "", email: "" })
+                    setAreaOfficeForm({
+                      office_name: "",
+                      office_code: "",
+                      address: "",
+                      phone_number: "",
+                      email: "",
+                      lga_id: "",
+                    })
                     setAddAreaOfficeOpen(true)
                   }}
                 >
@@ -608,16 +618,16 @@ export default function LocationsPage() {
                 </Button>
               </div>
 
-              {/* Table */}
+              {/* Table - Updated to show LGA instead of LGA count */}
               <Card>
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Code</TableHead>
+                      <TableHead>LGA</TableHead>
                       <TableHead>Address</TableHead>
                       <TableHead>Phone</TableHead>
-                      <TableHead>LGAs</TableHead>
                       <TableHead>Cities</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-10"></TableHead>
@@ -627,30 +637,11 @@ export default function LocationsPage() {
                     {areaOfficesLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
-                          <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-16" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-40" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-8" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-8" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-16" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-4" />
-                          </TableCell>
+                          {Array.from({ length: 8 }).map((_, j) => (
+                            <TableCell key={j}>
+                              <Skeleton className="h-4 w-20" />
+                            </TableCell>
+                          ))}
                         </TableRow>
                       ))
                     ) : paginatedAreaOffices.length === 0 ? (
@@ -668,9 +659,11 @@ export default function LocationsPage() {
                         >
                           <TableCell className="font-medium">{office.office_name}</TableCell>
                           <TableCell className="text-muted-foreground">{office.office_code || "-"}</TableCell>
+                          <TableCell>
+                            {office.lga_name || <span className="text-muted-foreground italic">Unassigned</span>}
+                          </TableCell>
                           <TableCell className="max-w-[200px] truncate">{office.address || "-"}</TableCell>
                           <TableCell>{office.phone_number || "-"}</TableCell>
-                          <TableCell>{office.lgas_count}</TableCell>
                           <TableCell>{office.cities_count}</TableCell>
                           <TableCell>
                             <TooltipProvider>
@@ -705,6 +698,7 @@ export default function LocationsPage() {
                                       address: office.address || "",
                                       phone_number: office.phone_number || "",
                                       email: office.email || "",
+                                      lga_id: office.lga_id || "",
                                     })
                                     setAddAreaOfficeOpen(true)
                                   }}
@@ -733,7 +727,6 @@ export default function LocationsPage() {
                   </TableBody>
                 </Table>
 
-                {/* Pagination */}
                 {filteredAreaOffices.length > PER_PAGE && (
                   <div className="flex items-center justify-between px-4 py-3 border-t">
                     <p className="text-sm text-muted-foreground">
@@ -763,9 +756,8 @@ export default function LocationsPage() {
               </Card>
             </TabsContent>
 
-            {/* LGAs Tab */}
+            {/* LGAs Tab - Updated stats and removed area office filter */}
             <TabsContent value="lgas" className="space-y-4">
-              {/* Stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="py-3 px-4">
                   <div className="flex items-center justify-between">
@@ -779,24 +771,24 @@ export default function LocationsPage() {
                 <Card className="py-3 px-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground">Assigned to Office</p>
-                      <p className="text-lg font-bold text-emerald-600">{lgaStats.assigned}</p>
+                      <p className="text-xs text-muted-foreground">With Area Offices</p>
+                      <p className="text-lg font-bold text-emerald-600">{lgaStats.withOffices}</p>
                     </div>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <Building2 className="h-4 w-4 text-emerald-600" />
                   </div>
                 </Card>
                 <Card className="py-3 px-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-muted-foreground">Unassigned</p>
-                      <p className="text-lg font-bold text-amber-600">{lgaStats.unassigned}</p>
+                      <p className="text-xs text-muted-foreground">Without Offices</p>
+                      <p className="text-lg font-bold text-amber-600">{lgaStats.withoutOffices}</p>
                     </div>
                     <XCircle className="h-4 w-4 text-amber-600" />
                   </div>
                 </Card>
               </div>
 
-              {/* Filters */}
+              {/* Filters - Removed area office filter */}
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -807,24 +799,11 @@ export default function LocationsPage() {
                     className="pl-9 h-9"
                   />
                 </div>
-                <Select value={lgaAreaOfficeFilter} onValueChange={setLgaAreaOfficeFilter}>
-                  <SelectTrigger className="w-[180px] h-9">
-                    <SelectValue placeholder="Filter by office" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Offices</SelectItem>
-                    {areaOffices.map((office) => (
-                      <SelectItem key={office.id} value={office.id}>
-                        {office.office_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
                 <Button
                   size="sm"
                   onClick={() => {
                     setEditMode(false)
-                    setLgaForm({ name: "", state: "Kaduna", area_office_id: "" })
+                    setLgaForm({ name: "", state: "Kaduna" })
                     setAddLgaOpen(true)
                   }}
                 >
@@ -833,14 +812,14 @@ export default function LocationsPage() {
                 </Button>
               </div>
 
-              {/* Table */}
+              {/* Table - Show area offices count instead of single area office */}
               <Card>
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>State</TableHead>
-                      <TableHead>Area Office</TableHead>
+                      <TableHead>Area Offices</TableHead>
                       <TableHead>Cities</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
@@ -849,21 +828,11 @@ export default function LocationsPage() {
                     {lgasLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
-                          <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-8" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-4" />
-                          </TableCell>
+                          {Array.from({ length: 5 }).map((_, j) => (
+                            <TableCell key={j}>
+                              <Skeleton className="h-4 w-20" />
+                            </TableCell>
+                          ))}
                         </TableRow>
                       ))
                     ) : paginatedLgas.length === 0 ? (
@@ -882,7 +851,7 @@ export default function LocationsPage() {
                           <TableCell className="font-medium">{lga.name}</TableCell>
                           <TableCell>{lga.state}</TableCell>
                           <TableCell>
-                            {lga.area_office_name || <span className="text-muted-foreground italic">Unassigned</span>}
+                            <Badge variant="outline">{lga.area_offices_count || 0}</Badge>
                           </TableCell>
                           <TableCell>{lga.cities_count}</TableCell>
                           <TableCell>
@@ -901,7 +870,6 @@ export default function LocationsPage() {
                                     setLgaForm({
                                       name: lga.name,
                                       state: lga.state,
-                                      area_office_id: lga.area_office_id || "",
                                     })
                                     setAddLgaOpen(true)
                                   }}
@@ -930,7 +898,6 @@ export default function LocationsPage() {
                   </TableBody>
                 </Table>
 
-                {/* Pagination */}
                 {filteredLgas.length > PER_PAGE && (
                   <div className="flex items-center justify-between px-4 py-3 border-t">
                     <p className="text-sm text-muted-foreground">
@@ -960,9 +927,8 @@ export default function LocationsPage() {
               </Card>
             </TabsContent>
 
-            {/* Cities Tab */}
+            {/* Cities Tab - Removed area office column */}
             <TabsContent value="cities" className="space-y-4">
-              {/* Stats */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card className="py-3 px-4">
                   <div className="flex items-center justify-between">
@@ -984,7 +950,6 @@ export default function LocationsPage() {
                 </Card>
               </div>
 
-              {/* Filters */}
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1012,7 +977,7 @@ export default function LocationsPage() {
                   size="sm"
                   onClick={() => {
                     setEditMode(false)
-                    setCityForm({ name: "", state: "Kaduna", lga_id: "", area_office_id: "" })
+                    setCityForm({ name: "", state: "Kaduna", lga_id: "" })
                     setAddCityOpen(true)
                   }}
                 >
@@ -1021,14 +986,13 @@ export default function LocationsPage() {
                 </Button>
               </div>
 
-              {/* Table */}
               <Card>
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>LGA</TableHead>
-                      <TableHead>Area Office</TableHead>
+                      <TableHead>State</TableHead>
                       <TableHead>Properties</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
@@ -1037,21 +1001,11 @@ export default function LocationsPage() {
                     {citiesLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
-                          <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-8" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-4" />
-                          </TableCell>
+                          {Array.from({ length: 5 }).map((_, j) => (
+                            <TableCell key={j}>
+                              <Skeleton className="h-4 w-20" />
+                            </TableCell>
+                          ))}
                         </TableRow>
                       ))
                     ) : paginatedCities.length === 0 ? (
@@ -1069,7 +1023,7 @@ export default function LocationsPage() {
                         >
                           <TableCell className="font-medium">{city.name}</TableCell>
                           <TableCell>{city.lga_name || "-"}</TableCell>
-                          <TableCell>{city.area_office_name || "-"}</TableCell>
+                          <TableCell>{city.state}</TableCell>
                           <TableCell>{city.properties_count}</TableCell>
                           <TableCell>
                             <DropdownMenu>
@@ -1088,7 +1042,6 @@ export default function LocationsPage() {
                                       name: city.name,
                                       state: city.state,
                                       lga_id: city.lga_id,
-                                      area_office_id: city.area_office_id || "",
                                     })
                                     setAddCityOpen(true)
                                   }}
@@ -1117,7 +1070,6 @@ export default function LocationsPage() {
                   </TableBody>
                 </Table>
 
-                {/* Pagination */}
                 {filteredCities.length > PER_PAGE && (
                   <div className="flex items-center justify-between px-4 py-3 border-t">
                     <p className="text-sm text-muted-foreground">
@@ -1149,7 +1101,7 @@ export default function LocationsPage() {
           </Tabs>
         </div>
 
-        {/* Area Office Side Panel */}
+        {/* Area Office Side Panel - Show LGA instead of assigned LGAs */}
         <Sheet open={areaOfficeSheetOpen} onOpenChange={setAreaOfficeSheetOpen}>
           <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
@@ -1172,6 +1124,11 @@ export default function LocationsPage() {
                 </div>
 
                 <div>
+                  <p className="text-xs text-muted-foreground">LGA</p>
+                  <p className="font-medium">{selectedAreaOffice.lga_name || "Unassigned"}</p>
+                </div>
+
+                <div>
                   <p className="text-xs text-muted-foreground">Address</p>
                   <p className="font-medium">{selectedAreaOffice.address || "-"}</p>
                 </div>
@@ -1188,21 +1145,8 @@ export default function LocationsPage() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground mb-2">Assigned LGAs ({areaOfficeLgas.length})</p>
-                  {areaOfficeLgas.length > 0 ? (
-                    <div className="space-y-1">
-                      {areaOfficeLgas.map((lga) => (
-                        <div key={lga.id} className="flex items-center justify-between p-2 bg-muted rounded">
-                          <span className="text-sm">{lga.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {lga.cities_count || 0} cities
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">No LGAs assigned</p>
-                  )}
+                  <p className="text-xs text-muted-foreground">Cities in LGA</p>
+                  <p className="font-medium">{selectedAreaOffice.cities_count || 0}</p>
                 </div>
 
                 <div className="flex gap-2 pt-4 border-t">
@@ -1218,7 +1162,7 @@ export default function LocationsPage() {
           </SheetContent>
         </Sheet>
 
-        {/* LGA Side Panel */}
+        {/* LGA Side Panel - Show area offices list instead of single office */}
         <Sheet open={lgaSheetOpen} onOpenChange={setLgaSheetOpen}>
           <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
@@ -1227,15 +1171,27 @@ export default function LocationsPage() {
             </SheetHeader>
             {selectedLga && (
               <div className="py-6 px-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">State</p>
-                    <p className="font-medium">{selectedLga.state}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Area Office</p>
-                    <p className="font-medium">{selectedLga.area_office_name || "Unassigned"}</p>
-                  </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">State</p>
+                  <p className="font-medium">{selectedLga.state}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Area Offices ({lgaAreaOffices.length})</p>
+                  {lgaAreaOffices.length > 0 ? (
+                    <div className="space-y-1">
+                      {lgaAreaOffices.map((office) => (
+                        <div key={office.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                          <span className="text-sm">{office.office_name}</span>
+                          <Badge variant={office.is_active ? "default" : "secondary"} className="text-xs">
+                            {office.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">No area offices assigned</p>
+                  )}
                 </div>
 
                 <div>
@@ -1266,7 +1222,7 @@ export default function LocationsPage() {
           </SheetContent>
         </Sheet>
 
-        {/* City Side Panel */}
+        {/* City Side Panel - Removed area office display */}
         <Sheet open={citySheetOpen} onOpenChange={setCitySheetOpen}>
           <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
@@ -1281,14 +1237,9 @@ export default function LocationsPage() {
                     <p className="font-medium">{selectedCity.lga_name || "-"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Area Office</p>
-                    <p className="font-medium">{selectedCity.area_office_name || "-"}</p>
+                    <p className="text-xs text-muted-foreground">State</p>
+                    <p className="font-medium">{selectedCity.state}</p>
                   </div>
-                </div>
-
-                <div>
-                  <p className="text-xs text-muted-foreground">State</p>
-                  <p className="font-medium">{selectedCity.state}</p>
                 </div>
 
                 <div>
@@ -1306,7 +1257,7 @@ export default function LocationsPage() {
           </SheetContent>
         </Sheet>
 
-        {/* Add/Edit Area Office Dialog */}
+        {/* Add/Edit Area Office Dialog - Added LGA selector */}
         <Dialog open={addAreaOfficeOpen} onOpenChange={setAddAreaOfficeOpen}>
           <DialogContent>
             <DialogHeader>
@@ -1331,6 +1282,25 @@ export default function LocationsPage() {
                   onChange={(e) => setAreaOfficeForm({ ...areaOfficeForm, office_code: e.target.value })}
                   placeholder="e.g. KN-001"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>LGA</Label>
+                <Select
+                  value={areaOfficeForm.lga_id || "none"}
+                  onValueChange={(val) => setAreaOfficeForm({ ...areaOfficeForm, lga_id: val === "none" ? "" : val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select LGA" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {lgas.map((lga) => (
+                      <SelectItem key={lga.id} value={lga.id}>
+                        {lga.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Address</Label>
@@ -1370,7 +1340,7 @@ export default function LocationsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Add/Edit LGA Dialog */}
+        {/* Add/Edit LGA Dialog - Removed area office selector */}
         <Dialog open={addLgaOpen} onOpenChange={setAddLgaOpen}>
           <DialogContent>
             <DialogHeader>
@@ -1396,25 +1366,6 @@ export default function LocationsPage() {
                   placeholder="State"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Area Office</Label>
-                <Select
-                  value={lgaForm.area_office_id || "none"}
-                  onValueChange={(val) => setLgaForm({ ...lgaForm, area_office_id: val === "none" ? "" : val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select area office" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {areaOffices.map((office) => (
-                      <SelectItem key={office.id} value={office.id}>
-                        {office.office_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddLgaOpen(false)}>
@@ -1427,7 +1378,7 @@ export default function LocationsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Add/Edit City Dialog */}
+        {/* Add/Edit City Dialog - Removed area office selector */}
         <Dialog open={addCityOpen} onOpenChange={setAddCityOpen}>
           <DialogContent>
             <DialogHeader>
@@ -1446,21 +1397,13 @@ export default function LocationsPage() {
               <div className="space-y-2">
                 <Label>LGA</Label>
                 <Select
-                  value={cityForm.lga_id}
-                  onValueChange={(val) => {
-                    const lga = lgas.find((l) => l.id === val)
-                    setCityForm({
-                      ...cityForm,
-                      lga_id: val,
-                      area_office_id: lga?.area_office_id || "",
-                    })
-                  }}
+                  value={cityForm.lga_id || "none"}
+                  onValueChange={(val) => setCityForm({ ...cityForm, lga_id: val === "none" ? "" : val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select LGA" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* The issue was with the default value being an empty string. Changed to a placeholder and added a distinct "None" option if needed. */}
                     <SelectItem value="none">Select an LGA</SelectItem>
                     {lgas.map((lga) => (
                       <SelectItem key={lga.id} value={lga.id}>
@@ -1483,7 +1426,10 @@ export default function LocationsPage() {
               <Button variant="outline" onClick={() => setAddCityOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveCity} disabled={!cityForm.name || !cityForm.lga_id}>
+              <Button
+                onClick={handleSaveCity}
+                disabled={!cityForm.name || cityForm.lga_id === "" || cityForm.lga_id === "none"}
+              >
                 {editMode ? "Update" : "Create"}
               </Button>
             </DialogFooter>

@@ -302,11 +302,7 @@ export async function generateKadirsID(firebaseUid: string) {
       return { success: false, error: "Please update your profile with industry information" }
     }
 
-    const { data: lgaData } = await supabase
-      .from("lgas")
-      .select("id, lga_id, area_office_id")
-      .eq("id", profileData.lga_id)
-      .single()
+    const { data: lgaData } = await supabase.from("lgas").select("id, lga_id").eq("id", profileData.lga_id).single()
 
     if (!lgaData) {
       return { success: false, error: "Invalid LGA selected" }
@@ -315,7 +311,8 @@ export async function generateKadirsID(firebaseUid: string) {
     const { data: areaOfficeData } = await supabase
       .from("area_offices")
       .select("area_office_id")
-      .eq("id", lgaData.area_office_id)
+      .eq("lga_id", lgaData.id)
+      .limit(1)
       .maybeSingle()
 
     // Get system settings for state ID

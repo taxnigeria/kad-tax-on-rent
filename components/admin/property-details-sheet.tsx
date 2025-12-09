@@ -683,7 +683,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">Area Office</div>
-                    <div>{property.area_offices?.office_name || "—"}</div>
+                    <div>{property.area_office_id || "—"}</div>
                   </div>
                 </div>
               ) : (

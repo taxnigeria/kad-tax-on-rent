@@ -290,7 +290,8 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     if (!selectedCity) return
 
     const cityLga = lgas.find((l) => l.id === selectedCity.lga_id)
-    const cityAreaOffice = areaOffices.find((a) => a.id === selectedCity.area_office_id)
+
+    const cityAreaOffice = areaOffices.find((a) => a.lga_id === selectedCity.lga_id)
 
     setFormData({
       ...formData,
@@ -298,7 +299,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
       city: selectedCity.name,
       lgaId: selectedCity.lga_id,
       lga: cityLga?.name || "",
-      areaOfficeId: selectedCity.area_office_id,
+      areaOfficeId: cityAreaOffice?.id || "",
       areaOffice: cityAreaOffice?.office_name || "",
     })
     setCityDialogOpen(false)

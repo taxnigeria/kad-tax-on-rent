@@ -191,9 +191,9 @@ export function RegisterPropertyModal({
       console.log("[v0] Fetching location data...")
 
       const [citiesRes, lgasRes, officesRes] = await Promise.all([
-        supabase.from("cities").select("id, name, lga_id, area_office_id").order("name"),
+        supabase.from("cities").select("id, name, lga_id").order("name"),
         supabase.from("lgas").select("id, name, lga_id").order("name"),
-        supabase.from("area_offices").select("id, office_name, area_office_id").order("office_name"),
+        supabase.from("area_offices").select("id, office_name, area_office_id, lga_id").order("office_name"),
       ])
 
       console.log("[v0] Cities response:", citiesRes)
@@ -231,7 +231,7 @@ export function RegisterPropertyModal({
     const city = cities.find((c) => c.id === cityId)
     if (city) {
       const lga = lgas.find((l) => l.id === city.lga_id)
-      const areaOffice = areaOffices.find((a) => a.id === city.area_office_id)
+      const areaOffice = areaOffices.find((a) => a.lga_id === city.lga_id)
 
       setFormData({
         ...formData,
@@ -239,7 +239,7 @@ export function RegisterPropertyModal({
         cityName: city.name,
         lgaId: city.lga_id?.toString() || "",
         lgaName: lga?.name || "",
-        areaOfficeId: city.area_office_id?.toString() || "",
+        areaOfficeId: areaOffice?.id?.toString() || "",
         areaOfficeName: areaOffice?.office_name || "",
       })
       setCityDialogOpen(false)
@@ -764,22 +764,6 @@ export function RegisterPropertyModal({
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="commencementYear">
-                      Rent Collection Start Year <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="commencementYear"
-                      type="number"
-                      placeholder="e.g., 2020"
-                      min="1900"
-                      max={new Date().getFullYear()}
-                      value={formData.commencementYear}
-                      onChange={(e) => setFormData({ ...formData, commencementYear: e.target.value })}
-                      required
-                    />
-                  </div>
-
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="propertyDescription">Property Description</Label>
                     <Input
@@ -937,7 +921,7 @@ export function RegisterPropertyModal({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ... existing confirmation dialog ... */}
+      {/* Confirmation dialog */}
       <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
         <AlertDialogContent>
           <AlertDialogHeader>
