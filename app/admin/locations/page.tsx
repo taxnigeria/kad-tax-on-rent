@@ -156,7 +156,7 @@ export default function LocationsPage() {
     setAreaOfficesLoading(true)
     try {
       // Fetch area offices with counts
-      const { data: offices, error } = await supabase.from("area_offices").select("*").order("name")
+      const { data: offices, error } = await supabase.from("area_offices").select("*").order("office_name")
 
       if (error) throw error
 
@@ -190,7 +190,7 @@ export default function LocationsPage() {
         .from("lgas")
         .select(`
           *,
-          area_offices(name)
+          area_offices(office_name)
         `)
         .order("name")
 
@@ -223,7 +223,7 @@ export default function LocationsPage() {
         .select(`
           *,
           lgas(name),
-          area_offices(name)
+          area_offices(office_name)
         `)
         .order("name")
 
@@ -235,7 +235,7 @@ export default function LocationsPage() {
       const citiesWithCounts = (data || []).map((city) => ({
         ...city,
         lga_name: city.lgas?.name,
-        area_office_name: city.area_offices?.name,
+        area_office_name: city.area_offices?.office_name,
         properties_count: propCounts?.filter((p) => p.city?.toLowerCase() === city.name?.toLowerCase()).length || 0,
       }))
 
