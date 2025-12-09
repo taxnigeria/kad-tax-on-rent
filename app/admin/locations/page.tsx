@@ -64,7 +64,8 @@ const PER_PAGE = 50
 interface AreaOffice {
   id: string
   area_office_id: number
-  name: string
+  office_name: string
+  office_code?: string
   address: string
   phone_number?: string
   email?: string
@@ -76,7 +77,7 @@ interface AreaOffice {
 
 interface LGA {
   id: string
-  lga_id?: number
+  lga_id?: string
   name: string
   state: string
   area_office_id?: string
@@ -142,8 +143,13 @@ export default function LocationsPage() {
   const [deleteLgaOpen, setDeleteLgaOpen] = useState(false)
   const [deleteCityOpen, setDeleteCityOpen] = useState(false)
 
-  // Form states
-  const [areaOfficeForm, setAreaOfficeForm] = useState({ name: "", address: "", phone_number: "", email: "" })
+  const [areaOfficeForm, setAreaOfficeForm] = useState({
+    office_name: "",
+    office_code: "",
+    address: "",
+    phone_number: "",
+    email: "",
+  })
   const [lgaForm, setLgaForm] = useState({ name: "", state: "Kaduna", area_office_id: "" })
   const [cityForm, setCityForm] = useState({ name: "", state: "Kaduna", lga_id: "", area_office_id: "" })
 
@@ -155,7 +161,6 @@ export default function LocationsPage() {
   const fetchAreaOffices = async () => {
     setAreaOfficesLoading(true)
     try {
-      // Fetch area offices with counts
       const { data: offices, error } = await supabase.from("area_offices").select("*").order("office_name")
 
       if (error) throw error
@@ -201,7 +206,7 @@ export default function LocationsPage() {
 
       const lgasWithCounts = (data || []).map((lga) => ({
         ...lga,
-        area_office_name: lga.area_offices?.name,
+        area_office_name: lga.area_offices?.office_name,
         cities_count: cityCounts?.filter((c) => c.lga_id === lga.id).length || 0,
       }))
 
@@ -229,14 +234,14 @@ export default function LocationsPage() {
 
       if (error) throw error
 
-      // Get property counts per city
-      const { data: propCounts } = await supabase.from("properties").select("city")
+      // Get property counts per city - match by address city field
+      const { data: addresses } = await supabase.from("addresses").select("id, city")
 
       const citiesWithCounts = (data || []).map((city) => ({
         ...city,
         lga_name: city.lgas?.name,
         area_office_name: city.area_offices?.office_name,
-        properties_count: propCounts?.filter((p) => p.city?.toLowerCase() === city.name?.toLowerCase()).length || 0,
+        properties_count: addresses?.filter((a) => a.city?.toLowerCase() === city.name?.toLowerCase()).length || 0,
       }))
 
       setCities(citiesWithCounts)
@@ -258,11 +263,11 @@ export default function LocationsPage() {
     fetchCities()
   }, [user, authLoading])
 
-  // Filtered and paginated data
   const filteredAreaOffices = useMemo(() => {
     return areaOffices.filter(
       (o) =>
-        o.name.toLowerCase().includes(areaOfficeSearch.toLowerCase()) ||
+        o.office_name?.toLowerCase().includes(areaOfficeSearch.toLowerCase()) ||
+        o.office_code?.toLowerCase().includes(areaOfficeSearch.toLowerCase()) ||
         o.address?.toLowerCase().includes(areaOfficeSearch.toLowerCase()),
     )
   }, [areaOffices, areaOfficeSearch])
@@ -332,10 +337,13 @@ export default function LocationsPage() {
     setSelectedLga(lga)
     setLgaSheetOpen(true)
 
-    // Fetch cities for this LGA
-    const { data } = await supabase.from("cities").select("*, area_offices(name)").eq("lga_id", lga.id).order("name")
+    const { data } = await supabase
+      .from("cities")
+      .select("*, area_offices(office_name)")
+      .eq("lga_id", lga.id)
+      .order("name")
 
-    setLgaCities((data || []).map((c) => ({ ...c, area_office_name: c.area_offices?.name })))
+    setLgaCities((data || []).map((c) => ({ ...c, area_office_name: c.area_offices?.office_name })))
   }
 
   // View city details
@@ -344,7 +352,6 @@ export default function LocationsPage() {
     setCitySheetOpen(true)
   }
 
-  // Add/Edit Area Office
   const handleSaveAreaOffice = async () => {
     try {
       if (editMode && selectedAreaOffice) {
@@ -361,7 +368,7 @@ export default function LocationsPage() {
 
       setAddAreaOfficeOpen(false)
       setEditMode(false)
-      setAreaOfficeForm({ name: "", address: "", phone_number: "", email: "" })
+      setAreaOfficeForm({ office_name: "", office_code: "", address: "", phone_number: "", email: "" })
       fetchAreaOffices()
     } catch (error) {
       console.error("Error saving area office:", error)
@@ -414,7 +421,7 @@ export default function LocationsPage() {
         name: cityForm.name,
         state: cityForm.state,
         lga_id: cityForm.lga_id,
-        area_office_id: areaOfficeId,
+        area_office_id: areaOfficeId || null,
       }
 
       if (editMode && selectedCity) {
@@ -592,7 +599,7 @@ export default function LocationsPage() {
                   size="sm"
                   onClick={() => {
                     setEditMode(false)
-                    setAreaOfficeForm({ name: "", address: "", phone_number: "", email: "" })
+                    setAreaOfficeForm({ office_name: "", office_code: "", address: "", phone_number: "", email: "" })
                     setAddAreaOfficeOpen(true)
                   }}
                 >
@@ -607,6 +614,7 @@ export default function LocationsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
+                      <TableHead>Code</TableHead>
                       <TableHead>Address</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>LGAs</TableHead>
@@ -619,16 +627,35 @@ export default function LocationsPage() {
                     {areaOfficesLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
-                          {Array.from({ length: 7 }).map((_, j) => (
-                            <TableCell key={j}>
-                              <Skeleton className="h-4 w-full" />
-                            </TableCell>
-                          ))}
+                          <TableCell>
+                            <Skeleton className="h-4 w-32" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-16" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-40" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-24" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-8" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-8" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-16" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-4" />
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : paginatedAreaOffices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           No area offices found
                         </TableCell>
                       </TableRow>
@@ -639,15 +666,12 @@ export default function LocationsPage() {
                           className="cursor-pointer hover:bg-muted/50"
                           onClick={() => handleViewAreaOffice(office)}
                         >
-                          <TableCell className="font-medium">{office.name}</TableCell>
-                          <TableCell>{office.address || "-"}</TableCell>
+                          <TableCell className="font-medium">{office.office_name}</TableCell>
+                          <TableCell className="text-muted-foreground">{office.office_code || "-"}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{office.address || "-"}</TableCell>
                           <TableCell>{office.phone_number || "-"}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{office.lgas_count}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{office.cities_count}</Badge>
-                          </TableCell>
+                          <TableCell>{office.lgas_count}</TableCell>
+                          <TableCell>{office.cities_count}</TableCell>
                           <TableCell>
                             <TooltipProvider>
                               <Tooltip>
@@ -673,18 +697,11 @@ export default function LocationsPage() {
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleViewAreaOffice(office)
-                                  }}
-                                >
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setSelectedAreaOffice(office)
                                     setEditMode(true)
+                                    setSelectedAreaOffice(office)
                                     setAreaOfficeForm({
-                                      name: office.name,
+                                      office_name: office.office_name,
+                                      office_code: office.office_code || "",
                                       address: office.address || "",
                                       phone_number: office.phone_number || "",
                                       email: office.email || "",
@@ -715,35 +732,35 @@ export default function LocationsPage() {
                     )}
                   </TableBody>
                 </Table>
-              </Card>
 
-              {/* Pagination */}
-              {filteredAreaOffices.length > PER_PAGE && (
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {(areaOfficePage - 1) * PER_PAGE + 1}-
-                    {Math.min(areaOfficePage * PER_PAGE, filteredAreaOffices.length)} of {filteredAreaOffices.length}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={areaOfficePage === 1}
-                      onClick={() => setAreaOfficePage((p) => p - 1)}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={areaOfficePage * PER_PAGE >= filteredAreaOffices.length}
-                      onClick={() => setAreaOfficePage((p) => p + 1)}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                {/* Pagination */}
+                {filteredAreaOffices.length > PER_PAGE && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {(areaOfficePage - 1) * PER_PAGE + 1} to{" "}
+                      {Math.min(areaOfficePage * PER_PAGE, filteredAreaOffices.length)} of {filteredAreaOffices.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAreaOfficePage((p) => Math.max(1, p - 1))}
+                        disabled={areaOfficePage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAreaOfficePage((p) => p + 1)}
+                        disabled={areaOfficePage * PER_PAGE >= filteredAreaOffices.length}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </Card>
             </TabsContent>
 
             {/* LGAs Tab */}
@@ -756,7 +773,7 @@ export default function LocationsPage() {
                       <p className="text-xs text-muted-foreground">Total LGAs</p>
                       <p className="text-lg font-bold">{lgaStats.total}</p>
                     </div>
-                    <Map className="h-4 w-4 text-muted-foreground" />
+                    <Landmark className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </Card>
                 <Card className="py-3 px-4">
@@ -792,13 +809,13 @@ export default function LocationsPage() {
                 </div>
                 <Select value={lgaAreaOfficeFilter} onValueChange={setLgaAreaOfficeFilter}>
                   <SelectTrigger className="w-[180px] h-9">
-                    <SelectValue placeholder="All Offices" />
+                    <SelectValue placeholder="Filter by office" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Offices</SelectItem>
-                    {areaOffices.map((o) => (
-                      <SelectItem key={o.id} value={o.id}>
-                        {o.name}
+                    {areaOffices.map((office) => (
+                      <SelectItem key={office.id} value={office.id}>
+                        {office.office_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -832,11 +849,21 @@ export default function LocationsPage() {
                     {lgasLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
-                          {Array.from({ length: 5 }).map((_, j) => (
-                            <TableCell key={j}>
-                              <Skeleton className="h-4 w-full" />
-                            </TableCell>
-                          ))}
+                          <TableCell>
+                            <Skeleton className="h-4 w-32" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-24" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-32" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-8" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-4" />
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : paginatedLgas.length === 0 ? (
@@ -855,15 +882,9 @@ export default function LocationsPage() {
                           <TableCell className="font-medium">{lga.name}</TableCell>
                           <TableCell>{lga.state}</TableCell>
                           <TableCell>
-                            {lga.area_office_name ? (
-                              <Badge variant="secondary">{lga.area_office_name}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
+                            {lga.area_office_name || <span className="text-muted-foreground italic">Unassigned</span>}
                           </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{lga.cities_count}</Badge>
-                          </TableCell>
+                          <TableCell>{lga.cities_count}</TableCell>
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -875,16 +896,8 @@ export default function LocationsPage() {
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleViewLga(lga)
-                                  }}
-                                >
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setSelectedLga(lga)
                                     setEditMode(true)
+                                    setSelectedLga(lga)
                                     setLgaForm({
                                       name: lga.name,
                                       state: lga.state,
@@ -916,35 +929,35 @@ export default function LocationsPage() {
                     )}
                   </TableBody>
                 </Table>
-              </Card>
 
-              {/* Pagination */}
-              {filteredLgas.length > PER_PAGE && (
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {(lgaPage - 1) * PER_PAGE + 1}-{Math.min(lgaPage * PER_PAGE, filteredLgas.length)} of{" "}
-                    {filteredLgas.length}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={lgaPage === 1}
-                      onClick={() => setLgaPage((p) => p - 1)}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={lgaPage * PER_PAGE >= filteredLgas.length}
-                      onClick={() => setLgaPage((p) => p + 1)}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                {/* Pagination */}
+                {filteredLgas.length > PER_PAGE && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {(lgaPage - 1) * PER_PAGE + 1} to {Math.min(lgaPage * PER_PAGE, filteredLgas.length)} of{" "}
+                      {filteredLgas.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLgaPage((p) => Math.max(1, p - 1))}
+                        disabled={lgaPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLgaPage((p) => p + 1)}
+                        disabled={lgaPage * PER_PAGE >= filteredLgas.length}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </Card>
             </TabsContent>
 
             {/* Cities Tab */}
@@ -957,7 +970,7 @@ export default function LocationsPage() {
                       <p className="text-xs text-muted-foreground">Total Cities</p>
                       <p className="text-lg font-bold">{cityStats.total}</p>
                     </div>
-                    <Landmark className="h-4 w-4 text-muted-foreground" />
+                    <Map className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </Card>
                 <Card className="py-3 px-4">
@@ -984,13 +997,13 @@ export default function LocationsPage() {
                 </div>
                 <Select value={cityLgaFilter} onValueChange={setCityLgaFilter}>
                   <SelectTrigger className="w-[180px] h-9">
-                    <SelectValue placeholder="All LGAs" />
+                    <SelectValue placeholder="Filter by LGA" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All LGAs</SelectItem>
-                    {lgas.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        {l.name}
+                    {lgas.map((lga) => (
+                      <SelectItem key={lga.id} value={lga.id}>
+                        {lga.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1024,11 +1037,21 @@ export default function LocationsPage() {
                     {citiesLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
-                          {Array.from({ length: 5 }).map((_, j) => (
-                            <TableCell key={j}>
-                              <Skeleton className="h-4 w-full" />
-                            </TableCell>
-                          ))}
+                          <TableCell>
+                            <Skeleton className="h-4 w-32" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-24" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-32" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-8" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-4" />
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : paginatedCities.length === 0 ? (
@@ -1045,19 +1068,9 @@ export default function LocationsPage() {
                           onClick={() => handleViewCity(city)}
                         >
                           <TableCell className="font-medium">{city.name}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{city.lga_name}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {city.area_office_name ? (
-                              <Badge variant="outline">{city.area_office_name}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{city.properties_count}</Badge>
-                          </TableCell>
+                          <TableCell>{city.lga_name || "-"}</TableCell>
+                          <TableCell>{city.area_office_name || "-"}</TableCell>
+                          <TableCell>{city.properties_count}</TableCell>
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -1069,21 +1082,13 @@ export default function LocationsPage() {
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleViewCity(city)
-                                  }}
-                                >
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setSelectedCity(city)
                                     setEditMode(true)
+                                    setSelectedCity(city)
                                     setCityForm({
                                       name: city.name,
                                       state: city.state,
                                       lga_id: city.lga_id,
-                                      area_office_id: city.area_office_id,
+                                      area_office_id: city.area_office_id || "",
                                     })
                                     setAddCityOpen(true)
                                   }}
@@ -1111,66 +1116,52 @@ export default function LocationsPage() {
                     )}
                   </TableBody>
                 </Table>
-              </Card>
 
-              {/* Pagination */}
-              {filteredCities.length > PER_PAGE && (
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {(cityPage - 1) * PER_PAGE + 1}-{Math.min(cityPage * PER_PAGE, filteredCities.length)} of{" "}
-                    {filteredCities.length}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={cityPage === 1}
-                      onClick={() => setCityPage((p) => p - 1)}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={cityPage * PER_PAGE >= filteredCities.length}
-                      onClick={() => setCityPage((p) => p + 1)}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                {/* Pagination */}
+                {filteredCities.length > PER_PAGE && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {(cityPage - 1) * PER_PAGE + 1} to {Math.min(cityPage * PER_PAGE, filteredCities.length)}{" "}
+                      of {filteredCities.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCityPage((p) => Math.max(1, p - 1))}
+                        disabled={cityPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCityPage((p) => p + 1)}
+                        disabled={cityPage * PER_PAGE >= filteredCities.length}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
 
-        {/* Area Office Details Sheet */}
+        {/* Area Office Side Panel */}
         <Sheet open={areaOfficeSheetOpen} onOpenChange={setAreaOfficeSheetOpen}>
           <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>Area Office Details</SheetTitle>
-              <SheetDescription>View and manage area office information</SheetDescription>
+              <SheetTitle>{selectedAreaOffice?.office_name}</SheetTitle>
+              <SheetDescription>Area Office Details</SheetDescription>
             </SheetHeader>
             {selectedAreaOffice && (
               <div className="py-6 px-6 space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">{selectedAreaOffice.name}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedAreaOffice.address}</p>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-muted-foreground">Phone</p>
-                    <p className="text-sm font-medium">{selectedAreaOffice.phone_number || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Email</p>
-                    <p className="text-sm font-medium">{selectedAreaOffice.email || "-"}</p>
+                    <p className="text-xs text-muted-foreground">Office Code</p>
+                    <p className="font-medium">{selectedAreaOffice.office_code || "-"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Status</p>
@@ -1178,24 +1169,39 @@ export default function LocationsPage() {
                       {selectedAreaOffice.is_active ? "Active" : "Inactive"}
                     </Badge>
                   </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">Address</p>
+                  <p className="font-medium">{selectedAreaOffice.address || "-"}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-muted-foreground">PayKaduna ID</p>
-                    <p className="text-sm font-medium">{selectedAreaOffice.area_office_id || "-"}</p>
+                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <p className="font-medium">{selectedAreaOffice.phone_number || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p className="font-medium">{selectedAreaOffice.email || "-"}</p>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-semibold mb-2">Assigned LGAs ({areaOfficeLgas.length})</h4>
+                  <p className="text-xs text-muted-foreground mb-2">Assigned LGAs ({areaOfficeLgas.length})</p>
                   {areaOfficeLgas.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-1">
                       {areaOfficeLgas.map((lga) => (
-                        <Badge key={lga.id} variant="outline">
-                          {lga.name}
-                        </Badge>
+                        <div key={lga.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                          <span className="text-sm">{lga.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {lga.cities_count || 0} cities
+                          </Badge>
+                        </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No LGAs assigned</p>
+                    <p className="text-sm text-muted-foreground italic">No LGAs assigned</p>
                   )}
                 </div>
 
@@ -1212,70 +1218,47 @@ export default function LocationsPage() {
           </SheetContent>
         </Sheet>
 
-        {/* LGA Details Sheet */}
+        {/* LGA Side Panel */}
         <Sheet open={lgaSheetOpen} onOpenChange={setLgaSheetOpen}>
           <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>LGA Details</SheetTitle>
-              <SheetDescription>View and manage LGA information</SheetDescription>
+              <SheetTitle>{selectedLga?.name}</SheetTitle>
+              <SheetDescription>LGA Details</SheetDescription>
             </SheetHeader>
             {selectedLga && (
               <div className="py-6 px-6 space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Map className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">{selectedLga.name}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedLga.state} State</p>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-muted-foreground">Area Office</p>
-                    <p className="text-sm font-medium">{selectedLga.area_office_name || "Unassigned"}</p>
+                    <p className="text-xs text-muted-foreground">State</p>
+                    <p className="font-medium">{selectedLga.state}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">PayKaduna ID</p>
-                    <p className="text-sm font-medium">{selectedLga.lga_id || "-"}</p>
+                    <p className="text-xs text-muted-foreground">Area Office</p>
+                    <p className="font-medium">{selectedLga.area_office_name || "Unassigned"}</p>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-semibold mb-2">Cities ({lgaCities.length})</h4>
+                  <p className="text-xs text-muted-foreground mb-2">Cities ({lgaCities.length})</p>
                   {lgaCities.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-1">
                       {lgaCities.map((city) => (
-                        <Badge key={city.id} variant="outline">
-                          {city.name}
-                        </Badge>
+                        <div key={city.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                          <span className="text-sm">{city.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {city.properties_count || 0} properties
+                          </Badge>
+                        </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No cities in this LGA</p>
+                    <p className="text-sm text-muted-foreground italic">No cities</p>
                   )}
                 </div>
 
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button
-                    variant="outline"
-                    className="flex-1 bg-transparent"
-                    onClick={() => {
-                      setEditMode(true)
-                      setLgaForm({
-                        name: selectedLga.name,
-                        state: selectedLga.state,
-                        area_office_id: selectedLga.area_office_id || "",
-                      })
-                      setAddLgaOpen(true)
-                      setLgaSheetOpen(false)
-                    }}
-                  >
-                    Edit
-                  </Button>
                   <Button variant="destructive" className="flex-1" onClick={() => setDeleteLgaOpen(true)}>
-                    Delete
+                    Delete LGA
                   </Button>
                 </div>
               </div>
@@ -1283,60 +1266,39 @@ export default function LocationsPage() {
           </SheetContent>
         </Sheet>
 
-        {/* City Details Sheet */}
+        {/* City Side Panel */}
         <Sheet open={citySheetOpen} onOpenChange={setCitySheetOpen}>
           <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>City Details</SheetTitle>
-              <SheetDescription>View and manage city information</SheetDescription>
+              <SheetTitle>{selectedCity?.name}</SheetTitle>
+              <SheetDescription>City Details</SheetDescription>
             </SheetHeader>
             {selectedCity && (
               <div className="py-6 px-6 space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Landmark className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">{selectedCity.name}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedCity.state} State</p>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">LGA</p>
-                    <p className="text-sm font-medium">{selectedCity.lga_name}</p>
+                    <p className="font-medium">{selectedCity.lga_name || "-"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Area Office</p>
-                    <p className="text-sm font-medium">{selectedCity.area_office_name || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Properties</p>
-                    <p className="text-sm font-medium">{selectedCity.properties_count || 0}</p>
+                    <p className="font-medium">{selectedCity.area_office_name || "-"}</p>
                   </div>
                 </div>
 
+                <div>
+                  <p className="text-xs text-muted-foreground">State</p>
+                  <p className="font-medium">{selectedCity.state}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">Properties</p>
+                  <p className="font-medium">{selectedCity.properties_count || 0}</p>
+                </div>
+
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button
-                    variant="outline"
-                    className="flex-1 bg-transparent"
-                    onClick={() => {
-                      setEditMode(true)
-                      setCityForm({
-                        name: selectedCity.name,
-                        state: selectedCity.state,
-                        lga_id: selectedCity.lga_id,
-                        area_office_id: selectedCity.area_office_id,
-                      })
-                      setAddCityOpen(true)
-                      setCitySheetOpen(false)
-                    }}
-                  >
-                    Edit
-                  </Button>
                   <Button variant="destructive" className="flex-1" onClick={() => setDeleteCityOpen(true)}>
-                    Delete
+                    Delete City
                   </Button>
                 </div>
               </div>
@@ -1350,53 +1312,58 @@ export default function LocationsPage() {
             <DialogHeader>
               <DialogTitle>{editMode ? "Edit Area Office" : "Add Area Office"}</DialogTitle>
               <DialogDescription>
-                {editMode ? "Update area office details" : "Create a new area office"}
+                {editMode ? "Update the area office details" : "Create a new area office"}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="office-name">Name *</Label>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Office Name</Label>
                 <Input
-                  id="office-name"
-                  value={areaOfficeForm.name}
-                  onChange={(e) => setAreaOfficeForm({ ...areaOfficeForm, name: e.target.value })}
-                  placeholder="e.g. Kakuri East"
+                  value={areaOfficeForm.office_name}
+                  onChange={(e) => setAreaOfficeForm({ ...areaOfficeForm, office_name: e.target.value })}
+                  placeholder="e.g. Kaduna North Tax Station"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="office-address">Address</Label>
+              <div className="space-y-2">
+                <Label>Office Code</Label>
                 <Input
-                  id="office-address"
+                  value={areaOfficeForm.office_code}
+                  onChange={(e) => setAreaOfficeForm({ ...areaOfficeForm, office_code: e.target.value })}
+                  placeholder="e.g. KN-001"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Address</Label>
+                <Input
                   value={areaOfficeForm.address}
                   onChange={(e) => setAreaOfficeForm({ ...areaOfficeForm, address: e.target.value })}
-                  placeholder="e.g. Kaduna"
+                  placeholder="Office address"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="office-phone">Phone</Label>
-                <Input
-                  id="office-phone"
-                  value={areaOfficeForm.phone_number}
-                  onChange={(e) => setAreaOfficeForm({ ...areaOfficeForm, phone_number: e.target.value })}
-                  placeholder="e.g. +234..."
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="office-email">Email</Label>
-                <Input
-                  id="office-email"
-                  type="email"
-                  value={areaOfficeForm.email}
-                  onChange={(e) => setAreaOfficeForm({ ...areaOfficeForm, email: e.target.value })}
-                  placeholder="e.g. office@kadirs.gov.ng"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input
+                    value={areaOfficeForm.phone_number}
+                    onChange={(e) => setAreaOfficeForm({ ...areaOfficeForm, phone_number: e.target.value })}
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    value={areaOfficeForm.email}
+                    onChange={(e) => setAreaOfficeForm({ ...areaOfficeForm, email: e.target.value })}
+                    placeholder="Email address"
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddAreaOfficeOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveAreaOffice} disabled={!areaOfficeForm.name}>
+              <Button onClick={handleSaveAreaOffice} disabled={!areaOfficeForm.office_name}>
                 {editMode ? "Update" : "Create"}
               </Button>
             </DialogFooter>
@@ -1409,41 +1376,40 @@ export default function LocationsPage() {
             <DialogHeader>
               <DialogTitle>{editMode ? "Edit LGA" : "Add LGA"}</DialogTitle>
               <DialogDescription>
-                {editMode ? "Update LGA details" : "Create a new Local Government Area"}
+                {editMode ? "Update the LGA details" : "Create a new Local Government Area"}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="lga-name">Name *</Label>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>LGA Name</Label>
                 <Input
-                  id="lga-name"
                   value={lgaForm.name}
                   onChange={(e) => setLgaForm({ ...lgaForm, name: e.target.value })}
                   placeholder="e.g. Kaduna North"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lga-state">State</Label>
+              <div className="space-y-2">
+                <Label>State</Label>
                 <Input
-                  id="lga-state"
                   value={lgaForm.state}
                   onChange={(e) => setLgaForm({ ...lgaForm, state: e.target.value })}
-                  placeholder="e.g. Kaduna"
+                  placeholder="State"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lga-office">Area Office</Label>
+              <div className="space-y-2">
+                <Label>Area Office</Label>
                 <Select
-                  value={lgaForm.area_office_id}
-                  onValueChange={(v) => setLgaForm({ ...lgaForm, area_office_id: v })}
+                  value={lgaForm.area_office_id || "none"}
+                  onValueChange={(val) => setLgaForm({ ...lgaForm, area_office_id: val === "none" ? "" : val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select area office" />
                   </SelectTrigger>
                   <SelectContent>
-                    {areaOffices.map((o) => (
-                      <SelectItem key={o.id} value={o.id}>
-                        {o.name}
+                    <SelectItem value="none">None</SelectItem>
+                    {areaOffices.map((office) => (
+                      <SelectItem key={office.id} value={office.id}>
+                        {office.office_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1466,66 +1432,51 @@ export default function LocationsPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editMode ? "Edit City" : "Add City"}</DialogTitle>
-              <DialogDescription>{editMode ? "Update city details" : "Create a new city"}</DialogDescription>
+              <DialogDescription>{editMode ? "Update the city details" : "Create a new city"}</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="city-name">Name *</Label>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>City Name</Label>
                 <Input
-                  id="city-name"
                   value={cityForm.name}
                   onChange={(e) => setCityForm({ ...cityForm, name: e.target.value })}
-                  placeholder="e.g. Barnawa"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="city-state">State</Label>
-                <Input
-                  id="city-state"
-                  value={cityForm.state}
-                  onChange={(e) => setCityForm({ ...cityForm, state: e.target.value })}
                   placeholder="e.g. Kaduna"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="city-lga">LGA *</Label>
+              <div className="space-y-2">
+                <Label>LGA</Label>
                 <Select
                   value={cityForm.lga_id}
-                  onValueChange={(v) => {
-                    const lga = lgas.find((l) => l.id === v)
-                    setCityForm({ ...cityForm, lga_id: v, area_office_id: lga?.area_office_id || "" })
+                  onValueChange={(val) => {
+                    const lga = lgas.find((l) => l.id === val)
+                    setCityForm({
+                      ...cityForm,
+                      lga_id: val,
+                      area_office_id: lga?.area_office_id || "",
+                    })
                   }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select LGA" />
                   </SelectTrigger>
                   <SelectContent>
-                    {lgas.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        {l.name}
+                    {/* The issue was with the default value being an empty string. Changed to a placeholder and added a distinct "None" option if needed. */}
+                    <SelectItem value="none">Select an LGA</SelectItem>
+                    {lgas.map((lga) => (
+                      <SelectItem key={lga.id} value={lga.id}>
+                        {lga.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="city-office">Area Office</Label>
-                <Select
-                  value={cityForm.area_office_id}
-                  onValueChange={(v) => setCityForm({ ...cityForm, area_office_id: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Auto-filled from LGA" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {areaOffices.map((o) => (
-                      <SelectItem key={o.id} value={o.id}>
-                        {o.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Auto-filled from selected LGA if not specified</p>
+              <div className="space-y-2">
+                <Label>State</Label>
+                <Input
+                  value={cityForm.state}
+                  onChange={(e) => setCityForm({ ...cityForm, state: e.target.value })}
+                  placeholder="State"
+                />
               </div>
             </div>
             <DialogFooter>
@@ -1539,14 +1490,13 @@ export default function LocationsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Delete Confirmations */}
+        {/* Delete Dialogs */}
         <AlertDialog open={deleteAreaOfficeOpen} onOpenChange={setDeleteAreaOfficeOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Area Office</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete "{selectedAreaOffice?.name}"? This action cannot be undone. LGAs and
-                cities assigned to this office will need to be reassigned.
+                Are you sure you want to delete "{selectedAreaOffice?.office_name}"? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1563,7 +1513,7 @@ export default function LocationsPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Delete LGA</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete "{selectedLga?.name}"? This will also delete all cities in this LGA.
+                Are you sure you want to delete "{selectedLga?.name}"? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
