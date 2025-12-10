@@ -17,6 +17,8 @@ import Link from "next/link"
 
 interface Taxpayer {
   id: string
+  user_id: string
+  kadirs_id: string | null
   user: {
     first_name: string
     last_name: string
@@ -24,10 +26,11 @@ interface Taxpayer {
     phone_number: string
   }
   business_name?: string
-  properties: Array<{
+  properties?: Array<{
     registered_property_name: string
     property_type: string
   }>
+  properties_count?: number
 }
 
 export default function EnumeratePage() {
@@ -226,6 +229,8 @@ export default function EnumeratePage() {
 
         setSelectedTaxpayer({
           id: data.taxpayer.id,
+          user_id: user.uid,
+          kadirs_id: null,
           user: {
             first_name: newTaxpayer.firstName,
             last_name: newTaxpayer.lastName,
@@ -442,7 +447,7 @@ export default function EnumeratePage() {
                             </Badge>
                           )}
                         </div>
-                        <Badge>{taxpayer.properties.length} properties</Badge>
+                        <Badge>{taxpayer.properties_count ?? taxpayer.properties?.length ?? 0} properties</Badge>
                       </div>
                     </CardContent>
                   </Card>

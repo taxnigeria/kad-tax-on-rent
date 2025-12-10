@@ -136,10 +136,30 @@ export async function POST(request: NextRequest) {
         }))
         .sort((a, b) => b.matchScore - a.matchScore)
 
+      const resultUserIds = scoredResults.map((r) => r.user?.id).filter(Boolean)
+      let propertiesCounts: Record<string, number> = {}
+
+      if (resultUserIds.length > 0) {
+        const { data: properties } = await supabase.from("properties").select("owner_id").in("owner_id", resultUserIds)
+
+        if (properties) {
+          propertiesCounts = properties.reduce((acc: Record<string, number>, prop) => {
+            acc[prop.owner_id] = (acc[prop.owner_id] || 0) + 1
+            return acc
+          }, {})
+        }
+      }
+
+      // Add properties_count to each result
+      const resultsWithCount = scoredResults.map((r) => ({
+        ...r,
+        properties_count: propertiesCounts[r.user?.id] || 0,
+      }))
+
       return NextResponse.json({
         success: true,
-        results: scoredResults,
-        count: scoredResults.length,
+        results: resultsWithCount,
+        count: resultsWithCount.length,
       })
     }
 
@@ -183,10 +203,30 @@ export async function POST(request: NextRequest) {
       .filter((r) => r.id || r.user)
       .sort((a, b) => b.matchScore - a.matchScore)
 
+    const resultUserIds = results.map((r) => r.user?.id).filter(Boolean)
+    let propertiesCounts: Record<string, number> = {}
+
+    if (resultUserIds.length > 0) {
+      const { data: properties } = await supabase.from("properties").select("owner_id").in("owner_id", resultUserIds)
+
+      if (properties) {
+        propertiesCounts = properties.reduce((acc: Record<string, number>, prop) => {
+          acc[prop.owner_id] = (acc[prop.owner_id] || 0) + 1
+          return acc
+        }, {})
+      }
+    }
+
+    // Add properties_count to each result
+    const resultsWithCount = results.map((r) => ({
+      ...r,
+      properties_count: propertiesCounts[r.user?.id] || 0,
+    }))
+
     return NextResponse.json({
       success: true,
-      results,
-      count: results.length,
+      results: resultsWithCount,
+      count: resultsWithCount.length,
     })
   } catch (error) {
     console.error("[v0] Search taxpayers API error:", error)
