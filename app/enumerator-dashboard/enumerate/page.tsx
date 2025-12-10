@@ -12,7 +12,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Search, UserPlus, Camera, MapPin, CheckCircle, ArrowLeft, ArrowRight, Loader2, Navigation } from "lucide-react"
+import {
+  Search,
+  UserPlus,
+  Camera,
+  MapPin,
+  CheckCircle,
+  ArrowLeft,
+  ArrowRight,
+  Loader2,
+  Navigation,
+  AlertCircle,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
@@ -45,6 +56,21 @@ interface City {
   area_offices?: { id: string; office_name: string }
 }
 
+const PROPERTY_CATEGORIES = [
+  { value: "plaza", label: "Plaza" },
+  { value: "house", label: "House" },
+  { value: "estate_compound", label: "Estate / Compound" },
+  { value: "telecom_mast", label: "Telecommunication Mast" },
+  { value: "farm", label: "Farm" },
+  { value: "restaurant", label: "Restaurant" },
+  { value: "garden_bar", label: "Garden / Bar" },
+  { value: "event_center", label: "Event Center" },
+  { value: "school", label: "School" },
+  { value: "hospital", label: "Hospital" },
+  { value: "shop", label: "Shop" },
+  { value: "others", label: "Others" },
+]
+
 export default function EnumeratePage() {
   const router = useRouter()
   const { user, userRole, loading: authLoading } = useAuth()
@@ -55,6 +81,7 @@ export default function EnumeratePage() {
   const [searchResults, setSearchResults] = useState<Taxpayer[]>([])
   const [selectedTaxpayer, setSelectedTaxpayer] = useState<Taxpayer | null>(null)
   const [isOnline, setIsOnline] = useState(true)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   // GPS coordinates
   const [gpsLoading, setGpsLoading] = useState(false)
@@ -91,6 +118,7 @@ export default function EnumeratePage() {
   const [propertyData, setPropertyData] = useState({
     propertyName: "",
     propertyType: "residential",
+    propertyCategory: "",
     houseNumber: "",
     streetName: "",
     city: "",
@@ -154,6 +182,7 @@ export default function EnumeratePage() {
     })
     setShowCityModal(false)
     setCitySearch("")
+    setValidationErrors({ ...validationErrors, city: "" })
   }
 
   const captureGPS = () => {
@@ -176,6 +205,7 @@ export default function EnumeratePage() {
           title: "Location Captured",
           description: "GPS coordinates saved successfully",
         })
+        setValidationErrors({ ...validationErrors, gps: "" })
       },
       (error) => {
         console.error("[v0] GPS error:", error)
@@ -348,6 +378,7 @@ export default function EnumeratePage() {
       formData.append("firebaseUid", user?.uid || "")
       formData.append("propertyName", propertyData.propertyName)
       formData.append("propertyType", propertyData.propertyType)
+      formData.append("propertyCategory", propertyData.propertyCategory)
       formData.append("houseNumber", propertyData.houseNumber)
       formData.append("streetName", propertyData.streetName)
       formData.append("city", propertyData.city)
@@ -379,6 +410,7 @@ export default function EnumeratePage() {
         setPropertyData({
           propertyName: "",
           propertyType: "residential",
+          propertyCategory: "",
           houseNumber: "",
           streetName: "",
           city: "",
@@ -407,6 +439,60 @@ export default function EnumeratePage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const formatNaira = (value: string) => {
+    const num = value.replace(/[^\d]/g, "")
+    if (!num) return ""
+    return new Intl.NumberFormat("en-NG").format(Number.parseInt(num))
+  }
+
+  const parseNaira = (value: string) => {
+    return value.replace(/[^\d]/g, "")
+  }
+
+  const validatePropertyForm = () => {
+    const errors: Record<string, string> = {}
+
+    if (!propertyData.propertyName.trim()) {
+      errors.propertyName = "Property name is required"
+    }
+    if (!propertyData.propertyCategory) {
+      errors.propertyCategory = "Property category is required"
+    }
+    if (!propertyData.houseNumber.trim()) {
+      errors.houseNumber = "House number is required"
+    }
+    if (!propertyData.streetName.trim()) {
+      errors.streetName = "Street name is required"
+    }
+    if (!selectedCity) {
+      errors.city = "City is required"
+    }
+    if (!latitude || !longitude) {
+      errors.gps = "GPS coordinates are required"
+    }
+    if (!facadePhoto) {
+      errors.facadePhoto = "Facade photo is required"
+    }
+    if (!addressNumberPhoto) {
+      errors.addressPhoto = "Address number photo is required"
+    }
+
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleNextToReview = () => {
+    if (validatePropertyForm()) {
+      setStep(4)
+    } else {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
     }
   }
 
@@ -646,9 +732,47 @@ export default function EnumeratePage() {
               <Label>Property Name *</Label>
               <Input
                 value={propertyData.propertyName}
-                onChange={(e) => setPropertyData({ ...propertyData, propertyName: e.target.value })}
+                onChange={(e) => {
+                  setPropertyData({ ...propertyData, propertyName: e.target.value })
+                  setValidationErrors({ ...validationErrors, propertyName: "" })
+                }}
                 placeholder="e.g., Green Valley Apartments"
+                className={validationErrors.propertyName ? "border-destructive" : ""}
               />
+              {validationErrors.propertyName && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.propertyName}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Property Category *</Label>
+              <Select
+                value={propertyData.propertyCategory}
+                onValueChange={(v) => {
+                  setPropertyData({ ...propertyData, propertyCategory: v })
+                  setValidationErrors({ ...validationErrors, propertyCategory: "" })
+                }}
+              >
+                <SelectTrigger className={validationErrors.propertyCategory ? "border-destructive" : ""}>
+                  <SelectValue placeholder="Select category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROPERTY_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {validationErrors.propertyCategory && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.propertyCategory}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -674,9 +798,19 @@ export default function EnumeratePage() {
                 <Label>House Number *</Label>
                 <Input
                   value={propertyData.houseNumber}
-                  onChange={(e) => setPropertyData({ ...propertyData, houseNumber: e.target.value })}
+                  onChange={(e) => {
+                    setPropertyData({ ...propertyData, houseNumber: e.target.value })
+                    setValidationErrors({ ...validationErrors, houseNumber: "" })
+                  }}
                   placeholder="123"
+                  className={validationErrors.houseNumber ? "border-destructive" : ""}
                 />
+                {validationErrors.houseNumber && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.houseNumber}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Total Units</Label>
@@ -693,9 +827,19 @@ export default function EnumeratePage() {
               <Label>Street Name *</Label>
               <Input
                 value={propertyData.streetName}
-                onChange={(e) => setPropertyData({ ...propertyData, streetName: e.target.value })}
+                onChange={(e) => {
+                  setPropertyData({ ...propertyData, streetName: e.target.value })
+                  setValidationErrors({ ...validationErrors, streetName: "" })
+                }}
                 placeholder="Main Street"
+                className={validationErrors.streetName ? "border-destructive" : ""}
               />
+              {validationErrors.streetName && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.streetName}
+                </p>
+              )}
             </div>
 
             {/* City Selector */}
@@ -703,12 +847,18 @@ export default function EnumeratePage() {
               <Label>City *</Label>
               <Button
                 variant="outline"
-                className="w-full justify-between bg-transparent"
+                className={`w-full justify-between bg-transparent ${validationErrors.city ? "border-destructive" : ""}`}
                 onClick={() => setShowCityModal(true)}
               >
                 {selectedCity ? selectedCity.name : "Select city..."}
                 <Search className="h-4 w-4 ml-2 opacity-50" />
               </Button>
+              {validationErrors.city && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.city}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -729,12 +879,15 @@ export default function EnumeratePage() {
 
             <div className="space-y-2">
               <Label>Annual Rent (₦)</Label>
-              <Input
-                type="number"
-                value={propertyData.annualRent}
-                onChange={(e) => setPropertyData({ ...propertyData, annualRent: e.target.value })}
-                placeholder="500000"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
+                <Input
+                  value={formatNaira(propertyData.annualRent)}
+                  onChange={(e) => setPropertyData({ ...propertyData, annualRent: parseNaira(e.target.value) })}
+                  placeholder="500,000"
+                  className="pl-8"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -746,12 +899,12 @@ export default function EnumeratePage() {
               />
             </div>
 
-            {/* Photo Uploads */}
+            {/* Photo Uploads with validation */}
             <div className="grid grid-cols-2 gap-4 pt-4">
               <div className="space-y-2">
                 <Label>Facade Photo *</Label>
                 <div
-                  className="border-2 border-dashed rounded-lg p-4 text-center relative cursor-pointer"
+                  className={`border-2 border-dashed rounded-lg p-4 text-center relative cursor-pointer ${validationErrors.facadePhoto ? "border-destructive" : ""}`}
                   onClick={() => facadeInputRef.current?.click()}
                 >
                   {facadePreview ? (
@@ -772,15 +925,26 @@ export default function EnumeratePage() {
                     accept="image/*"
                     capture="environment"
                     className="hidden"
-                    onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0], "facade")}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handlePhotoUpload(e.target.files[0], "facade")
+                        setValidationErrors({ ...validationErrors, facadePhoto: "" })
+                      }
+                    }}
                   />
                 </div>
+                {validationErrors.facadePhoto && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.facadePhoto}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>Address Number Photo *</Label>
                 <div
-                  className="border-2 border-dashed rounded-lg p-4 text-center relative cursor-pointer"
+                  className={`border-2 border-dashed rounded-lg p-4 text-center relative cursor-pointer ${validationErrors.addressPhoto ? "border-destructive" : ""}`}
                   onClick={() => addressInputRef.current?.click()}
                 >
                   {addressPreview ? (
@@ -801,17 +965,36 @@ export default function EnumeratePage() {
                     accept="image/*"
                     capture="environment"
                     className="hidden"
-                    onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0], "address")}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handlePhotoUpload(e.target.files[0], "address")
+                        setValidationErrors({ ...validationErrors, addressPhoto: "" })
+                      }
+                    }}
                   />
                 </div>
+                {validationErrors.addressPhoto && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.addressPhoto}
+                  </p>
+                )}
               </div>
             </div>
+
+            {/* GPS Validation Error */}
+            {validationErrors.gps && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {validationErrors.gps}
+              </p>
+            )}
 
             <div className="flex gap-2 pt-4">
               <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
                 Back
               </Button>
-              <Button onClick={() => setStep(4)} className="flex-1">
+              <Button onClick={handleNextToReview} className="flex-1">
                 Review
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -837,12 +1020,14 @@ export default function EnumeratePage() {
               <p className="text-sm text-muted-foreground">{selectedTaxpayer.user.phone_number}</p>
             </div>
 
-            {/* Property Summary */}
+            {/* Property Summary - Updated */}
             <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               <p className="text-sm font-medium text-muted-foreground mb-2">Property Details</p>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <span className="text-muted-foreground">Name:</span>
                 <span>{propertyData.propertyName}</span>
+                <span className="text-muted-foreground">Category:</span>
+                <span>{PROPERTY_CATEGORIES.find((c) => c.value === propertyData.propertyCategory)?.label || "-"}</span>
                 <span className="text-muted-foreground">Type:</span>
                 <span className="capitalize">{propertyData.propertyType}</span>
                 <span className="text-muted-foreground">Address:</span>
@@ -850,13 +1035,19 @@ export default function EnumeratePage() {
                   {propertyData.houseNumber} {propertyData.streetName}
                 </span>
                 <span className="text-muted-foreground">City:</span>
-                <span>{propertyData.city}</span>
+                <span>{selectedCity?.name || "-"}</span>
                 <span className="text-muted-foreground">LGA:</span>
                 <span>{propertyData.lga}</span>
                 <span className="text-muted-foreground">Area Office:</span>
-                <span>{selectedCity?.area_offices?.office_name || "N/A"}</span>
+                <span>{selectedCity?.area_offices?.office_name || "-"}</span>
+                <span className="text-muted-foreground">Annual Rent:</span>
+                <span>₦{formatNaira(propertyData.annualRent) || "0"}</span>
                 <span className="text-muted-foreground">GPS:</span>
-                <span>{latitude && longitude ? `${latitude}, ${longitude}` : "Not captured"}</span>
+                <span>
+                  {latitude && longitude
+                    ? `${Number.parseFloat(latitude).toFixed(6)}, ${Number.parseFloat(longitude).toFixed(6)}`
+                    : "-"}
+                </span>
               </div>
             </div>
 
