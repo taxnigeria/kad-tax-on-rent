@@ -138,12 +138,21 @@ export default function EnumeratePage() {
       return
     }
 
+    if (!user?.uid) {
+      toast({
+        title: "Authentication Error",
+        description: "Please log in again",
+        variant: "destructive",
+      })
+      return
+    }
+
     setLoading(true)
     try {
       const res = await fetch("/api/enumerator/search-taxpayers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchTerm }),
+        body: JSON.stringify({ query: searchTerm, firebaseUid: user.uid }),
       })
 
       if (res.ok) {
