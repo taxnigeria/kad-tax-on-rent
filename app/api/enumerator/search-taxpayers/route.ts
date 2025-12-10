@@ -74,42 +74,94 @@ export async function POST(request: NextRequest) {
     }
 
     const normalized = normalizePhone(searchValue)
+    const searchPattern = `%${searchValue}%`
+    const normalizedPattern = `%${normalized}%`
 
-    const { data: results, error } = await supabase
-      .from("taxpayer_profiles")
-      .select(`
-        *,
-        user:users!inner(id, first_name, last_name, email, phone_number, is_active),
-        properties:properties(id, registered_property_name, property_type, verification_status)
-      `)
+    // This avoids the Supabase limitation of filtering on joined columns
+    const { data: matchingUsers, error: usersError } = await supabase
+      .from("users")
+      .select("id, first_name, last_name, email, phone_number, is_active")
       .or(
-        `user.first_name.ilike.%${searchValue}%,user.last_name.ilike.%${searchValue}%,business_name.ilike.%${searchValue}%,user.email.ilike.%${searchValue}%,user.phone_number.ilike.%${searchValue}%,user.phone_number.ilike.%${normalized}%`,
+        `first_name.ilike.${searchPattern},last_name.ilike.${searchPattern},email.ilike.${searchPattern},phone_number.ilike.${searchPattern},phone_number.ilike.${normalizedPattern}`,
       )
+      .eq("role", "taxpayer")
       .limit(20)
 
-    if (error) {
-      console.error("[v0] Taxpayer search error:", error)
+    if (usersError) {
+      console.error("[v0] Users search error:", usersError)
       return NextResponse.json({ error: "Search failed" }, { status: 500 })
     }
 
-    const scoredResults =
-      results
-        ?.map((result) => ({
-          ...result,
+    if (!matchingUsers || matchingUsers.length === 0) {
+      // Also search by business name in taxpayer_profiles
+      const { data: businessResults, error: businessError } = await supabase
+        .from("taxpayer_profiles")
+        .select(`
+          *,
+          user:users!inner(id, first_name, last_name, email, phone_number, is_active)
+        `)
+        .ilike("business_name", searchPattern)
+        .limit(20)
+
+      if (businessError) {
+        console.error("[v0] Business search error:", businessError)
+        return NextResponse.json({ error: "Search failed" }, { status: 500 })
+      }
+
+      const scoredResults =
+        businessResults
+          ?.map((result) => ({
+            ...result,
+            matchScore: fuzzyMatch(searchValue, result.business_name || ""),
+          }))
+          .sort((a, b) => b.matchScore - a.matchScore) || []
+
+      return NextResponse.json({
+        success: true,
+        results: scoredResults,
+        count: scoredResults.length,
+      })
+    }
+
+    // Get taxpayer profiles for matching users
+    const userIds = matchingUsers.map((u) => u.id)
+
+    const { data: profiles, error: profilesError } = await supabase
+      .from("taxpayer_profiles")
+      .select(`
+        *,
+        properties:properties(id, registered_property_name, property_type, verification_status)
+      `)
+      .in("user_id", userIds)
+
+    if (profilesError) {
+      console.error("[v0] Profiles lookup error:", profilesError)
+      return NextResponse.json({ error: "Search failed" }, { status: 500 })
+    }
+
+    // Combine user data with profile data
+    const results = matchingUsers
+      .map((user) => {
+        const profile = profiles?.find((p) => p.user_id === user.id)
+        return {
+          ...profile,
+          user,
           matchScore: Math.max(
-            fuzzyMatch(searchValue, result.user.first_name || ""),
-            fuzzyMatch(searchValue, result.user.last_name || ""),
-            fuzzyMatch(searchValue, result.business_name || ""),
-            fuzzyMatch(searchValue, result.user.email || ""),
-            fuzzyMatch(searchValue, result.user.phone_number || ""),
+            fuzzyMatch(searchValue, user.first_name || ""),
+            fuzzyMatch(searchValue, user.last_name || ""),
+            fuzzyMatch(searchValue, profile?.business_name || ""),
+            fuzzyMatch(searchValue, user.email || ""),
+            fuzzyMatch(searchValue, user.phone_number || ""),
           ),
-        }))
-        .sort((a, b) => b.matchScore - a.matchScore) || []
+        }
+      })
+      .filter((r) => r.id || r.user) // Filter out users without profiles if needed
+      .sort((a, b) => b.matchScore - a.matchScore)
 
     return NextResponse.json({
       success: true,
-      results: scoredResults,
-      count: scoredResults.length,
+      results,
+      count: results.length,
     })
   } catch (error) {
     console.error("[v0] Search taxpayers API error:", error)
