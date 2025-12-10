@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
+import { useTheme } from "next-themes"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,18 +11,42 @@ import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { User, Mail, Phone, Calendar, LogOut, Shield, Loader2 } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { User, Mail, Phone, Calendar, LogOut, Shield, Loader2, Moon, Sun, Pencil, Save, X } from "lucide-react"
 import { signOut } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@/lib/supabase/client"
 
 export default function ProfilePage() {
   const router = useRouter()
   const { user, userRole, loading: authLoading } = useAuth()
+  const { theme, setTheme } = useTheme()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
   const [profileData, setProfileData] = useState<any>(null)
+  const [mounted, setMounted] = useState(false)
+
+  // Edit profile state
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [editForm, setEditForm] = useState({
+    full_name: "",
+    phone_number: "",
+  })
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!authLoading) {
@@ -41,18 +66,89 @@ export default function ProfilePage() {
 
   const loadProfile = async () => {
     try {
-      // For now, use Firebase user data
-      setProfileData({
-        name: user?.displayName || "Field Agent",
-        email: user?.email || "",
-        phone: user?.phoneNumber || "",
-        photoURL: user?.photoURL || "",
-        createdAt: user?.metadata?.creationTime || new Date().toISOString(),
-      })
+      const supabase = createClient()
+
+      // Fetch user data from Supabase
+      const { data: userData } = await supabase.from("users").select("*").eq("firebase_uid", user?.uid).single()
+
+      if (userData) {
+        setProfileData({
+          id: userData.id,
+          name: userData.full_name || user?.displayName || "Field Agent",
+          email: userData.email || user?.email || "",
+          phone: userData.phone_number || user?.phoneNumber || "",
+          photoURL: user?.photoURL || "",
+          createdAt: userData.created_at || user?.metadata?.creationTime || new Date().toISOString(),
+        })
+        setEditForm({
+          full_name: userData.full_name || "",
+          phone_number: userData.phone_number || "",
+        })
+      } else {
+        // Fallback to Firebase user data
+        setProfileData({
+          name: user?.displayName || "Field Agent",
+          email: user?.email || "",
+          phone: user?.phoneNumber || "",
+          photoURL: user?.photoURL || "",
+          createdAt: user?.metadata?.creationTime || new Date().toISOString(),
+        })
+        setEditForm({
+          full_name: user?.displayName || "",
+          phone_number: user?.phoneNumber || "",
+        })
+      }
     } catch (error) {
-      console.error("[v0] Failed to load profile:", error)
+      console.error("Failed to load profile:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!profileData?.id) {
+      toast({
+        title: "Error",
+        description: "User profile not found",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSaving(true)
+    try {
+      const supabase = createClient()
+
+      const { error } = await supabase
+        .from("users")
+        .update({
+          full_name: editForm.full_name,
+          phone_number: editForm.phone_number,
+        })
+        .eq("id", profileData.id)
+
+      if (error) throw error
+
+      setProfileData((prev: any) => ({
+        ...prev,
+        name: editForm.full_name,
+        phone: editForm.phone_number,
+      }))
+
+      setEditDialogOpen(false)
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been updated successfully",
+      })
+    } catch (error) {
+      console.error("Failed to save profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -122,8 +218,8 @@ export default function ProfilePage() {
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 max-w-2xl mx-auto">
-      {/* Header */}
-      <div>
+      {/* Header - hidden on mobile since AppBar shows title */}
+      <div className="hidden md:block">
         <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
         <p className="text-sm text-muted-foreground">Manage your account settings</p>
       </div>
@@ -136,7 +232,7 @@ export default function ProfilePage() {
               <AvatarImage src={profileData?.photoURL || "/placeholder.svg"} />
               <AvatarFallback className="text-2xl">{getInitials(profileData?.name)}</AvatarFallback>
             </Avatar>
-            <div className="text-center md:text-left">
+            <div className="flex-1 text-center md:text-left">
               <h2 className="text-xl font-semibold">{profileData?.name}</h2>
               <p className="text-sm text-muted-foreground">{profileData?.email}</p>
               <Badge className="mt-2" variant="secondary">
@@ -144,6 +240,10 @@ export default function ProfilePage() {
                 Field Agent
               </Badge>
             </div>
+            <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Profile
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -200,10 +300,36 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Danger Zone */}
-      <Card className="border-red-200">
+      {/* Appearance Settings */}
+      <Card>
         <CardHeader>
-          <CardTitle className="text-red-600">Danger Zone</CardTitle>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>Customize how the app looks</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {mounted && theme === "dark" ? (
+                <Moon className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <Sun className="h-5 w-5 text-muted-foreground" />
+              )}
+              <div>
+                <p className="font-medium">Dark Mode</p>
+                <p className="text-sm text-muted-foreground">Toggle dark theme</p>
+              </div>
+            </div>
+            {mounted && (
+              <Switch checked={theme === "dark"} onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")} />
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Danger Zone */}
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
           <CardDescription>Irreversible account actions</CardDescription>
         </CardHeader>
         <CardContent>
@@ -213,6 +339,46 @@ export default function ProfilePage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>Update your profile information</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Full Name</Label>
+              <Input
+                id="full_name"
+                value={editForm.full_name}
+                onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                placeholder="Enter your full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone_number">Phone Number</Label>
+              <Input
+                id="phone_number"
+                value={editForm.phone_number}
+                onChange={(e) => setEditForm({ ...editForm, phone_number: e.target.value })}
+                placeholder="Enter your phone number"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={saving}>
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
+            <Button onClick={handleSaveProfile} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
