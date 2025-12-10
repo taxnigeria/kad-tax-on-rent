@@ -7,7 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Building2, Users, CheckCircle, Clock, XCircle, TrendingUp, Plus } from "lucide-react"
+import Link from "next/link"
 
 interface EnumeratorStats {
   totalProperties: number
@@ -54,7 +56,6 @@ export default function EnumeratorDashboard() {
 
   const loadData = async () => {
     try {
-      // Load stats and leaderboard in parallel
       const [statsRes, leaderboardRes] = await Promise.all([
         fetch("/api/enumerator/stats"),
         fetch("/api/enumerator/leaderboard"),
@@ -79,10 +80,47 @@ export default function EnumeratorDashboard() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-sm text-muted-foreground">Loading dashboard...</p>
+      <div className="flex-1 space-y-6 p-4 md:p-8">
+        {/* Header Skeleton */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+          <Skeleton className="h-10 w-full md:w-48" />
+        </div>
+
+        {/* Stats Cards Skeleton */}
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4 rounded" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-1" />
+                <Skeleton className="h-3 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Performance and Leaderboard Skeleton */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {[...Array(2)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-48" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[...Array(4)].map((_, j) => (
+                  <Skeleton key={j} className="h-12 w-full" />
+                ))}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     )
@@ -96,14 +134,16 @@ export default function EnumeratorDashboard() {
           <h1 className="text-2xl font-bold tracking-tight">Field Agent Dashboard</h1>
           <p className="text-sm text-muted-foreground">Track your enumeration progress and performance</p>
         </div>
-        <Button onClick={() => router.push("/enumerator-dashboard/enumerate")} size="lg" className="w-full md:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          Register New Property
+        <Button asChild size="lg" className="w-full md:w-auto">
+          <Link href="/enumerator-dashboard/enumerate">
+            <Plus className="mr-2 h-4 w-4" />
+            Register New Property
+          </Link>
         </Button>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
@@ -205,11 +245,16 @@ export default function EnumeratorDashboard() {
           </CardContent>
         </Card>
 
-        {/* Leaderboard */}
+        {/* Leaderboard Preview */}
         <Card>
-          <CardHeader>
-            <CardTitle>Leaderboard</CardTitle>
-            <CardDescription>Top performing field agents</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Leaderboard</CardTitle>
+              <CardDescription>Top performing field agents</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/enumerator-dashboard/leaderboard">View All</Link>
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">

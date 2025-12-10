@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, UserPlus, Camera, MapPin, CheckCircle, ArrowLeft, ArrowRight } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Search, UserPlus, Camera, MapPin, CheckCircle, ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 interface Taxpayer {
   id: string
@@ -32,7 +34,7 @@ export default function EnumeratePage() {
   const router = useRouter()
   const { user, userRole, loading: authLoading } = useAuth()
   const { toast } = useToast()
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1) // 1: Search, 2: Create Taxpayer, 3: Property Form, 4: Review
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [searchResults, setSearchResults] = useState<Taxpayer[]>([])
@@ -86,13 +88,10 @@ export default function EnumeratePage() {
   }, [userRole, authLoading, router])
 
   useEffect(() => {
-    // Load offline queue from localStorage
     const saved = localStorage.getItem("enumerator_offline_queue")
     if (saved) {
       setOfflineQueue(JSON.parse(saved))
     }
-
-    // Capture GPS on mount
     captureGPS()
   }, [router])
 
@@ -173,11 +172,10 @@ export default function EnumeratePage() {
 
   const selectTaxpayer = (taxpayer: Taxpayer) => {
     setSelectedTaxpayer(taxpayer)
-    setStep(3) // Go to property form
+    setStep(3)
   }
 
   const createNewTaxpayer = async () => {
-    // Validate
     if (!newTaxpayer.firstName || !newTaxpayer.lastName || !newTaxpayer.phoneNumber) {
       toast({
         title: "Missing Fields",
@@ -228,7 +226,7 @@ export default function EnumeratePage() {
           properties: [],
         })
 
-        setStep(3) // Go to property form
+        setStep(3)
       } else {
         const error = await res.json()
         throw new Error(error.error || "Failed to create taxpayer")
@@ -255,7 +253,6 @@ export default function EnumeratePage() {
   }
 
   const submitProperty = async () => {
-    // Validation
     if (!selectedTaxpayer) {
       toast({
         title: "Error",
@@ -307,20 +304,16 @@ export default function EnumeratePage() {
       })
 
       if (res.ok) {
-        const data = await res.json()
         toast({
           title: "Property Registered",
           description: `${propertyData.propertyName} has been submitted for verification`,
         })
-
-        // Reset and go back to dashboard
         router.push("/enumerator-dashboard")
       } else {
         const error = await res.json()
         throw new Error(error.error || "Failed to create property")
       }
     } catch (error: any) {
-      // Save to offline queue if network error
       if (!navigator.onLine) {
         const queueItem = {
           taxpayer: selectedTaxpayer,
@@ -338,8 +331,6 @@ export default function EnumeratePage() {
           title: "Saved Offline",
           description: "Property saved. Will sync when online.",
         })
-
-        // Reset form
         router.push("/enumerator-dashboard")
       } else {
         toast({
@@ -353,13 +344,36 @@ export default function EnumeratePage() {
     }
   }
 
+  if (authLoading) {
+    return (
+      <div className="flex-1 p-4 max-w-2xl mx-auto space-y-6">
+        <Skeleton className="h-10 w-40" />
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-2 w-full" />
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-4 w-48" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 p-4 max-w-2xl mx-auto">
       {/* Header with Back Button */}
       <div className="mb-6">
-        <Button variant="ghost" onClick={() => router.push("/enumerator-dashboard")} className="mb-4">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
+        <Button variant="ghost" asChild className="mb-4">
+          <Link href="/enumerator-dashboard">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Link>
         </Button>
         <h1 className="text-2xl font-bold">Register New Property</h1>
         <p className="text-sm text-muted-foreground">Step {step} of 4</p>
@@ -390,11 +404,10 @@ export default function EnumeratePage() {
                 className="flex-1"
               />
               <Button onClick={searchTaxpayers} disabled={loading}>
-                <Search className="h-4 w-4" />
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
 
-            {/* Search Results */}
             {searchResults.length > 0 && (
               <div className="space-y-2 mt-4">
                 <Label>Search Results ({searchResults.length})</Label>
@@ -499,6 +512,7 @@ export default function EnumeratePage() {
                 Back
               </Button>
               <Button onClick={createNewTaxpayer} disabled={loading} className="flex-1">
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -535,7 +549,7 @@ export default function EnumeratePage() {
                     </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={captureGPS} disabled={gpsLoading}>
-                    {gpsLoading ? "Capturing..." : "Capture"}
+                    {gpsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Capture"}
                   </Button>
                 </div>
               </CardContent>
@@ -622,102 +636,70 @@ export default function EnumeratePage() {
                 type="number"
                 value={propertyData.annualRent}
                 onChange={(e) => setPropertyData({ ...propertyData, annualRent: e.target.value })}
-                placeholder="0"
+                placeholder="500000"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={propertyData.enumerationNotes}
+                onChange={(e) => setPropertyData({ ...propertyData, enumerationNotes: e.target.value })}
+                placeholder="Any additional notes about the property..."
               />
             </div>
 
             {/* Photo Uploads */}
-            <div className="space-y-4 pt-4 border-t">
-              <Label>Photos (Required) *</Label>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Facade Photo */}
-                <div className="space-y-2">
-                  <Label className="text-xs">Property Facade</Label>
-                  <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                    {facadePreview ? (
-                      <div className="relative">
-                        <img
-                          src={facadePreview || "/placeholder.svg"}
-                          alt="Facade"
-                          className="w-full h-32 object-cover rounded"
-                        />
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="absolute top-2 right-2"
-                          onClick={() => {
-                            setFacadePhoto(null)
-                            setFacadePreview("")
-                          }}
-                        >
-                          Change
-                        </Button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer">
-                        <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">Tap to capture</p>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0], "facade")}
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-
-                {/* Address Number Photo */}
-                <div className="space-y-2">
-                  <Label className="text-xs">Address Number</Label>
-                  <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                    {addressPreview ? (
-                      <div className="relative">
-                        <img
-                          src={addressPreview || "/placeholder.svg"}
-                          alt="Address"
-                          className="w-full h-32 object-cover rounded"
-                        />
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="absolute top-2 right-2"
-                          onClick={() => {
-                            setAddressNumberPhoto(null)
-                            setAddressPreview("")
-                          }}
-                        >
-                          Change
-                        </Button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer">
-                        <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">Tap to capture</p>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0], "address")}
-                        />
-                      </label>
-                    )}
-                  </div>
+            <div className="grid grid-cols-2 gap-4 pt-4">
+              <div className="space-y-2">
+                <Label>Facade Photo *</Label>
+                <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                  {facadePreview ? (
+                    <img
+                      src={facadePreview || "/placeholder.svg"}
+                      alt="Facade"
+                      className="w-full h-32 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="py-4">
+                      <Camera className="h-8 w-8 mx-auto text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground mt-2">Tap to upload</p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0], "facade")}
+                  />
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Notes (Optional)</Label>
-              <Textarea
-                value={propertyData.enumerationNotes}
-                onChange={(e) => setPropertyData({ ...propertyData, enumerationNotes: e.target.value })}
-                placeholder="Any additional observations..."
-              />
+              <div className="space-y-2">
+                <Label>Address Number Photo *</Label>
+                <div className="border-2 border-dashed rounded-lg p-4 text-center relative">
+                  {addressPreview ? (
+                    <img
+                      src={addressPreview || "/placeholder.svg"}
+                      alt="Address"
+                      className="w-full h-32 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="py-4">
+                      <Camera className="h-8 w-8 mx-auto text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground mt-2">Tap to upload</p>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0], "address")}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-2 pt-4">
@@ -738,98 +720,75 @@ export default function EnumeratePage() {
         <Card>
           <CardHeader>
             <CardTitle>Review & Submit</CardTitle>
-            <CardDescription>Verify all information before submitting</CardDescription>
+            <CardDescription>Confirm all details before submitting</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Taxpayer Info */}
-            <div>
-              <h3 className="font-medium mb-2">Taxpayer</h3>
-              <Card className="bg-muted/50">
-                <CardContent className="p-3 text-sm">
-                  <p className="font-medium">
-                    {selectedTaxpayer.user.first_name} {selectedTaxpayer.user.last_name}
-                  </p>
-                  <p className="text-muted-foreground">{selectedTaxpayer.user.phone_number}</p>
-                </CardContent>
-              </Card>
+          <CardContent className="space-y-4">
+            {/* Taxpayer Summary */}
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <p className="text-sm font-medium text-muted-foreground mb-2">Taxpayer</p>
+              <p className="font-medium">
+                {selectedTaxpayer.user.first_name} {selectedTaxpayer.user.last_name}
+              </p>
+              <p className="text-sm text-muted-foreground">{selectedTaxpayer.user.phone_number}</p>
             </div>
 
-            {/* Property Info */}
-            <div>
-              <h3 className="font-medium mb-2">Property Details</h3>
-              <Card className="bg-muted/50">
-                <CardContent className="p-3 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Name:</span>
-                    <span className="font-medium">{propertyData.propertyName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Type:</span>
-                    <span className="capitalize">{propertyData.propertyType}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Address:</span>
-                    <span>
-                      {propertyData.houseNumber} {propertyData.streetName}
-                    </span>
-                  </div>
-                  {propertyData.annualRent && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Annual Rent:</span>
-                      <span>₦{Number.parseFloat(propertyData.annualRent).toLocaleString()}</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Photos */}
-            <div>
-              <h3 className="font-medium mb-2">Photos</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {facadePreview && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Facade</p>
-                    <img
-                      src={facadePreview || "/placeholder.svg"}
-                      alt="Facade"
-                      className="w-full h-32 object-cover rounded border"
-                    />
-                  </div>
-                )}
-                {addressPreview && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Address Number</p>
-                    <img
-                      src={addressPreview || "/placeholder.svg"}
-                      alt="Address"
-                      className="w-full h-32 object-cover rounded border"
-                    />
-                  </div>
+            {/* Property Summary */}
+            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+              <p className="text-sm font-medium text-muted-foreground mb-2">Property Details</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <p className="text-muted-foreground">Name:</p>
+                <p className="font-medium">{propertyData.propertyName}</p>
+                <p className="text-muted-foreground">Type:</p>
+                <p className="font-medium capitalize">{propertyData.propertyType}</p>
+                <p className="text-muted-foreground">Address:</p>
+                <p className="font-medium">
+                  {propertyData.houseNumber} {propertyData.streetName}
+                </p>
+                <p className="text-muted-foreground">Location:</p>
+                <p className="font-medium">
+                  {propertyData.city}, {propertyData.lga}
+                </p>
+                {propertyData.annualRent && (
+                  <>
+                    <p className="text-muted-foreground">Annual Rent:</p>
+                    <p className="font-medium">₦{Number(propertyData.annualRent).toLocaleString()}</p>
+                  </>
                 )}
               </div>
             </div>
 
-            {/* GPS */}
+            {/* GPS Summary */}
             {latitude && longitude && (
-              <div>
-                <h3 className="font-medium mb-2">GPS Location</h3>
-                <Card className="bg-muted/50">
-                  <CardContent className="p-3 text-sm">
-                    <p className="text-muted-foreground">
-                      {Number.parseFloat(latitude).toFixed(6)}, {Number.parseFloat(longitude).toFixed(6)}
-                    </p>
-                  </CardContent>
-                </Card>
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm font-medium text-muted-foreground mb-2">GPS Coordinates</p>
+                <p className="text-sm font-mono">
+                  {Number.parseFloat(latitude).toFixed(6)}, {Number.parseFloat(longitude).toFixed(6)}
+                </p>
               </div>
             )}
 
-            {/* Confirmation Checkbox */}
-            <div className="flex items-start gap-3 p-4 border rounded-lg">
-              <input type="checkbox" id="verify" className="mt-1" required />
-              <label htmlFor="verify" className="text-sm">
-                I have verified this information with the property owner and confirm all details are accurate.
-              </label>
+            {/* Photos Summary */}
+            <div className="grid grid-cols-2 gap-4">
+              {facadePreview && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Facade Photo</p>
+                  <img
+                    src={facadePreview || "/placeholder.svg"}
+                    alt="Facade"
+                    className="w-full h-24 object-cover rounded"
+                  />
+                </div>
+              )}
+              {addressPreview && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Address Photo</p>
+                  <img
+                    src={addressPreview || "/placeholder.svg"}
+                    alt="Address"
+                    className="w-full h-24 object-cover rounded"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 pt-4">
@@ -837,8 +796,8 @@ export default function EnumeratePage() {
                 Back
               </Button>
               <Button onClick={submitProperty} disabled={loading} className="flex-1">
-                {loading ? "Submitting..." : "Submit Property"}
-                <CheckCircle className="ml-2 h-4 w-4" />
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                Submit Property
               </Button>
             </div>
           </CardContent>
