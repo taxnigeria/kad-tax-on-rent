@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,9 +11,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, UserPlus, Camera, MapPin, CheckCircle, ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Search, UserPlus, Camera, MapPin, CheckCircle, ArrowLeft, ArrowRight, Loader2, Navigation } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
 
 interface Taxpayer {
   id: string
@@ -33,6 +35,16 @@ interface Taxpayer {
   properties_count?: number
 }
 
+interface City {
+  id: string
+  name: string
+  state: string
+  lga_id: string
+  area_office_id: string | null
+  lgas?: { id: string; name: string }
+  area_offices?: { id: string; office_name: string }
+}
+
 export default function EnumeratePage() {
   const router = useRouter()
   const { user, userRole, loading: authLoading } = useAuth()
@@ -49,16 +61,29 @@ export default function EnumeratePage() {
   const [latitude, setLatitude] = useState<string>("")
   const [longitude, setLongitude] = useState<string>("")
 
+  // Photos
+  const [facadePhoto, setFacadePhoto] = useState<File | null>(null)
+  const [addressNumberPhoto, setAddressNumberPhoto] = useState<File | null>(null)
+  const [facadePreview, setFacadePreview] = useState<string>("")
+  const [addressPreview, setAddressPreview] = useState<string>("")
+
+  // File input refs
+  const facadeInputRef = useRef<HTMLInputElement>(null)
+  const addressInputRef = useRef<HTMLInputElement>(null)
+
+  // City data
+  const [cities, setCities] = useState<City[]>([])
+  const [citySearch, setCitySearch] = useState("")
+  const [showCityModal, setShowCityModal] = useState(false)
+  const [selectedCity, setSelectedCity] = useState<City | null>(null)
+  const [loadingCities, setLoadingCities] = useState(false)
+
   // New taxpayer form
   const [newTaxpayer, setNewTaxpayer] = useState({
     firstName: "",
     lastName: "",
     phoneNumber: "",
     email: "",
-    isBusiness: false,
-    businessName: "",
-    businessType: "",
-    taxIdOrNin: "",
     residentialAddress: "",
   })
 
@@ -70,33 +95,66 @@ export default function EnumeratePage() {
     streetName: "",
     city: "",
     lga: "",
+    areaOfficeId: "",
     totalUnits: "",
     annualRent: "",
     enumerationNotes: "",
   })
 
-  // Photos (compulsory)
-  const [facadePhoto, setFacadePhoto] = useState<File | null>(null)
-  const [addressNumberPhoto, setAddressNumberPhoto] = useState<File | null>(null)
-  const [facadePreview, setFacadePreview] = useState<string>("")
-  const [addressPreview, setAddressPreview] = useState<string>("")
-
-  // Offline queue
-  const [offlineQueue, setOfflineQueue] = useState<any[]>([])
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+    }
+  }, [])
 
   useEffect(() => {
-    if (!authLoading && userRole !== "enumerator") {
-      router.push("/login")
-    }
-  }, [userRole, authLoading, router])
+    const fetchCities = async () => {
+      setLoadingCities(true)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("cities")
+        .select(`
+          id,
+          name,
+          state,
+          lga_id,
+          area_office_id,
+          lgas (id, name),
+          area_offices (id, office_name)
+        `)
+        .order("name")
 
-  useEffect(() => {
-    const saved = localStorage.getItem("enumerator_offline_queue")
-    if (saved) {
-      setOfflineQueue(JSON.parse(saved))
+      if (!error && data) {
+        setCities(data as City[])
+      }
+      setLoadingCities(false)
     }
-    captureGPS()
-  }, [router])
+    fetchCities()
+  }, [])
+
+  const filteredCities = cities.filter(
+    (city) =>
+      city.name.toLowerCase().includes(citySearch.toLowerCase()) ||
+      city.lgas?.name?.toLowerCase().includes(citySearch.toLowerCase()),
+  )
+
+  const handleCitySelect = (city: City) => {
+    setSelectedCity(city)
+    setPropertyData({
+      ...propertyData,
+      city: city.name,
+      lga: city.lgas?.name || "",
+      areaOfficeId: city.area_office_id || "",
+    })
+    setShowCityModal(false)
+    setCitySearch("")
+  }
 
   const captureGPS = () => {
     if (!navigator.geolocation) {
@@ -160,21 +218,15 @@ export default function EnumeratePage() {
 
       if (res.ok) {
         const data = await res.json()
-        setSearchResults(data.results)
-
-        if (data.results.length === 0) {
-          toast({
-            title: "No Results",
-            description: "No taxpayers found. You can create a new one.",
-          })
-        }
+        setSearchResults(data.results || [])
       } else {
-        throw new Error("Search failed")
+        const error = await res.json()
+        throw new Error(error.error || "Search failed")
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Search Failed",
-        description: "Please check your connection and try again",
+        description: error.message,
         variant: "destructive",
       })
     } finally {
@@ -182,16 +234,11 @@ export default function EnumeratePage() {
     }
   }
 
-  const selectTaxpayer = (taxpayer: Taxpayer) => {
-    setSelectedTaxpayer(taxpayer)
-    setStep(3)
-  }
-
   const createNewTaxpayer = async () => {
     if (!newTaxpayer.firstName || !newTaxpayer.lastName || !newTaxpayer.phoneNumber) {
       toast({
         title: "Missing Fields",
-        description: "First name, last name, and phone number are required",
+        description: "Name and phone number are required",
         variant: "destructive",
       })
       return
@@ -298,19 +345,21 @@ export default function EnumeratePage() {
     try {
       const formData = new FormData()
       formData.append("taxpayerId", selectedTaxpayer.id)
+      formData.append("firebaseUid", user?.uid || "")
       formData.append("propertyName", propertyData.propertyName)
       formData.append("propertyType", propertyData.propertyType)
       formData.append("houseNumber", propertyData.houseNumber)
       formData.append("streetName", propertyData.streetName)
       formData.append("city", propertyData.city)
       formData.append("lga", propertyData.lga)
-      formData.append("totalUnits", propertyData.totalUnits)
-      formData.append("annualRent", propertyData.annualRent)
+      formData.append("areaOfficeId", propertyData.areaOfficeId)
+      formData.append("totalUnits", propertyData.totalUnits || "1")
+      formData.append("annualRent", propertyData.annualRent || "0")
+      formData.append("enumerationNotes", propertyData.enumerationNotes)
       formData.append("latitude", latitude)
       formData.append("longitude", longitude)
-      formData.append("enumerationNotes", propertyData.enumerationNotes)
       formData.append("facadePhoto", facadePhoto)
-      formData.append("addressNumberPhoto", addressNumberPhoto)
+      formData.append("addressPhoto", addressNumberPhoto)
 
       const res = await fetch("/api/enumerator/create-property", {
         method: "POST",
@@ -319,40 +368,43 @@ export default function EnumeratePage() {
 
       if (res.ok) {
         toast({
-          title: "Property Registered",
-          description: `${propertyData.propertyName} has been submitted for verification`,
+          title: "Property Registered!",
+          description: "The property has been successfully enumerated",
         })
-        router.push("/enumerator-dashboard")
+        // Reset and go back to step 1
+        setStep(1)
+        setSelectedTaxpayer(null)
+        setSearchResults([])
+        setSearchTerm("")
+        setPropertyData({
+          propertyName: "",
+          propertyType: "residential",
+          houseNumber: "",
+          streetName: "",
+          city: "",
+          lga: "",
+          areaOfficeId: "",
+          totalUnits: "",
+          annualRent: "",
+          enumerationNotes: "",
+        })
+        setFacadePhoto(null)
+        setAddressNumberPhoto(null)
+        setFacadePreview("")
+        setAddressPreview("")
+        setLatitude("")
+        setLongitude("")
+        setSelectedCity(null)
       } else {
         const error = await res.json()
-        throw new Error(error.error || "Failed to create property")
+        throw new Error(error.error || "Failed to register property")
       }
     } catch (error: any) {
-      if (!navigator.onLine) {
-        const queueItem = {
-          taxpayer: selectedTaxpayer,
-          property: propertyData,
-          photos: { facade: facadePreview, address: addressPreview },
-          gps: { latitude, longitude },
-          timestamp: Date.now(),
-        }
-
-        const newQueue = [...offlineQueue, queueItem]
-        setOfflineQueue(newQueue)
-        localStorage.setItem("enumerator_offline_queue", JSON.stringify(newQueue))
-
-        toast({
-          title: "Saved Offline",
-          description: "Property saved. Will sync when online.",
-        })
-        router.push("/enumerator-dashboard")
-      } else {
-        toast({
-          title: "Submission Failed",
-          description: error.message,
-          variant: "destructive",
-        })
-      }
+      toast({
+        title: "Registration Failed",
+        description: error.message,
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -360,62 +412,58 @@ export default function EnumeratePage() {
 
   if (authLoading) {
     return (
-      <div className="flex-1 p-4 max-w-2xl mx-auto space-y-6">
-        <Skeleton className="h-10 w-40" />
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-2 w-full" />
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-4 w-48" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
+      <div className="p-4 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
       </div>
     )
   }
 
   return (
-    <div className="flex-1 p-4 max-w-2xl mx-auto">
-      {/* Header with Back Button */}
-      <div className="mb-6">
-        <Button variant="ghost" asChild className="mb-4">
-          <Link href="/enumerator-dashboard">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </Button>
-        <h1 className="text-2xl font-bold">Register New Property</h1>
-        <p className="text-sm text-muted-foreground">Step {step} of 4</p>
+    <div className="p-4 pb-24 md:pb-4 max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-6">
+        <Link href="/enumerator-dashboard">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-xl font-bold">Register Property</h1>
+          <p className="text-sm text-muted-foreground">Step {step} of 4</p>
+        </div>
       </div>
 
-      {/* Progress Indicator */}
-      <div className="flex items-center gap-2 mb-8">
-        <div className={`flex-1 h-2 rounded-full ${step >= 1 ? "bg-primary" : "bg-muted"}`} />
-        <div className={`flex-1 h-2 rounded-full ${step >= 2 ? "bg-primary" : "bg-muted"}`} />
-        <div className={`flex-1 h-2 rounded-full ${step >= 3 ? "bg-primary" : "bg-muted"}`} />
-        <div className={`flex-1 h-2 rounded-full ${step >= 4 ? "bg-primary" : "bg-muted"}`} />
+      {/* Progress Bar */}
+      <div className="flex gap-2 mb-6">
+        {[1, 2, 3, 4].map((s) => (
+          <div key={s} className={`h-2 flex-1 rounded-full ${s <= step ? "bg-primary" : "bg-muted"}`} />
+        ))}
       </div>
 
-      {/* Step 1: Search Taxpayer */}
+      {/* Offline Banner */}
+      {!isOnline && (
+        <Card className="bg-yellow-500/10 border-yellow-500 mb-4">
+          <CardContent className="p-3 text-center text-yellow-600">
+            <p className="text-sm font-medium">You are offline. Data will be synced when connected.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 1: Search/Select Taxpayer */}
       {step === 1 && (
         <Card>
           <CardHeader>
             <CardTitle>Find Taxpayer</CardTitle>
-            <CardDescription>Search by name, email, or phone number</CardDescription>
+            <CardDescription>Search for an existing taxpayer or create a new one</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
               <Input
-                placeholder="Enter name, email, or phone number..."
+                placeholder="Search by name, phone, or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && searchTaxpayers()}
-                className="flex-1"
               />
               <Button onClick={searchTaxpayers} disabled={loading}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -423,44 +471,47 @@ export default function EnumeratePage() {
             </div>
 
             {searchResults.length > 0 && (
-              <div className="space-y-2 mt-4">
-                <Label>Search Results ({searchResults.length})</Label>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Search Results ({searchResults.length})</p>
                 {searchResults.map((taxpayer) => (
                   <Card
-                    key={taxpayer.id}
-                    className="cursor-pointer hover:border-primary transition-colors"
-                    onClick={() => selectTaxpayer(taxpayer)}
+                    key={taxpayer.id || taxpayer.user?.phone_number}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => {
+                      setSelectedTaxpayer(taxpayer)
+                      setStep(3)
+                    }}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium">
-                            {taxpayer.user.first_name} {taxpayer.user.last_name}
-                          </p>
-                          <p className="text-sm text-muted-foreground">{taxpayer.user.phone_number}</p>
-                          {taxpayer.user.email && (
-                            <p className="text-xs text-muted-foreground">{taxpayer.user.email}</p>
-                          )}
-                          {taxpayer.business_name && (
-                            <Badge variant="secondary" className="mt-1">
-                              {taxpayer.business_name}
-                            </Badge>
-                          )}
-                        </div>
-                        <Badge>{taxpayer.properties_count ?? taxpayer.properties?.length ?? 0} properties</Badge>
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">
+                          {taxpayer.user?.first_name} {taxpayer.user?.last_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{taxpayer.user?.phone_number}</p>
+                        <p className="text-xs text-muted-foreground">{taxpayer.user?.email}</p>
                       </div>
+                      <Badge variant="outline">
+                        {taxpayer.properties_count ?? taxpayer.properties?.length ?? 0} properties
+                      </Badge>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             )}
 
-            <div className="pt-4 border-t">
-              <Button variant="outline" className="w-full bg-transparent" onClick={() => setStep(2)} size="lg">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Create New Taxpayer
-              </Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or</span>
+              </div>
             </div>
+
+            <Button variant="outline" className="w-full bg-transparent" onClick={() => setStep(2)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Register New Taxpayer
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -469,8 +520,8 @@ export default function EnumeratePage() {
       {step === 2 && (
         <Card>
           <CardHeader>
-            <CardTitle>New Taxpayer Details</CardTitle>
-            <CardDescription>Enter taxpayer information</CardDescription>
+            <CardTitle>New Taxpayer</CardTitle>
+            <CardDescription>Enter the taxpayer's details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -563,11 +614,33 @@ export default function EnumeratePage() {
                     </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={captureGPS} disabled={gpsLoading}>
-                    {gpsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Capture"}
+                    {gpsLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Navigation className="h-4 w-4 mr-1" />
+                    )}
+                    {gpsLoading ? "" : "Capture"}
                   </Button>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Google Map Preview */}
+            {latitude && longitude && (
+              <Card className="overflow-hidden">
+                <div className="h-40 w-full">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${latitude},${longitude}&zoom=17`}
+                  />
+                </div>
+              </Card>
+            )}
 
             <div className="space-y-2">
               <Label>Property Name *</Label>
@@ -625,21 +698,31 @@ export default function EnumeratePage() {
               />
             </div>
 
+            {/* City Selector */}
+            <div className="space-y-2">
+              <Label>City *</Label>
+              <Button
+                variant="outline"
+                className="w-full justify-between bg-transparent"
+                onClick={() => setShowCityModal(true)}
+              >
+                {selectedCity ? selectedCity.name : "Select city..."}
+                <Search className="h-4 w-4 ml-2 opacity-50" />
+              </Button>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>City</Label>
-                <Input
-                  value={propertyData.city}
-                  onChange={(e) => setPropertyData({ ...propertyData, city: e.target.value })}
-                  placeholder="Kaduna"
-                />
+                <Label>LGA</Label>
+                <Input value={propertyData.lga} readOnly placeholder="Auto-filled from city" className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label>LGA</Label>
+                <Label>Area Office</Label>
                 <Input
-                  value={propertyData.lga}
-                  onChange={(e) => setPropertyData({ ...propertyData, lga: e.target.value })}
-                  placeholder="Kaduna North"
+                  value={selectedCity?.area_offices?.office_name || ""}
+                  readOnly
+                  placeholder="Auto-filled from city"
+                  className="bg-muted"
                 />
               </div>
             </div>
@@ -667,7 +750,10 @@ export default function EnumeratePage() {
             <div className="grid grid-cols-2 gap-4 pt-4">
               <div className="space-y-2">
                 <Label>Facade Photo *</Label>
-                <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                <div
+                  className="border-2 border-dashed rounded-lg p-4 text-center relative cursor-pointer"
+                  onClick={() => facadeInputRef.current?.click()}
+                >
                   {facadePreview ? (
                     <img
                       src={facadePreview || "/placeholder.svg"}
@@ -681,10 +767,11 @@ export default function EnumeratePage() {
                     </div>
                   )}
                   <input
+                    ref={facadeInputRef}
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    className="hidden"
                     onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0], "facade")}
                   />
                 </div>
@@ -692,7 +779,10 @@ export default function EnumeratePage() {
 
               <div className="space-y-2">
                 <Label>Address Number Photo *</Label>
-                <div className="border-2 border-dashed rounded-lg p-4 text-center relative">
+                <div
+                  className="border-2 border-dashed rounded-lg p-4 text-center relative cursor-pointer"
+                  onClick={() => addressInputRef.current?.click()}
+                >
                   {addressPreview ? (
                     <img
                       src={addressPreview || "/placeholder.svg"}
@@ -706,10 +796,11 @@ export default function EnumeratePage() {
                     </div>
                   )}
                   <input
+                    ref={addressInputRef}
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    className="hidden"
                     onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0], "address")}
                   />
                 </div>
@@ -750,38 +841,26 @@ export default function EnumeratePage() {
             <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               <p className="text-sm font-medium text-muted-foreground mb-2">Property Details</p>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <p className="text-muted-foreground">Name:</p>
-                <p className="font-medium">{propertyData.propertyName}</p>
-                <p className="text-muted-foreground">Type:</p>
-                <p className="font-medium capitalize">{propertyData.propertyType}</p>
-                <p className="text-muted-foreground">Address:</p>
-                <p className="font-medium">
+                <span className="text-muted-foreground">Name:</span>
+                <span>{propertyData.propertyName}</span>
+                <span className="text-muted-foreground">Type:</span>
+                <span className="capitalize">{propertyData.propertyType}</span>
+                <span className="text-muted-foreground">Address:</span>
+                <span>
                   {propertyData.houseNumber} {propertyData.streetName}
-                </p>
-                <p className="text-muted-foreground">Location:</p>
-                <p className="font-medium">
-                  {propertyData.city}, {propertyData.lga}
-                </p>
-                {propertyData.annualRent && (
-                  <>
-                    <p className="text-muted-foreground">Annual Rent:</p>
-                    <p className="font-medium">₦{Number(propertyData.annualRent).toLocaleString()}</p>
-                  </>
-                )}
+                </span>
+                <span className="text-muted-foreground">City:</span>
+                <span>{propertyData.city}</span>
+                <span className="text-muted-foreground">LGA:</span>
+                <span>{propertyData.lga}</span>
+                <span className="text-muted-foreground">Area Office:</span>
+                <span>{selectedCity?.area_offices?.office_name || "N/A"}</span>
+                <span className="text-muted-foreground">GPS:</span>
+                <span>{latitude && longitude ? `${latitude}, ${longitude}` : "Not captured"}</span>
               </div>
             </div>
 
-            {/* GPS Summary */}
-            {latitude && longitude && (
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <p className="text-sm font-medium text-muted-foreground mb-2">GPS Coordinates</p>
-                <p className="text-sm font-mono">
-                  {Number.parseFloat(latitude).toFixed(6)}, {Number.parseFloat(longitude).toFixed(6)}
-                </p>
-              </div>
-            )}
-
-            {/* Photos Summary */}
+            {/* Photo Previews */}
             <div className="grid grid-cols-2 gap-4">
               {facadePreview && (
                 <div>
@@ -811,12 +890,55 @@ export default function EnumeratePage() {
               </Button>
               <Button onClick={submitProperty} disabled={loading} className="flex-1">
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                Submit Property
+                Submit
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* City Search Modal */}
+      <Dialog open={showCityModal} onOpenChange={setShowCityModal}>
+        <DialogContent className="max-w-md max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Select City</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search cities..."
+                value={citySearch}
+                onChange={(e) => setCitySearch(e.target.value)}
+                className="pl-9"
+                autoFocus
+              />
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto space-y-1">
+              {loadingCities ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : filteredCities.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No cities found</p>
+              ) : (
+                filteredCities.map((city) => (
+                  <div
+                    key={city.id}
+                    className="p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                    onClick={() => handleCitySelect(city)}
+                  >
+                    <p className="font-medium">{city.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {city.lgas?.name} • {city.area_offices?.office_name || "No office assigned"}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

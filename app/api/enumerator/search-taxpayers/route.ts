@@ -3,10 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 
 // Normalize phone numbers to standard format
 function normalizePhone(phone: string): string {
-  // Remove all non-digit characters
   const digits = phone.replace(/\D/g, "")
-
-  // Handle Nigerian numbers
   if (digits.startsWith("234")) {
     return digits
   } else if (digits.startsWith("0")) {
@@ -14,30 +11,55 @@ function normalizePhone(phone: string): string {
   } else if (digits.length === 10) {
     return "234" + digits
   }
-
   return digits
 }
 
-// Simple fuzzy match for names (Levenshtein-like)
 function fuzzyMatch(str1: string, str2: string): number {
   const s1 = str1.toLowerCase().trim()
   const s2 = str2.toLowerCase().trim()
 
+  if (!s1 || !s2) return 0
   if (s1 === s2) return 1
-  if (s1.includes(s2) || s2.includes(s1)) return 0.8
 
-  // Calculate similarity
-  const longer = s1.length > s2.length ? s1 : s2
-  const shorter = s1.length > s2.length ? s2 : s1
+  // Check if one contains the other (substring match)
+  if (s1.includes(s2)) return 0.9
+  if (s2.includes(s1)) return 0.85
 
-  if (longer.length === 0) return 1.0
+  // Check if starts with
+  if (s1.startsWith(s2) || s2.startsWith(s1)) return 0.8
 
-  let matches = 0
-  for (let i = 0; i < shorter.length; i++) {
-    if (longer.includes(shorter[i])) matches++
+  // Calculate Levenshtein distance for short strings
+  if (s1.length <= 15 && s2.length <= 15) {
+    const distance = levenshteinDistance(s1, s2)
+    const maxLen = Math.max(s1.length, s2.length)
+    const similarity = 1 - distance / maxLen
+    // Only return if similarity is above threshold
+    return similarity > 0.6 ? similarity : 0
   }
 
-  return matches / longer.length
+  return 0
+}
+
+function levenshteinDistance(str1: string, str2: string): number {
+  const m = str1.length
+  const n = str2.length
+  const dp: number[][] = Array(m + 1)
+    .fill(null)
+    .map(() => Array(n + 1).fill(0))
+
+  for (let i = 0; i <= m; i++) dp[i][0] = i
+  for (let j = 0; j <= n; j++) dp[0][j] = j
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1]
+      } else {
+        dp[i][j] = Math.min(dp[i - 1][j - 1] + 1, dp[i - 1][j] + 1, dp[i][j - 1] + 1)
+      }
+    }
+  }
+  return dp[m][n]
 }
 
 export async function POST(request: NextRequest) {
@@ -59,7 +81,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (userError || !userData) {
-      console.error("[v0] User lookup error:", userError)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -92,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!matchingUsers || matchingUsers.length === 0) {
-      // Search by business name in taxpayer_profiles without JOIN
+      // Search by business name
       const { data: businessProfiles, error: businessError } = await supabase
         .from("taxpayer_profiles")
         .select("*")
@@ -100,25 +121,19 @@ export async function POST(request: NextRequest) {
         .limit(20)
 
       if (businessError) {
-        console.error("[v0] Business search error:", businessError)
         return NextResponse.json({ error: "Search failed" }, { status: 500 })
       }
 
       if (!businessProfiles || businessProfiles.length === 0) {
-        return NextResponse.json({
-          success: true,
-          results: [],
-          count: 0,
-        })
+        return NextResponse.json({ success: true, results: [], count: 0 })
       }
 
-      // Fetch user data separately for business matches
       const profileUserIds = businessProfiles.map((p) => p.user_id).filter(Boolean)
 
       if (profileUserIds.length === 0) {
         return NextResponse.json({
           success: true,
-          results: businessProfiles.map((p) => ({ ...p, user: null })),
+          results: businessProfiles.map((p) => ({ ...p, user: null, properties_count: 0 })),
           count: businessProfiles.length,
         })
       }
@@ -134,6 +149,7 @@ export async function POST(request: NextRequest) {
           user: businessUsers?.find((u) => u.id === profile.user_id) || null,
           matchScore: fuzzyMatch(searchValue, profile.business_name || ""),
         }))
+        .filter((r) => r.matchScore >= 0.5) // Only include results with decent match
         .sort((a, b) => b.matchScore - a.matchScore)
 
       const resultUserIds = scoredResults.map((r) => r.user?.id).filter(Boolean)
@@ -141,7 +157,6 @@ export async function POST(request: NextRequest) {
 
       if (resultUserIds.length > 0) {
         const { data: properties } = await supabase.from("properties").select("owner_id").in("owner_id", resultUserIds)
-
         if (properties) {
           propertiesCounts = properties.reduce((acc: Record<string, number>, prop) => {
             acc[prop.owner_id] = (acc[prop.owner_id] || 0) + 1
@@ -150,7 +165,6 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Add properties_count to each result
       const resultsWithCount = scoredResults.map((r) => ({
         ...r,
         properties_count: propertiesCounts[r.user?.id] || 0,
@@ -163,16 +177,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Get taxpayer profiles for matching users
     const userIds = matchingUsers.map((u) => u.id)
-
-    if (userIds.length === 0) {
-      return NextResponse.json({
-        success: true,
-        results: [],
-        count: 0,
-      })
-    }
 
     const { data: profiles, error: profilesError } = await supabase
       .from("taxpayer_profiles")
@@ -180,18 +185,18 @@ export async function POST(request: NextRequest) {
       .in("user_id", userIds)
 
     if (profilesError) {
-      console.error("[v0] Profiles lookup error:", profilesError)
       return NextResponse.json({ error: "Search failed" }, { status: 500 })
     }
 
-    // Combine user data with profile data
     const results = matchingUsers
       .map((user) => {
         const profile = profiles?.find((p) => p.user_id === user.id)
+        const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim()
         return {
           ...profile,
           user,
           matchScore: Math.max(
+            fuzzyMatch(searchValue, fullName),
             fuzzyMatch(searchValue, user.first_name || ""),
             fuzzyMatch(searchValue, user.last_name || ""),
             fuzzyMatch(searchValue, profile?.business_name || ""),
@@ -200,7 +205,7 @@ export async function POST(request: NextRequest) {
           ),
         }
       })
-      .filter((r) => r.id || r.user)
+      .filter((r) => (r.id || r.user) && r.matchScore >= 0.5) // Minimum match threshold
       .sort((a, b) => b.matchScore - a.matchScore)
 
     const resultUserIds = results.map((r) => r.user?.id).filter(Boolean)
@@ -208,7 +213,6 @@ export async function POST(request: NextRequest) {
 
     if (resultUserIds.length > 0) {
       const { data: properties } = await supabase.from("properties").select("owner_id").in("owner_id", resultUserIds)
-
       if (properties) {
         propertiesCounts = properties.reduce((acc: Record<string, number>, prop) => {
           acc[prop.owner_id] = (acc[prop.owner_id] || 0) + 1
@@ -217,7 +221,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Add properties_count to each result
     const resultsWithCount = results.map((r) => ({
       ...r,
       properties_count: propertiesCounts[r.user?.id] || 0,
