@@ -82,8 +82,15 @@ export async function POST(request: NextRequest) {
       .from("users")
       .select("id, first_name, last_name, email, phone_number, is_active")
       .or(
-        `first_name.ilike.${searchPattern},last_name.ilike.${searchPattern},email.ilike.${searchPattern},phone_number.ilike.${searchPattern},phone_number.ilike.${normalizedPattern}`,
-      )
+  `(
+    first_name.ilike.${searchPattern},
+    last_name.ilike.${searchPattern},
+    email.ilike.${searchPattern},
+    phone_number.ilike.${searchPattern},
+    phone_number.ilike.${normalizedPattern}
+  )`
+)
+
       .eq("role", "taxpayer")
       .limit(20)
 
