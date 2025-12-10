@@ -77,20 +77,12 @@ export async function POST(request: NextRequest) {
     const searchPattern = `%${searchValue}%`
     const normalizedPattern = `%${normalized}%`
 
-    // This avoids the Supabase limitation of filtering on joined columns
     const { data: matchingUsers, error: usersError } = await supabase
       .from("users")
       .select("id, first_name, last_name, email, phone_number, is_active")
       .or(
-  `(
-    first_name.ilike.${searchPattern},
-    last_name.ilike.${searchPattern},
-    email.ilike.${searchPattern},
-    phone_number.ilike.${searchPattern},
-    phone_number.ilike.${normalizedPattern}
-  )`
-)
-
+        `first_name.ilike.${searchPattern},last_name.ilike.${searchPattern},email.ilike.${searchPattern},phone_number.ilike.${searchPattern},phone_number.ilike.${normalizedPattern}`,
+      )
       .eq("role", "taxpayer")
       .limit(20)
 
@@ -100,13 +92,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!matchingUsers || matchingUsers.length === 0) {
-      // Also search by business name in taxpayer_profiles
-      const { data: businessResults, error: businessError } = await supabase
+      // Search by business name in taxpayer_profiles without JOIN
+      const { data: businessProfiles, error: businessError } = await supabase
         .from("taxpayer_profiles")
-        .select(`
-          *,
-          user:users!inner(id, first_name, last_name, email, phone_number, is_active)
-        `)
+        .select("*")
         .ilike("business_name", searchPattern)
         .limit(20)
 
@@ -115,13 +104,37 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Search failed" }, { status: 500 })
       }
 
-      const scoredResults =
-        businessResults
-          ?.map((result) => ({
-            ...result,
-            matchScore: fuzzyMatch(searchValue, result.business_name || ""),
-          }))
-          .sort((a, b) => b.matchScore - a.matchScore) || []
+      if (!businessProfiles || businessProfiles.length === 0) {
+        return NextResponse.json({
+          success: true,
+          results: [],
+          count: 0,
+        })
+      }
+
+      // Fetch user data separately for business matches
+      const profileUserIds = businessProfiles.map((p) => p.user_id).filter(Boolean)
+
+      if (profileUserIds.length === 0) {
+        return NextResponse.json({
+          success: true,
+          results: businessProfiles.map((p) => ({ ...p, user: null })),
+          count: businessProfiles.length,
+        })
+      }
+
+      const { data: businessUsers } = await supabase
+        .from("users")
+        .select("id, first_name, last_name, email, phone_number, is_active")
+        .in("id", profileUserIds)
+
+      const scoredResults = businessProfiles
+        .map((profile) => ({
+          ...profile,
+          user: businessUsers?.find((u) => u.id === profile.user_id) || null,
+          matchScore: fuzzyMatch(searchValue, profile.business_name || ""),
+        }))
+        .sort((a, b) => b.matchScore - a.matchScore)
 
       return NextResponse.json({
         success: true,
@@ -133,12 +146,17 @@ export async function POST(request: NextRequest) {
     // Get taxpayer profiles for matching users
     const userIds = matchingUsers.map((u) => u.id)
 
+    if (userIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        results: [],
+        count: 0,
+      })
+    }
+
     const { data: profiles, error: profilesError } = await supabase
       .from("taxpayer_profiles")
-      .select(`
-        *,
-        properties:properties(id, registered_property_name, property_type, verification_status)
-      `)
+      .select("*")
       .in("user_id", userIds)
 
     if (profilesError) {
@@ -162,7 +180,7 @@ export async function POST(request: NextRequest) {
           ),
         }
       })
-      .filter((r) => r.id || r.user) // Filter out users without profiles if needed
+      .filter((r) => r.id || r.user)
       .sort((a, b) => b.matchScore - a.matchScore)
 
     return NextResponse.json({
