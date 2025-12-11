@@ -120,32 +120,51 @@ export async function POST(request: NextRequest) {
     }
 
     // Create property - use taxpayerProfile.user_id as owner_id
+    const propertyReference = `PROP-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`
+
+    const propertyData = {
+      owner_id: taxpayerProfile.user_id,
+      registered_for_taxpayer_id: taxpayerId,
+      registered_property_name: propertyName,
+      property_reference: propertyReference,
+      property_type: propertyType,
+      property_category: propertyCategory || null,
+      house_number: houseNumber,
+      street_name: streetName,
+      address_id: address.id,
+      total_units: totalUnits ? Number.parseInt(totalUnits) : null,
+      total_annual_rent: annualRent ? Number.parseFloat(annualRent.replace(/,/g, "")) : null,
+      enumerated_by: userData.id,
+      enumeration_date: new Date().toISOString().split("T")[0],
+      enumeration_notes: enumerationNotes || null,
+      area_office_id: areaOfficeId || null,
+      verification_status: "pending",
+      status: "pending",
+    }
+
+    console.log("[v0] Creating property with data:", JSON.stringify(propertyData, null, 2))
+
     const { data: property, error: propertyError } = await supabase
       .from("properties")
-      .insert({
-        owner_id: taxpayerProfile.user_id,
-        registered_for_taxpayer_id: taxpayerId,
-        registered_property_name: propertyName,
-        property_type: propertyType,
-        property_category: propertyCategory || null,
-        house_number: houseNumber,
-        street_name: streetName,
-        address_id: address.id,
-        total_units: totalUnits ? Number.parseInt(totalUnits) : null,
-        total_annual_rent: annualRent ? Number.parseFloat(annualRent) : null,
-        enumerated_by: userData.id,
-        enumeration_date: new Date().toISOString().split("T")[0],
-        enumeration_notes: enumerationNotes || null,
-        area_office_id: areaOfficeId || null,
-        verification_status: "pending",
-        status: "pending",
-      })
+      .insert(propertyData)
       .select()
       .single()
 
     if (propertyError) {
-      console.error("[v0] Create property error:", propertyError)
-      return NextResponse.json({ error: "Failed to create property" }, { status: 500 })
+      console.error("[v0] Create property error details:", {
+        message: propertyError.message,
+        details: propertyError.details,
+        hint: propertyError.hint,
+        code: propertyError.code,
+      })
+      return NextResponse.json(
+        {
+          error: "Failed to create property",
+          details: propertyError.message,
+          hint: propertyError.hint,
+        },
+        { status: 500 },
+      )
     }
 
     // Store photo URLs in documents table
