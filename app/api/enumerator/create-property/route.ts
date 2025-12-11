@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
     const longitude = formData.get("longitude") as string
     const enumerationNotes = formData.get("enumerationNotes") as string
     const areaOfficeId = formData.get("areaOfficeId") as string
+    const rentalCommencementDate = formData.get("rentalCommencementDate") as string
 
     // Photos (compulsory)
     const facadePhoto = formData.get("facadePhoto") as File | null
@@ -134,6 +135,7 @@ export async function POST(request: NextRequest) {
       address_id: address.id,
       total_units: totalUnits ? Number.parseInt(totalUnits) : null,
       total_annual_rent: annualRent ? Number.parseFloat(annualRent.replace(/,/g, "")) : null,
+      rental_commencement_date: rentalCommencementDate || new Date().toISOString().split("T")[0],
       enumerated_by: userData.id,
       enumeration_date: new Date().toISOString().split("T")[0],
       enumeration_notes: enumerationNotes || null,
@@ -198,6 +200,7 @@ export async function POST(request: NextRequest) {
         latitude: latitude || null,
         longitude: longitude || null,
         photos: { facade: facadeUrl, addressNumber: addressNumberUrl },
+        rentalCommencementDate: rentalCommencementDate || null,
       },
     })
 

@@ -127,6 +127,7 @@ export default function EnumeratePage() {
     totalUnits: "",
     annualRent: "",
     enumerationNotes: "",
+    rentalCommencementDate: new Date().toISOString().split("T")[0],
   })
 
   useEffect(() => {
@@ -387,6 +388,7 @@ export default function EnumeratePage() {
       formData.append("totalUnits", propertyData.totalUnits || "1")
       formData.append("annualRent", propertyData.annualRent || "0")
       formData.append("enumerationNotes", propertyData.enumerationNotes)
+      formData.append("rentalCommencementDate", propertyData.rentalCommencementDate)
       formData.append("latitude", latitude)
       formData.append("longitude", longitude)
       formData.append("facadePhoto", facadePhoto)
@@ -419,6 +421,7 @@ export default function EnumeratePage() {
           totalUnits: "",
           annualRent: "",
           enumerationNotes: "",
+          rentalCommencementDate: new Date().toISOString().split("T")[0],
         })
         setFacadePhoto(null)
         setAddressNumberPhoto(null)
@@ -478,6 +481,12 @@ export default function EnumeratePage() {
     }
     if (!addressNumberPhoto) {
       errors.addressPhoto = "Address number photo is required"
+    }
+    if (!propertyData.annualRent.trim()) {
+      errors.annualRent = "Annual rent is required"
+    }
+    if (!propertyData.rentalCommencementDate.trim()) {
+      errors.rentalCommencementDate = "Rental commencement date is required"
     }
 
     setValidationErrors(errors)
@@ -878,16 +887,49 @@ export default function EnumeratePage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Annual Rent (₦)</Label>
+              <Label>Annual Rent (₦) *</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₦</span>
                 <Input
-                  value={formatNaira(propertyData.annualRent)}
-                  onChange={(e) => setPropertyData({ ...propertyData, annualRent: parseNaira(e.target.value) })}
+                  value={propertyData.annualRent}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/,/g, "")
+                    if (/^\d*$/.test(raw)) {
+                      const formatted = raw ? Number(raw).toLocaleString() : ""
+                      setPropertyData({ ...propertyData, annualRent: formatted })
+                      setValidationErrors({ ...validationErrors, annualRent: "" })
+                    }
+                  }}
                   placeholder="500,000"
-                  className="pl-8"
+                  className={`pl-8 ${validationErrors.annualRent ? "border-destructive" : ""}`}
                 />
               </div>
+              {validationErrors.annualRent && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.annualRent}
+                </p>
+              )}
+            </div>
+
+            {/* Rental Commencement Date */}
+            <div className="space-y-2">
+              <Label>Rental Commencement Date *</Label>
+              <Input
+                type="date"
+                value={propertyData.rentalCommencementDate}
+                onChange={(e) => {
+                  setPropertyData({ ...propertyData, rentalCommencementDate: e.target.value })
+                  setValidationErrors({ ...validationErrors, rentalCommencementDate: "" })
+                }}
+                className={validationErrors.rentalCommencementDate ? "border-destructive" : ""}
+              />
+              {validationErrors.rentalCommencementDate && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {validationErrors.rentalCommencementDate}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -1041,7 +1083,9 @@ export default function EnumeratePage() {
                 <span className="text-muted-foreground">Area Office:</span>
                 <span>{selectedCity?.area_offices?.office_name || "-"}</span>
                 <span className="text-muted-foreground">Annual Rent:</span>
-                <span>₦{formatNaira(propertyData.annualRent) || "0"}</span>
+                <span>₦{propertyData.annualRent || "0"}</span>
+                <span className="text-muted-foreground">Rental Commencement Date:</span>
+                <span>{propertyData.rentalCommencementDate}</span>
                 <span className="text-muted-foreground">GPS:</span>
                 <span>
                   {latitude && longitude
