@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
       enumeration_notes: enumerationNotes || null,
       area_office_id: areaOfficeId || null,
       verification_status: "pending",
-      status: "pending",
+      status: "submitted",
     }
 
     console.log("[v0] Creating property with data:", JSON.stringify(propertyData, null, 2))
