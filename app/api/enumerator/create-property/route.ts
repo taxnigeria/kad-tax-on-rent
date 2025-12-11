@@ -31,6 +31,17 @@ export async function POST(request: NextRequest) {
 
     // Extract property data
     const taxpayerId = formData.get("taxpayerId") as string
+
+    const { data: taxpayerProfile, error: taxpayerError } = await supabase
+      .from("taxpayer_profiles")
+      .select("user_id")
+      .eq("id", taxpayerId)
+      .single()
+
+    if (taxpayerError || !taxpayerProfile) {
+      return NextResponse.json({ error: "Taxpayer not found" }, { status: 404 })
+    }
+
     const propertyName = formData.get("propertyName") as string
     const propertyType = formData.get("propertyType") as string
     const propertyCategory = formData.get("propertyCategory") as string
@@ -108,10 +119,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create address" }, { status: 500 })
     }
 
-    // Create property - use userData.id instead of Supabase auth user.id
+    // Create property - use taxpayerProfile.user_id as owner_id
     const { data: property, error: propertyError } = await supabase
       .from("properties")
       .insert({
+        owner_id: taxpayerProfile.user_id,
         registered_for_taxpayer_id: taxpayerId,
         registered_property_name: propertyName,
         property_type: propertyType,
