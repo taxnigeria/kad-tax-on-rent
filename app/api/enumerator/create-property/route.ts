@@ -6,28 +6,34 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const formData = await request.formData()
+
+    const firebaseUid = formData.get("firebaseUid") as string
+
+    if (!firebaseUid) {
+      return NextResponse.json({ error: "Firebase UID is required" }, { status: 401 })
+    }
+
+    // Verify user exists and is an enumerator
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (userError || !userData) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user is enumerator
-    const { data: userData } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-    if (userData?.role !== "enumerator") {
+    if (userData.role !== "enumerator") {
       return NextResponse.json({ error: "Forbidden - Enumerator access only" }, { status: 403 })
     }
-
-    const formData = await request.formData()
 
     // Extract property data
     const taxpayerId = formData.get("taxpayerId") as string
     const propertyName = formData.get("propertyName") as string
     const propertyType = formData.get("propertyType") as string
+    const propertyCategory = formData.get("propertyCategory") as string
     const houseNumber = formData.get("houseNumber") as string
     const streetName = formData.get("streetName") as string
     const city = formData.get("city") as string
@@ -42,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Photos (compulsory)
     const facadePhoto = formData.get("facadePhoto") as File | null
-    const addressNumberPhoto = formData.get("addressNumberPhoto") as File | null
+    const addressNumberPhoto = (formData.get("addressNumberPhoto") || formData.get("addressPhoto")) as File | null
 
     // Validation
     if (!taxpayerId || !propertyName || !propertyType || !houseNumber || !streetName) {
@@ -102,19 +108,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create address" }, { status: 500 })
     }
 
-    // Create property
+    // Create property - use userData.id instead of Supabase auth user.id
     const { data: property, error: propertyError } = await supabase
       .from("properties")
       .insert({
         registered_for_taxpayer_id: taxpayerId,
         registered_property_name: propertyName,
         property_type: propertyType,
+        property_category: propertyCategory || null,
         house_number: houseNumber,
         street_name: streetName,
         address_id: address.id,
         total_units: totalUnits ? Number.parseInt(totalUnits) : null,
         total_annual_rent: annualRent ? Number.parseFloat(annualRent) : null,
-        enumerated_by: user.id,
+        enumerated_by: userData.id,
         enumeration_date: new Date().toISOString().split("T")[0],
         enumeration_notes: enumerationNotes || null,
         area_office_id: areaOfficeId || null,
@@ -137,7 +144,7 @@ export async function POST(request: NextRequest) {
         document_type: "property_facade",
         document_name: "Facade Photo",
         file_url: facadeUrl,
-        uploaded_by: user.id,
+        uploaded_by: userData.id,
       },
       {
         entity_type: "property",
@@ -145,13 +152,13 @@ export async function POST(request: NextRequest) {
         document_type: "address_number",
         document_name: "Address Number Photo",
         file_url: addressNumberUrl,
-        uploaded_by: user.id,
+        uploaded_by: userData.id,
       },
     ])
 
     // Log activity for gamification
     await supabase.from("audit_logs").insert({
-      user_id: user.id,
+      user_id: userData.id,
       entity_type: "property",
       entity_id: property.id,
       action: "create",
