@@ -191,6 +191,8 @@ export async function POST(request: NextRequest) {
     const results = matchingUsers
       .map((user) => {
         const profile = profiles?.find((p) => p.user_id === user.id)
+        if (!profile) return null
+
         const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim()
         return {
           ...profile,
@@ -205,7 +207,7 @@ export async function POST(request: NextRequest) {
           ),
         }
       })
-      .filter((r) => (r.id || r.user) && r.matchScore >= 0.5) // Minimum match threshold
+      .filter((r): r is NonNullable<typeof r> => r !== null && r.matchScore >= 0.5)
       .sort((a, b) => b.matchScore - a.matchScore)
 
     const resultUserIds = results.map((r) => r.user?.id).filter(Boolean)

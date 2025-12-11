@@ -5,27 +5,35 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const { searchParams } = new URL(request.url)
+    const firebaseUid = searchParams.get("firebaseUid")
+
+    if (!firebaseUid) {
+      return NextResponse.json({ error: "Firebase UID is required" }, { status: 401 })
     }
 
-    // Check if user is enumerator
-    const { data: userData } = await supabase.from("users").select("role").eq("id", user.id).single()
+    // Look up user by Firebase UID
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("firebase_uid", firebaseUid)
+      .single()
 
-    if (userData?.role !== "enumerator") {
+    if (userError || !userData) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    if (userData.role !== "enumerator") {
       return NextResponse.json({ error: "Forbidden - Enumerator access only" }, { status: 403 })
     }
+
+    const userId = userData.id
 
     // Get stats for this enumerator
     const { data: properties, error: propsError } = await supabase
       .from("properties")
       .select("id, verification_status, created_at")
-      .eq("enumerated_by", user.id)
+      .eq("enumerated_by", userId)
 
     if (propsError) {
       console.error("[v0] Properties stats error:", propsError)
@@ -33,10 +41,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Count taxpayers created by this enumerator
-    const { count: taxpayerCount, error: taxpayerError } = await supabase
+    const { count: taxpayerCount } = await supabase
       .from("audit_logs")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("entity_type", "taxpayer")
       .eq("action", "create")
 

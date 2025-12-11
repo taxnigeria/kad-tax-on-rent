@@ -55,10 +55,12 @@ export default function EnumeratorDashboard() {
   }, [user, userRole, authLoading, router])
 
   const loadData = async () => {
+    if (!user) return
+
     try {
       const [statsRes, leaderboardRes] = await Promise.all([
-        fetch("/api/enumerator/stats"),
-        fetch("/api/enumerator/leaderboard"),
+        fetch(`/api/enumerator/stats?firebaseUid=${user.uid}`),
+        fetch(`/api/enumerator/leaderboard?firebaseUid=${user.uid}`),
       ])
 
       if (statsRes.ok) {

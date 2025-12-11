@@ -32,14 +32,27 @@ export async function POST(request: NextRequest) {
     // Extract property data
     const taxpayerId = formData.get("taxpayerId") as string
 
+    console.log("[v0] taxpayerId received:", taxpayerId)
+
     const { data: taxpayerProfile, error: taxpayerError } = await supabase
       .from("taxpayer_profiles")
-      .select("user_id")
+      .select("id, user_id")
       .eq("id", taxpayerId)
       .single()
 
+    if (taxpayerError) {
+      console.log("[v0] Taxpayer profile lookup error:", taxpayerError)
+      console.log("[v0] Looking for taxpayer_profiles.id =", taxpayerId)
+    }
+
     if (taxpayerError || !taxpayerProfile) {
-      return NextResponse.json({ error: "Taxpayer not found" }, { status: 404 })
+      return NextResponse.json(
+        {
+          error: "Taxpayer not found",
+          details: `No taxpayer profile found with id: ${taxpayerId}`,
+        },
+        { status: 404 },
+      )
     }
 
     const propertyName = formData.get("propertyName") as string
@@ -125,7 +138,7 @@ export async function POST(request: NextRequest) {
 
     const propertyData = {
       owner_id: taxpayerProfile.user_id,
-      registered_for_taxpayer_id: taxpayerId,
+      registered_for_taxpayer_id: taxpayerProfile.user_id, // Use taxpayerProfile.user_id instead of taxpayerId - FK references users table, not taxpayer_profiles
       registered_property_name: propertyName,
       property_reference: propertyReference,
       property_type: propertyType,

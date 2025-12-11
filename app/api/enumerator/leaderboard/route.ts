@@ -5,13 +5,26 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const { searchParams } = new URL(request.url)
+    const firebaseUid = searchParams.get("firebaseUid")
+
+    if (!firebaseUid) {
+      return NextResponse.json({ error: "Firebase UID is required" }, { status: 401 })
+    }
+
+    // Look up current user by Firebase UID
+    const { data: currentUser, error: userError } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (userError || !currentUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    if (currentUser.role !== "enumerator") {
+      return NextResponse.json({ error: "Forbidden - Enumerator access only" }, { status: 403 })
     }
 
     // Get all enumerators with their stats
@@ -21,7 +34,7 @@ export async function GET(request: NextRequest) {
         id,
         first_name,
         last_name,
-        properties:properties(id, verification_status)
+        properties:properties!enumerated_by(id, verification_status)
       `)
       .eq("role", "enumerator")
       .eq("is_active", true)
@@ -36,7 +49,9 @@ export async function GET(request: NextRequest) {
       enumerators
         ?.map((enumerator) => {
           const total = enumerator.properties?.length || 0
-          const verified = enumerator.properties?.filter((p) => p.verification_status === "verified").length || 0
+          const verified =
+            enumerator.properties?.filter((p: { verification_status: string }) => p.verification_status === "verified")
+              .length || 0
           const approvalRate = total > 0 ? ((verified / total) * 100).toFixed(1) : "0"
 
           return {
@@ -45,7 +60,7 @@ export async function GET(request: NextRequest) {
             totalProperties: total,
             verifiedProperties: verified,
             approvalRate: Number.parseFloat(approvalRate),
-            isCurrentUser: enumerator.id === user.id,
+            isCurrentUser: enumerator.id === currentUser.id,
           }
         })
         .sort((a, b) => b.totalProperties - a.totalProperties) || []
