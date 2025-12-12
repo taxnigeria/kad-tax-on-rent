@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building2, Users, CheckCircle, Clock, XCircle, TrendingUp, Plus } from "lucide-react"
+import { Building2, Users, CheckCircle, Clock, XCircle, TrendingUp, Plus, Trophy, Medal, Award } from "lucide-react"
 import Link from "next/link"
+import { PropertiesListSheet } from "@/components/enumerator/properties-list-sheet"
 
 interface EnumeratorStats {
   totalProperties: number
@@ -30,6 +31,8 @@ interface LeaderboardEntry {
   isCurrentUser: boolean
 }
 
+type PropertyStatusFilter = "verified" | "pending" | "rejected"
+
 export default function EnumeratorDashboard() {
   const router = useRouter()
   const { user, userRole, loading: authLoading } = useAuth()
@@ -37,6 +40,8 @@ export default function EnumeratorDashboard() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [userRank, setUserRank] = useState<number>(0)
   const [loading, setLoading] = useState(true)
+  const [propertiesSheetOpen, setPropertiesSheetOpen] = useState(false)
+  const [selectedStatus, setSelectedStatus] = useState<PropertyStatusFilter>("verified")
 
   useEffect(() => {
     if (!authLoading) {
@@ -78,6 +83,11 @@ export default function EnumeratorDashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleStatusClick = (status: PropertyStatusFilter) => {
+    setSelectedStatus(status)
+    setPropertiesSheetOpen(true)
   }
 
   if (authLoading || loading) {
@@ -157,7 +167,10 @@ export default function EnumeratorDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className="cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => handleStatusClick("verified")}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Verified</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
@@ -168,7 +181,10 @@ export default function EnumeratorDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className="cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => handleStatusClick("pending")}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
@@ -208,27 +224,36 @@ export default function EnumeratorDashboard() {
             </div>
 
             <div className="grid grid-cols-3 gap-4 pt-4 border-t">
-              <div className="text-center">
+              <button
+                onClick={() => handleStatusClick("verified")}
+                className="text-center p-2 rounded-lg hover:bg-muted/50 transition-colors"
+              >
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <CheckCircle className="h-3 w-3 text-green-600" />
                   <span className="text-xs text-muted-foreground">Verified</span>
                 </div>
                 <div className="text-lg font-bold">{stats?.verifiedProperties || 0}</div>
-              </div>
-              <div className="text-center">
+              </button>
+              <button
+                onClick={() => handleStatusClick("pending")}
+                className="text-center p-2 rounded-lg hover:bg-muted/50 transition-colors"
+              >
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <Clock className="h-3 w-3 text-yellow-600" />
                   <span className="text-xs text-muted-foreground">Pending</span>
                 </div>
                 <div className="text-lg font-bold">{stats?.pendingProperties || 0}</div>
-              </div>
-              <div className="text-center">
+              </button>
+              <button
+                onClick={() => handleStatusClick("rejected")}
+                className="text-center p-2 rounded-lg hover:bg-muted/50 transition-colors"
+              >
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <XCircle className="h-3 w-3 text-red-600" />
                   <span className="text-xs text-muted-foreground">Rejected</span>
                 </div>
                 <div className="text-lg font-bold">{stats?.rejectedProperties || 0}</div>
-              </div>
+              </button>
             </div>
 
             {userRank > 0 && (
@@ -251,44 +276,138 @@ export default function EnumeratorDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Leaderboard</CardTitle>
-              <CardDescription>Top performing field agents</CardDescription>
+              <CardTitle>Top Performers</CardTitle>
+              <CardDescription>This month's leading field agents</CardDescription>
             </div>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/enumerator-dashboard/leaderboard">View All</Link>
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {leaderboard.slice(0, 5).map((agent, index) => (
-                <div
-                  key={agent.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg ${
-                    agent.isCurrentUser ? "bg-primary/10 border border-primary/20" : "bg-muted/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background font-bold text-sm">
-                    {index + 1}
+            {leaderboard.length >= 3 ? (
+              <div className="flex items-end justify-center gap-2 mb-4">
+                {/* 2nd Place */}
+                <div className="flex flex-col items-center">
+                  <div
+                    className={`w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold mb-2 ${
+                      leaderboard[1]?.isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted"
+                    }`}
+                  >
+                    {leaderboard[1]?.name
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {agent.name}
-                      {agent.isCurrentUser && (
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          You
-                        </Badge>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {agent.totalProperties} properties • {agent.approvalRate}% approved
-                    </p>
+                  <Medal className="h-5 w-5 text-gray-400 mb-1" />
+                  <p className="text-xs font-medium text-center truncate w-20">{leaderboard[1]?.name?.split(" ")[0]}</p>
+                  <p className="text-xs text-muted-foreground">{leaderboard[1]?.verifiedProperties} verified</p>
+                  <div className="w-20 h-16 bg-muted/50 rounded-t-lg mt-2 flex items-center justify-center">
+                    <span className="text-2xl font-bold text-muted-foreground">2</span>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* 1st Place */}
+                <div className="flex flex-col items-center -mt-4">
+                  <div
+                    className={`w-20 h-20 rounded-full flex items-center justify-center text-xl font-bold mb-2 ring-4 ring-yellow-400/50 ${
+                      leaderboard[0]?.isCurrentUser
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100"
+                    }`}
+                  >
+                    {leaderboard[0]?.name
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
+                  </div>
+                  <Trophy className="h-6 w-6 text-yellow-500 mb-1" />
+                  <p className="text-sm font-semibold text-center truncate w-24">
+                    {leaderboard[0]?.name?.split(" ")[0]}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{leaderboard[0]?.verifiedProperties} verified</p>
+                  <div className="w-24 h-24 bg-yellow-100 dark:bg-yellow-900/30 rounded-t-lg mt-2 flex items-center justify-center">
+                    <span className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">1</span>
+                  </div>
+                </div>
+
+                {/* 3rd Place */}
+                <div className="flex flex-col items-center">
+                  <div
+                    className={`w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold mb-2 ${
+                      leaderboard[2]?.isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted"
+                    }`}
+                  >
+                    {leaderboard[2]?.name
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
+                  </div>
+                  <Award className="h-5 w-5 text-amber-600 mb-1" />
+                  <p className="text-xs font-medium text-center truncate w-20">{leaderboard[2]?.name?.split(" ")[0]}</p>
+                  <p className="text-xs text-muted-foreground">{leaderboard[2]?.verifiedProperties} verified</p>
+                  <div className="w-20 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-t-lg mt-2 flex items-center justify-center">
+                    <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">3</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {leaderboard.slice(0, 3).map((agent, index) => (
+                  <div
+                    key={agent.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg ${
+                      agent.isCurrentUser ? "bg-primary/10 border border-primary/20" : "bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-background font-bold text-sm">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {agent.name}
+                        {agent.isCurrentUser && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            You
+                          </Badge>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {agent.totalProperties} properties • {agent.approvalRate}% approved
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {userRank > 3 && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                      {userRank}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Your Position</p>
+                      <p className="text-xs text-muted-foreground">Keep going to climb the ranks!</p>
+                    </div>
+                  </div>
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Properties List Sheet */}
+      <PropertiesListSheet open={propertiesSheetOpen} onOpenChange={setPropertiesSheetOpen} status={selectedStatus} />
     </div>
   )
 }

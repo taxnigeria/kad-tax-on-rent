@@ -42,8 +42,10 @@ export default function LeaderboardPage() {
   }, [user, userRole, authLoading, router])
 
   const loadLeaderboard = async () => {
+    if (!user) return
+
     try {
-      const res = await fetch("/api/enumerator/leaderboard")
+      const res = await fetch(`/api/enumerator/leaderboard?firebaseUid=${user.uid}`)
       if (res.ok) {
         const data = await res.json()
         setLeaderboard(data.leaderboard)
@@ -125,32 +127,92 @@ export default function LeaderboardPage() {
   const currentUser = leaderboard.find((entry) => entry.isCurrentUser)
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8">
-      {/* Header */}
-      <div>
+    <div className="flex-1 space-y-6 p-4 md:p-8 pb-24 md:pb-8">
+      {/* Header - hidden on mobile since AppBar shows it */}
+      <div className="hidden md:block">
         <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
         <p className="text-sm text-muted-foreground">See how you rank against other field agents</p>
       </div>
 
+      {/* Top 3 Podium */}
+      {leaderboard.length >= 3 && (
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle>Top Performers</CardTitle>
+            <CardDescription>This month's leading field agents</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end justify-center gap-4">
+              {/* 2nd Place */}
+              <div className="flex flex-col items-center">
+                <Avatar className="w-16 h-16 mb-2 ring-4 ring-gray-300">
+                  <AvatarFallback className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 text-lg">
+                    {getInitials(leaderboard[1]?.name || "")}
+                  </AvatarFallback>
+                </Avatar>
+                <Medal className="h-6 w-6 text-gray-400 mb-1" />
+                <p className="text-sm font-medium text-center truncate w-24">{leaderboard[1]?.name?.split(" ")[0]}</p>
+                <p className="text-xs text-muted-foreground">{leaderboard[1]?.verifiedProperties} verified</p>
+                <div className="w-24 h-20 bg-gray-100 dark:bg-gray-800 rounded-t-lg mt-3 flex items-center justify-center">
+                  <span className="text-3xl font-bold text-gray-500">2</span>
+                </div>
+              </div>
+
+              {/* 1st Place */}
+              <div className="flex flex-col items-center -mt-6">
+                <Avatar className="w-20 h-20 mb-2 ring-4 ring-yellow-400">
+                  <AvatarFallback className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 text-xl">
+                    {getInitials(leaderboard[0]?.name || "")}
+                  </AvatarFallback>
+                </Avatar>
+                <Trophy className="h-8 w-8 text-yellow-500 mb-1" />
+                <p className="text-base font-semibold text-center truncate w-28">
+                  {leaderboard[0]?.name?.split(" ")[0]}
+                </p>
+                <p className="text-xs text-muted-foreground">{leaderboard[0]?.verifiedProperties} verified</p>
+                <div className="w-28 h-28 bg-yellow-100 dark:bg-yellow-900/50 rounded-t-lg mt-3 flex items-center justify-center">
+                  <span className="text-4xl font-bold text-yellow-600 dark:text-yellow-400">1</span>
+                </div>
+              </div>
+
+              {/* 3rd Place */}
+              <div className="flex flex-col items-center">
+                <Avatar className="w-16 h-16 mb-2 ring-4 ring-amber-500">
+                  <AvatarFallback className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100 text-lg">
+                    {getInitials(leaderboard[2]?.name || "")}
+                  </AvatarFallback>
+                </Avatar>
+                <Award className="h-6 w-6 text-amber-600 mb-1" />
+                <p className="text-sm font-medium text-center truncate w-24">{leaderboard[2]?.name?.split(" ")[0]}</p>
+                <p className="text-xs text-muted-foreground">{leaderboard[2]?.verifiedProperties} verified</p>
+                <div className="w-24 h-16 bg-amber-100 dark:bg-amber-900/50 rounded-t-lg mt-3 flex items-center justify-center">
+                  <span className="text-3xl font-bold text-amber-600 dark:text-amber-400">3</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Your Position */}
       {currentUser && (
         <Card className="border-primary/50 bg-primary/5">
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary text-primary-foreground text-2xl font-bold">
+              <div className="flex items-center justify-center h-14 w-14 md:h-16 md:w-16 rounded-full bg-primary text-primary-foreground text-xl md:text-2xl font-bold">
                 #{userRank}
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold">{currentUser.name}</h3>
+                  <h3 className="text-base md:text-lg font-semibold truncate">{currentUser.name}</h3>
                   <Badge>You</Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs md:text-sm text-muted-foreground">
                   {currentUser.totalProperties} properties • {currentUser.verifiedProperties} verified •{" "}
-                  {currentUser.approvalRate}% approval rate
+                  {currentUser.approvalRate}% rate
                 </p>
               </div>
-              <TrendingUp className="h-8 w-8 text-primary" />
+              <TrendingUp className="h-6 w-6 md:h-8 md:w-8 text-primary hidden sm:block" />
             </div>
           </CardContent>
         </Card>
@@ -166,7 +228,7 @@ export default function LeaderboardPage() {
           {leaderboard.map((agent, index) => (
             <div
               key={agent.id}
-              className={`flex items-center gap-4 p-4 rounded-lg transition-colors ${
+              className={`flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-lg transition-colors ${
                 agent.isCurrentUser ? "bg-primary/10 border border-primary/20" : "bg-muted/50 hover:bg-muted"
               }`}
             >
@@ -184,7 +246,7 @@ export default function LeaderboardPage() {
 
               {/* Name and Stats */}
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">
+                <p className="font-medium truncate text-sm md:text-base">
                   {agent.name}
                   {agent.isCurrentUser && (
                     <Badge variant="secondary" className="ml-2 text-xs">
@@ -192,14 +254,14 @@ export default function LeaderboardPage() {
                     </Badge>
                   )}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs md:text-sm text-muted-foreground">
                   {agent.totalProperties} properties • {agent.approvalRate}% approved
                 </p>
               </div>
 
               {/* Verified Count */}
               <div className="text-right">
-                <p className="font-bold text-lg">{agent.verifiedProperties}</p>
+                <p className="font-bold text-base md:text-lg">{agent.verifiedProperties}</p>
                 <p className="text-xs text-muted-foreground">verified</p>
               </div>
             </div>
