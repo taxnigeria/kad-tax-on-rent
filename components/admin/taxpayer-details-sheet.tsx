@@ -11,6 +11,7 @@ import { Building2, FileText, Mail, Loader2, UserX, UserCheck, DollarSign, Check
 import { useToast } from "@/hooks/use-toast"
 import { RegisterPropertyModal } from "@/components/register-property-modal"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { PropertyDetailsSheet } from "@/components/admin/property-details-sheet" // Import PropertyDetailsSheet component
 
 type TaxpayerDetailsSheetProps = {
   open: boolean
@@ -24,6 +25,8 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
   const [loading, setLoading] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [isRegisterPropertyOpen, setIsRegisterPropertyOpen] = useState(false)
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null) // Add state for property details sheet
+  const [showPropertyDetails, setShowPropertyDetails] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -88,6 +91,11 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
     } finally {
       setUpdatingStatus(false)
     }
+  }
+
+  function handlePropertyClick(propertyId: string) {
+    setSelectedPropertyId(propertyId)
+    setShowPropertyDetails(true)
   }
 
   return (
@@ -277,7 +285,11 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
                         </TableHeader>
                         <TableBody>
                           {taxpayer.properties.map((property: any) => (
-                            <TableRow key={property.id}>
+                            <TableRow
+                              key={property.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => handlePropertyClick(property.id)}
+                            >
                               <TableCell className="font-medium">
                                 {property.registered_property_name || "Unnamed"}
                               </TableCell>
@@ -393,6 +405,14 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Add PropertyDetailsSheet component */}
+      <PropertyDetailsSheet
+        open={showPropertyDetails}
+        onOpenChange={setShowPropertyDetails}
+        propertyId={selectedPropertyId}
+        onUpdate={fetchTaxpayerDetails}
+      />
 
       {/* Register Property Modal */}
       <RegisterPropertyModal

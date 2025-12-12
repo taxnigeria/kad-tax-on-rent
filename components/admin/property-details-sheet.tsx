@@ -430,584 +430,591 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : property ? (
-          <div className="space-y-6 mt-6 mb-6 px-6">
-            <div className="space-y-2">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold">{property.registered_property_name}</h2>
-                  <p className="text-sm text-muted-foreground font-mono">
-                    {property.property_reference || "No reference"}
-                  </p>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : !propertyId ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">No property selected</p>
+            </div>
+          ) : property ? (
+            <div className="space-y-6 mt-6 px-6">
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold">{property.registered_property_name}</h2>
+                    <p className="text-sm text-muted-foreground font-mono">
+                      {property.property_reference || "No reference"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getVerificationBadge(property.verification_status || "pending")}
+                    <Badge variant="outline" className="capitalize">
+                      {property.property_type}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {getVerificationBadge(property.verification_status || "pending")}
-                  <Badge variant="outline" className="capitalize">
-                    {property.property_type}
-                  </Badge>
+                  <Button size="sm" variant="outline" className="gap-2 h-8 bg-transparent">
+                    <Edit className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 h-8 text-destructive hover:text-destructive bg-transparent"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" className="gap-2 h-8 bg-transparent">
-                  <Edit className="h-3.5 w-3.5" />
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2 h-8 text-destructive hover:text-destructive bg-transparent"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
-                </Button>
-              </div>
-            </div>
 
-            <Separator />
+              <Separator />
 
-            {/* Property Photos */}
-            {property.documents && property.documents.length > 0 && (
-              <>
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    Property Photos
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    {property.documents
-                      .filter(
-                        (doc: any) => doc.document_type === "property_facade" || doc.document_type === "address_number",
-                      )
-                      .map((doc: any, index: number) => (
-                        <div key={index} className="space-y-2">
-                          <p className="text-xs font-medium text-muted-foreground capitalize">
-                            {doc.document_type.replace("_", " ")}
-                          </p>
-                          <img
-                            src={doc.file_url || "/placeholder.svg"}
-                            alt={doc.document_type}
-                            className="w-full h-48 object-cover rounded-lg border"
-                          />
-                        </div>
-                      ))}
-                  </div>
-                </div>
-                <Separator />
-              </>
-            )}
-
-            {/* Quick Stats */}
-            <div className="flex gap-3">
-              <Card className="flex-1 gap-0 py-0">
-                <CardHeader className="pb-1 pt-3 px-4">
-                  <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <DollarSign className="h-3.5 w-3.5" />
-                    Annual Rent
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3 px-4">
-                  <div className="text-xl font-bold">₦{Number(property.total_annual_rent || 0).toLocaleString()}</div>
-                </CardContent>
-              </Card>
-              <Card className="flex-1 gap-0 py-0">
-                <CardHeader className="pb-1 pt-3 px-4">
-                  <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <FileText className="h-3.5 w-3.5" />
-                    Invoices
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3 px-4">
-                  <div className="text-xl font-bold">{property.invoices?.length || 0}</div>
-                </CardContent>
-              </Card>
-              <Card className="flex-1 gap-0 py-0">
-                <CardHeader className="pb-1 pt-3 px-4">
-                  <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <Home className="h-3.5 w-3.5" />
-                    Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3 px-4">
-                  <div className="text-xl font-bold capitalize">{property.status || "Active"}</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Owner Information
-                </h3>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2 h-8 bg-transparent"
-                  onClick={() => setTransferDialogOpen(true)}
-                >
-                  <UserCog className="h-3.5 w-3.5" />
-                  Transfer Ownership
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Name</div>
-                  <div className="font-medium">
-                    {property.users?.first_name} {property.users?.middle_name} {property.users?.last_name}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Address</div>
-                  <div className="font-mono">{property.users?.address || "No address"}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Email</div>
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="truncate">{property.users?.email}</span>
-                  </div>
-                </div>
-                {property.users?.phone_number && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Phone</div>
-                    <div className="flex items-center gap-1.5">
-                      <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span>{property.users?.phone_number}</span>
+              {/* Property Photos */}
+              {property.documents && property.documents.length > 0 && (
+                <>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Property Photos
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {property.documents
+                        .filter(
+                          (doc: any) =>
+                            doc.document_type === "property_facade" || doc.document_type === "address_number",
+                        )
+                        .map((doc: any, index: number) => (
+                          <div key={index} className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground capitalize">
+                              {doc.document_type.replace("_", " ")}
+                            </p>
+                            <img
+                              src={doc.file_url || "/placeholder.svg"}
+                              alt={doc.document_type}
+                              className="w-full h-48 object-cover rounded-lg border"
+                            />
+                          </div>
+                        ))}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
+                  <Separator />
+                </>
+              )}
 
-            <Separator />
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <UserCog className="h-4 w-4" />
-                  Property Manager
-                </h3>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2 h-8 bg-transparent"
-                  onClick={() => setAssignManagerDialogOpen(true)}
-                >
-                  <UserCog className="h-3.5 w-3.5" />
-                  {property?.assigned_manager ? "Change Manager" : "Assign Manager"}
-                </Button>
+              {/* Quick Stats */}
+              <div className="flex gap-3">
+                <Card className="flex-1 gap-0 py-0">
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                      <DollarSign className="h-3.5 w-3.5" />
+                      Annual Rent
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-3 px-4">
+                    <div className="text-xl font-bold">₦{Number(property.total_annual_rent || 0).toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+                <Card className="flex-1 gap-0 py-0">
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5" />
+                      Invoices
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-3 px-4">
+                    <div className="text-xl font-bold">{property.invoices?.length || 0}</div>
+                  </CardContent>
+                </Card>
+                <Card className="flex-1 gap-0 py-0">
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                      <Home className="h-3.5 w-3.5" />
+                      Status
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-3 px-4">
+                    <div className="text-xl font-bold capitalize">{property.status || "Active"}</div>
+                  </CardContent>
+                </Card>
               </div>
-              {property?.assigned_manager ? (
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Owner Information
+                  </h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 h-8 bg-transparent"
+                    onClick={() => setTransferDialogOpen(true)}
+                  >
+                    <UserCog className="h-3.5 w-3.5" />
+                    Transfer Ownership
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">Name</div>
-                    <div>
-                      {property.assigned_manager.first_name} {property.assigned_manager.last_name}
+                    <div className="font-medium">
+                      {property.users?.first_name} {property.users?.middle_name} {property.users?.last_name}
                     </div>
                   </div>
-                  {property.assigned_manager.email && (
-                    <div className="space-y-1">
-                      <div className="text-xs font-medium text-muted-foreground">Email</div>
-                      <div className="flex items-center gap-1.5">
-                        <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="truncate">{property.assigned_manager.email}</span>
-                      </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium text-muted-foreground">Address</div>
+                    <div className="font-mono">{property.users?.address || "No address"}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium text-muted-foreground">Email</div>
+                    <div className="flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">{property.users?.email}</span>
                     </div>
-                  )}
-                  {property.assigned_manager.phone_number && (
+                  </div>
+                  {property.users?.phone_number && (
                     <div className="space-y-1">
                       <div className="text-xs font-medium text-muted-foreground">Phone</div>
                       <div className="flex items-center gap-1.5">
                         <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span>{property.assigned_manager.phone_number}</span>
+                        <span>{property.users?.phone_number}</span>
                       </div>
                     </div>
                   )}
                 </div>
-              ) : (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-3">
-                    <UserCog className="h-6 w-12 text-muted-foreground/50 mb-2" />
-                    <p className="text-sm text-muted-foreground">No property manager assigned</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+              </div>
 
-            <Separator />
+              <Separator />
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Property Details
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Property Type</div>
-                  <div className="capitalize">{property.property_type}</div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <UserCog className="h-4 w-4" />
+                    Property Manager
+                  </h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 h-8 bg-transparent"
+                    onClick={() => setAssignManagerDialogOpen(true)}
+                  >
+                    <UserCog className="h-3.5 w-3.5" />
+                    {property?.assigned_manager ? "Change Manager" : "Assign Manager"}
+                  </Button>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Property Category</div>
-                  <div className="capitalize">{property.property_category || "—"}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Business Type</div>
-                  <div className="capitalize">{property.business_type || "—"}</div>
-                </div>
-                {property.year_built && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Year Built</div>
-                    <div>{property.year_built}</div>
-                  </div>
-                )}
-                {property.number_of_floors && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Number of Floors</div>
-                    <div>{property.number_of_floors}</div>
-                  </div>
-                )}
-                {property.total_units && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Total Units</div>
-                    <div>
-                      {property.total_units} ({property.occupied_units || 0} occupied)
+                {property?.assigned_manager ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Name</div>
+                      <div>
+                        {property.assigned_manager.first_name} {property.assigned_manager.last_name}
+                      </div>
                     </div>
+                    {property.assigned_manager.email && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium text-muted-foreground">Email</div>
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate">{property.assigned_manager.email}</span>
+                        </div>
+                      </div>
+                    )}
+                    {property.assigned_manager.phone_number && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium text-muted-foreground">Phone</div>
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span>{property.assigned_manager.phone_number}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-                {property.total_floor_area && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Total Floor Area</div>
-                    <div>{Number(property.total_floor_area).toLocaleString()} sq m</div>
-                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-3">
+                      <UserCog className="h-6 w-12 text-muted-foreground/50 mb-2" />
+                      <p className="text-sm text-muted-foreground">No property manager assigned</p>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
-            </div>
 
-            <Separator />
+              <Separator />
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Address
-              </h3>
-              {property.addresses ? (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Property Details
+                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                   <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Street Name</div>
-                    <div>{property.addresses.street_name}</div>
+                    <div className="text-xs font-medium text-muted-foreground">Property Type</div>
+                    <div className="capitalize">{property.property_type}</div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">City</div>
-                    <div>{property.addresses.city}</div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">LGA</div>
-                    <div>{property.addresses.lga}</div>
+                    <div className="text-xs font-medium text-muted-foreground">Property Category</div>
+                    <div className="capitalize">{property.property_category || "—"}</div>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">State</div>
-                    <div>{property.addresses.state}</div>
+                    <div className="text-xs font-medium text-muted-foreground">Business Type</div>
+                    <div className="capitalize">{property.business_type || "—"}</div>
                   </div>
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Area Office</div>
-                    <div>{property.area_offices?.office_name || "—"}</div>
-                  </div>
+                  {property.year_built && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Year Built</div>
+                      <div>{property.year_built}</div>
+                    </div>
+                  )}
+                  {property.number_of_floors && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Number of Floors</div>
+                      <div>{property.number_of_floors}</div>
+                    </div>
+                  )}
+                  {property.total_units && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Total Units</div>
+                      <div>
+                        {property.total_units} ({property.occupied_units || 0} occupied)
+                      </div>
+                    </div>
+                  )}
+                  {property.total_floor_area && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Total Floor Area</div>
+                      <div>{Number(property.total_floor_area).toLocaleString()} sq m</div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No address information available</p>
-              )}
-            </div>
-
-            <Separator />
-
-            {property.property_description && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold">Description</h3>
-                <p className="text-sm text-muted-foreground">{property.property_description}</p>
               </div>
-            )}
 
-            <Separator />
+              <Separator />
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="space-y-3">
                 <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Tax Calculations & Invoices
+                  <MapPin className="h-4 w-4" />
+                  Address
                 </h3>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-2 h-8 bg-transparent"
-                  onClick={() => {
-                    setCalculateTaxDialogOpen(true)
-                  }}
-                >
-                  <DollarSign className="h-3.5 w-3.5" />
-                  Calculate Tax
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Tax calculations and their associated invoices for this property
-              </p>
+                {property.addresses ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Street Name</div>
+                      <div>{property.addresses.street_name}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">City</div>
+                      <div>{property.addresses.city}</div>
+                    </div>
 
-              <div className="border rounded-lg overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted hover:bg-muted">
-                      <TableHead>Year</TableHead>
-                      <TableHead>Tax Amount</TableHead>
-                      <TableHead>Invoice Number</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loadingTaxData ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8">
-                          <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
-                        </TableCell>
-                      </TableRow>
-                    ) : taxCalculations.length > 0 ? (
-                      taxCalculations.map((calc) => {
-                        const invoice = calc.invoices?.[0] // Get first invoice for this calculation
-                        return (
-                          <TableRow
-                            key={calc.id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => {
-                              setSelectedTaxCalcId(calc.id)
-                              setTaxCalcSheetOpen(true)
-                            }}
-                          >
-                            <TableCell className="font-medium">{calc.tax_year}</TableCell>
-                            <TableCell className="font-semibold">
-                              ₦{Number(calc.total_tax_due || 0).toLocaleString()}
-                            </TableCell>
-                            <TableCell>
-                              {invoice ? (
-                                <span className="font-mono text-sm">{invoice.invoice_number}</span>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">No invoice</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {invoice ? (
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    invoice.payment_status === "paid"
-                                      ? "bg-green-500/10 text-green-500 border-green-500/20"
-                                      : invoice.payment_status === "overdue"
-                                        ? "bg-red-500/10 text-red-500 border-red-500/20"
-                                        : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-                                  }
-                                >
-                                  {invoice.payment_status}
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="bg-muted">
-                                  No invoice
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={(e) => handleDownloadInvoice(e, calc)}
-                                >
-                                  <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={(e) => handlePrintInvoice(e, calc)}
-                                >
-                                  <Printer className="h-3.5 w-3.5 text-muted-foreground" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
-                          No tax calculations found. Click "Calculate Tax" to create one.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Registration Information
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Registered</div>
-                  <div>{new Date(property.created_at).toLocaleDateString()}</div>
-                </div>
-                {property.submitted_at && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Submitted</div>
-                    <div>{new Date(property.submitted_at).toLocaleDateString()}</div>
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">LGA</div>
+                      <div>{property.addresses.lga}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">State</div>
+                      <div>{property.addresses.state}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Area Office</div>
+                      <div>{property.area_offices?.office_name || "—"}</div>
+                    </div>
                   </div>
-                )}
-                {property.verified_at && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Verified</div>
-                    <div>{new Date(property.verified_at).toLocaleDateString()}</div>
-                  </div>
-                )}
-                {property.rental_commencement_date && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Rental Commencement</div>
-                    <div>{new Date(property.rental_commencement_date).toLocaleDateString()}</div>
-                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No address information available</p>
                 )}
               </div>
-            </div>
 
-            <Separator />
+              <Separator />
 
-            {property.admin_notes && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold">Admin Notes</h3>
-                <p className="text-sm text-muted-foreground">{property.admin_notes}</p>
-              </div>
-            )}
-
-            {property.admin_notes && <Separator />}
-
-            {property.rejection_reason && (
-              <>
+              {property.property_description && (
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-red-500">Rejection Reason</h3>
-                  <p className="text-sm text-muted-foreground">{property.rejection_reason}</p>
+                  <h3 className="text-sm font-semibold">Description</h3>
+                  <p className="text-sm text-muted-foreground">{property.property_description}</p>
                 </div>
-                <Separator />
-              </>
-            )}
+              )}
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold">Recent Invoices ({property.invoices?.length || 0})</h3>
-              {property.invoices && property.invoices.length > 0 ? (
-                <div className="border rounded-lg">
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Tax Calculations & Invoices
+                  </h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 h-8 bg-transparent"
+                    onClick={() => {
+                      setCalculateTaxDialogOpen(true)
+                    }}
+                  >
+                    <DollarSign className="h-3.5 w-3.5" />
+                    Calculate Tax
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Tax calculations and their associated invoices for this property
+                </p>
+
+                <div className="border rounded-lg overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted hover:bg-muted">
+                        <TableHead>Year</TableHead>
+                        <TableHead>Tax Amount</TableHead>
                         <TableHead>Invoice Number</TableHead>
-                        <TableHead>Issue Date</TableHead>
-                        <TableHead>Amount</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {property.invoices.slice(0, 5).map((invoice: any) => (
-                        <TableRow key={invoice.id}>
-                          <TableCell className="font-medium font-mono text-sm">{invoice.invoice_number}</TableCell>
-                          <TableCell>{new Date(invoice.issue_date).toLocaleDateString()}</TableCell>
-                          <TableCell className="font-semibold">
-                            ₦{Number(invoice.total_amount).toLocaleString()}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={
-                                invoice.payment_status === "paid"
-                                  ? "bg-green-500/10 text-green-500 border-green-500/20"
-                                  : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-                              }
-                            >
-                              {invoice.payment_status}
-                            </Badge>
+                      {loadingTaxData ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8">
+                            <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : taxCalculations.length > 0 ? (
+                        taxCalculations.map((calc) => {
+                          const invoice = calc.invoices?.[0] // Get first invoice for this calculation
+                          return (
+                            <TableRow
+                              key={calc.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => {
+                                setSelectedTaxCalcId(calc.id)
+                                setTaxCalcSheetOpen(true)
+                              }}
+                            >
+                              <TableCell className="font-medium">{calc.tax_year}</TableCell>
+                              <TableCell className="font-semibold">
+                                ₦{Number(calc.total_tax_due || 0).toLocaleString()}
+                              </TableCell>
+                              <TableCell>
+                                {invoice ? (
+                                  <span className="font-mono text-sm">{invoice.invoice_number}</span>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">No invoice</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {invoice ? (
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      invoice.payment_status === "paid"
+                                        ? "bg-green-500/10 text-green-500 border-green-500/20"
+                                        : invoice.payment_status === "overdue"
+                                          ? "bg-red-500/10 text-red-500 border-red-500/20"
+                                          : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+                                    }
+                                  >
+                                    {invoice.payment_status}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-muted">
+                                    No invoice
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={(e) => handleDownloadInvoice(e, calc)}
+                                  >
+                                    <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={(e) => handlePrintInvoice(e, calc)}
+                                  >
+                                    <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                            No tax calculations found. Click "Calculate Tax" to create one.
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
-              ) : (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-3">
-                    <FileText className="h-6 w-12 text-muted-foreground/50 mb-2" />
-                    <p className="text-sm text-muted-foreground">No invoices found</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+              </div>
 
-            <Separator />
+              <Separator />
 
-            {property.verification_status !== "approved" && (
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold">Verification Actions</h3>
-                <div className="flex gap-2">
-                  <Button
-                    variant="default"
-                    className="flex-1 gap-2 bg-green-600 hover:bg-green-700"
-                    onClick={() => handleVerificationAction("approved")}
-                    disabled={updatingStatus}
-                  >
-                    {updatingStatus ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4" />
-                        Approve
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 gap-2 bg-transparent"
-                    onClick={() => handleVerificationAction("needs_info")}
-                    disabled={updatingStatus}
-                  >
-                    <AlertCircle className="h-4 w-4" />
-                    Request Info
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    className="flex-1 gap-2"
-                    onClick={() => handleVerificationAction("rejected")}
-                    disabled={updatingStatus}
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Reject
-                  </Button>
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Registration Information
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium text-muted-foreground">Registered</div>
+                    <div>{new Date(property.created_at).toLocaleDateString()}</div>
+                  </div>
+                  {property.submitted_at && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Submitted</div>
+                      <div>{new Date(property.submitted_at).toLocaleDateString()}</div>
+                    </div>
+                  )}
+                  {property.verified_at && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Verified</div>
+                      <div>{new Date(property.verified_at).toLocaleDateString()}</div>
+                    </div>
+                  )}
+                  {property.rental_commencement_date && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Rental Commencement</div>
+                      <div>{new Date(property.rental_commencement_date).toLocaleDateString()}</div>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">No property selected</p>
-          </div>
-        )}
-      </SheetContent>
+
+              <Separator />
+
+              {property.admin_notes && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">Admin Notes</h3>
+                  <p className="text-sm text-muted-foreground">{property.admin_notes}</p>
+                </div>
+              )}
+
+              {property.admin_notes && <Separator />}
+
+              {property.rejection_reason && (
+                <>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-red-500">Rejection Reason</h3>
+                    <p className="text-sm text-muted-foreground">{property.rejection_reason}</p>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Recent Invoices ({property.invoices?.length || 0})</h3>
+                {property.invoices && property.invoices.length > 0 ? (
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted hover:bg-muted">
+                          <TableHead>Invoice Number</TableHead>
+                          <TableHead>Issue Date</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {property.invoices.slice(0, 5).map((invoice: any) => (
+                          <TableRow key={invoice.id}>
+                            <TableCell className="font-medium font-mono text-sm">{invoice.invoice_number}</TableCell>
+                            <TableCell>{new Date(invoice.issue_date).toLocaleDateString()}</TableCell>
+                            <TableCell className="font-semibold">
+                              ₦{Number(invoice.total_amount).toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  invoice.payment_status === "paid"
+                                    ? "bg-green-500/10 text-green-500 border-green-500/20"
+                                    : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+                                }
+                              >
+                                {invoice.payment_status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-3">
+                      <FileText className="h-6 w-12 text-muted-foreground/50 mb-2" />
+                      <p className="text-sm text-muted-foreground">No invoices found</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <Separator />
+
+              {property.verification_status !== "approved" && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">Verification Actions</h3>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="default"
+                      className="flex-1 gap-2 bg-green-600 hover:bg-green-700"
+                      onClick={() => handleVerificationAction("approved")}
+                      disabled={updatingStatus}
+                    >
+                      {updatingStatus ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4" />
+                          Approve
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 gap-2 bg-transparent"
+                      onClick={() => handleVerificationAction("needs_info")}
+                      disabled={updatingStatus}
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                      Request Info
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1 gap-2"
+                      onClick={() => handleVerificationAction("rejected")}
+                      disabled={updatingStatus}
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">No property selected</p>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
         <DialogContent className="max-w-2xl">
@@ -1207,6 +1214,6 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
           onUpdate()
         }}
       />
-    </Sheet>
+    </>
   )
 }
