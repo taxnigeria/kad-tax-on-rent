@@ -52,6 +52,10 @@ interface Property {
     phone_number: string
     email: string
   } | null
+  documents: Array<{
+    file_url: string
+    document_type: string
+  }> | null
 }
 
 interface PropertiesListSheetProps {
@@ -182,9 +186,11 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
     const city = selectedProperty.addresses?.city || "N/A"
     const lga = selectedProperty.addresses?.lga || selectedProperty.area_offices?.lgas?.name || "N/A"
 
+    const facadePhoto = selectedProperty.documents?.find((doc) => doc.document_type === "property_facade")?.file_url
+
     return (
       <Sheet open={open} onOpenChange={handleClose}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-6">
           <SheetHeader className="space-y-1">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={handleBack} className="h-8 w-8">
@@ -198,6 +204,19 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
           </SheetHeader>
 
           <div className="mt-6 space-y-6">
+            {facadePhoto && (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium mb-3">Property Photo</p>
+                  <img
+                    src={facadePhoto || "/placeholder.svg"}
+                    alt="Property facade"
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                </CardContent>
+              </Card>
+            )}
+
             {/* Status Badge */}
             <div className="flex items-center justify-between">
               {getPropertyStatusBadge(selectedProperty.status)}
@@ -310,7 +329,7 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
   // Properties List View
   return (
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-6">
         <SheetHeader>
           <div className={`inline-flex items-center gap-2 p-2 rounded-lg ${config.bgColor} w-fit`}>
             <StatusIcon className={`h-5 w-5 ${config.color}`} />

@@ -86,6 +86,29 @@ export async function GET(request: Request) {
       )
     }
 
+    if (properties && properties.length > 0) {
+      const propertyIds = properties.map((p) => p.id)
+
+      const { data: documents } = await supabase
+        .from("documents")
+        .select("entity_id, file_url, document_type")
+        .eq("entity_type", "property")
+        .in("entity_id", propertyIds)
+        .in("document_type", ["property_facade", "address_number"])
+
+      // Add documents array to each property
+      const propertiesWithDocs = properties.map((property) => ({
+        ...property,
+        documents: documents?.filter((doc) => doc.entity_id === property.id) || [],
+      }))
+
+      return NextResponse.json({
+        success: true,
+        properties: propertiesWithDocs,
+        count: propertiesWithDocs.length,
+      })
+    }
+
     return NextResponse.json({
       success: true,
       properties: properties || [],

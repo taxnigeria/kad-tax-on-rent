@@ -101,30 +101,41 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
             last_name,
             email,
             phone_number,
-            taxpayer_profiles (
-              kadirs_id,
-              tax_id_or_nin
+            address,
+            profile_picture_url,
+            role
+          ),
+          area_offices (
+            id,
+            office_name,
+            lgas (
+              id,
+              name
             )
           ),
           addresses (
-            street_address,
+            id,
+            street_name,
             city,
-            state,
             lga,
+            state,
             postal_code
           ),
-          invoices (
+          enumerated_by_user:users!properties_enumerated_by_fkey (
             id,
-            invoice_number,
-            total_amount,
-            balance_due,
-            payment_status,
-            issue_date,
-            due_date,
-            created_at
+            first_name,
+            last_name
           ),
-          area_offices (
-            office_name
+          assigned_manager:users!properties_assigned_manager_id_fkey (
+            id,
+            first_name,
+            last_name,
+            email,
+            phone_number
+          ),
+          documents!documents_property_id_fkey (
+            file_url,
+            document_type
           )
         `,
         )
@@ -276,10 +287,9 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
           last_name,
           email,
           phone_number,
-          taxpayer_profiles (
-            kadirs_id,
-            tax_id_or_nin
-          )
+          address,
+          profile_picture_url,
+          role
         `,
         )
         .eq("role", "taxpayer")
@@ -462,6 +472,37 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
 
             <Separator />
 
+            {/* Property Photos */}
+            {property.documents && property.documents.length > 0 && (
+              <>
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Property Photos
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {property.documents
+                      .filter(
+                        (doc: any) => doc.document_type === "property_facade" || doc.document_type === "address_number",
+                      )
+                      .map((doc: any, index: number) => (
+                        <div key={index} className="space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground capitalize">
+                            {doc.document_type.replace("_", " ")}
+                          </p>
+                          <img
+                            src={doc.file_url || "/placeholder.svg"}
+                            alt={doc.document_type}
+                            className="w-full h-48 object-cover rounded-lg border"
+                          />
+                        </div>
+                      ))}
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
+
             {/* Quick Stats */}
             <div className="flex gap-3">
               <Card className="flex-1 gap-0 py-0">
@@ -525,8 +566,8 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">KADIRS ID</div>
-                  <div className="font-mono">{property.users?.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}</div>
+                  <div className="text-xs font-medium text-muted-foreground">Address</div>
+                  <div className="font-mono">{property.users?.address || "No address"}</div>
                 </div>
                 <div className="space-y-1">
                   <div className="text-xs font-medium text-muted-foreground">Email</div>
@@ -562,37 +603,33 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                   onClick={() => setAssignManagerDialogOpen(true)}
                 >
                   <UserCog className="h-3.5 w-3.5" />
-                  {property?.has_property_manager ? "Change Manager" : "Assign Manager"}
+                  {property?.assigned_manager ? "Change Manager" : "Assign Manager"}
                 </Button>
               </div>
-              {property?.has_property_manager ? (
+              {property?.assigned_manager ? (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">Name</div>
-                    <div>{property.manager_full_name || "—"}</div>
+                    <div>
+                      {property.assigned_manager.first_name} {property.assigned_manager.last_name}
+                    </div>
                   </div>
-                  {property.manager_email && (
+                  {property.assigned_manager.email && (
                     <div className="space-y-1">
                       <div className="text-xs font-medium text-muted-foreground">Email</div>
                       <div className="flex items-center gap-1.5">
                         <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="truncate">{property.manager_email}</span>
+                        <span className="truncate">{property.assigned_manager.email}</span>
                       </div>
                     </div>
                   )}
-                  {property.manager_phone && (
+                  {property.assigned_manager.phone_number && (
                     <div className="space-y-1">
                       <div className="text-xs font-medium text-muted-foreground">Phone</div>
                       <div className="flex items-center gap-1.5">
                         <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span>{property.manager_phone}</span>
+                        <span>{property.assigned_manager.phone_number}</span>
                       </div>
-                    </div>
-                  )}
-                  {property.management_start_date && (
-                    <div className="space-y-1">
-                      <div className="text-xs font-medium text-muted-foreground">Management Start Date</div>
-                      <div>{new Date(property.management_start_date).toLocaleDateString()}</div>
                     </div>
                   )}
                 </div>
@@ -665,8 +702,8 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
               {property.addresses ? (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                   <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Street Address</div>
-                    <div>{property.addresses.street_address}</div>
+                    <div className="text-xs font-medium text-muted-foreground">Street Name</div>
+                    <div>{property.addresses.street_name}</div>
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">City</div>
@@ -683,7 +720,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">Area Office</div>
-                    <div>{property.area_office_id || "—"}</div>
+                    <div>{property.area_offices?.office_name || "—"}</div>
                   </div>
                 </div>
               ) : (
@@ -991,7 +1028,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                 </div>
                 <div className="text-sm text-muted-foreground">{property?.users?.email}</div>
                 <div className="text-xs text-muted-foreground font-mono mt-1">
-                  {property?.users?.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}
+                  {property?.users?.address || "No address"}
                 </div>
               </div>
             </div>
@@ -1001,7 +1038,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
               <Label htmlFor="search">Search New Owner</Label>
               <Input
                 id="search"
-                placeholder="Search by name, email, or KADIRS ID..."
+                placeholder="Search by name, email, or address..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
@@ -1032,7 +1069,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                     </div>
                     <div className="text-sm text-muted-foreground">{taxpayer.email}</div>
                     <div className="text-xs text-muted-foreground font-mono mt-1">
-                      {taxpayer.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}
+                      {taxpayer.address || "No address"}
                     </div>
                   </button>
                 ))}
@@ -1049,7 +1086,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                   </div>
                   <div className="text-sm text-muted-foreground">{selectedNewOwner.email}</div>
                   <div className="text-xs text-muted-foreground font-mono mt-1">
-                    {selectedNewOwner.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}
+                    {selectedNewOwner.address || "No address"}
                   </div>
                 </div>
               </div>
