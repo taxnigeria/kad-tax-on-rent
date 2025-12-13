@@ -126,7 +126,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
             first_name,
             last_name
           ),
-          assigned_manager:users!properties_assigned_manager_id_fkey (
+          property_manager:users!properties_property_manager_id_fkey (
             id,
             first_name,
             last_name,
@@ -609,32 +609,32 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                     onClick={() => setAssignManagerDialogOpen(true)}
                   >
                     <UserCog className="h-3.5 w-3.5" />
-                    {property?.assigned_manager ? "Change Manager" : "Assign Manager"}
+                    {property?.property_manager ? "Change Manager" : "Assign Manager"}
                   </Button>
                 </div>
-                {property?.assigned_manager ? (
+                {property?.property_manager ? (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div className="space-y-1">
                       <div className="text-xs font-medium text-muted-foreground">Name</div>
                       <div>
-                        {property.assigned_manager.first_name} {property.assigned_manager.last_name}
+                        {property.property_manager.first_name} {property.property_manager.last_name}
                       </div>
                     </div>
-                    {property.assigned_manager.email && (
+                    {property.property_manager.email && (
                       <div className="space-y-1">
                         <div className="text-xs font-medium text-muted-foreground">Email</div>
                         <div className="flex items-center gap-1.5">
                           <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate">{property.assigned_manager.email}</span>
+                          <span className="truncate">{property.property_manager.email}</span>
                         </div>
                       </div>
                     )}
-                    {property.assigned_manager.phone_number && (
+                    {property.property_manager.phone_number && (
                       <div className="space-y-1">
                         <div className="text-xs font-medium text-muted-foreground">Phone</div>
                         <div className="flex items-center gap-1.5">
                           <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span>{property.assigned_manager.phone_number}</span>
+                          <span>{property.property_manager.phone_number}</span>
                         </div>
                       </div>
                     )}
