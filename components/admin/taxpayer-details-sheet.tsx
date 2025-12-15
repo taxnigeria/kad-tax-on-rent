@@ -1,33 +1,89 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { getTaxpayerById } from "@/app/actions/taxpayers"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { getTaxpayerById, updateTaxpayerStatus } from "@/app/actions/taxpayers"
-import { Building2, FileText, Mail, Loader2, UserX, UserCheck, DollarSign, CheckCircle, Pencil } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { RegisterPropertyModal } from "@/components/register-property-modal"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { PropertyDetailsSheet } from "@/components/admin/property-details-sheet" // Import PropertyDetailsSheet component
+import { toast } from "sonner"
+import { Building2, DollarSign, CheckCircle, Loader2, Mail, Pencil, User, ShieldCheck, ShieldX } from "lucide-react"
+import { EditTaxpayerModal } from "./edit-taxpayer-modal"
+import { PropertyDetailsSheet } from "./property-details-sheet"
 
 type TaxpayerDetailsSheetProps = {
+  taxpayerId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  taxpayerId: string | null
   onUpdate: () => void
 }
 
-export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate }: TaxpayerDetailsSheetProps) {
-  const [taxpayer, setTaxpayer] = useState<any>(null)
+type TaxpayerDetails = {
+  id: string
+  first_name: string
+  middle_name: string
+  last_name: string
+  email: string
+  phone_number: string
+  is_active: boolean
+  created_at: string
+  property_count: number
+  total_tax_owed: number
+  total_paid: number
+  email_verified: boolean
+  phone_verified: boolean
+  taxpayer_profiles: {
+    id: string
+    kadirs_id: string
+    tin: string
+    tax_id_or_nin: string
+    is_business: boolean
+    business_name: string
+    business_type: string
+    business_address: string
+    residential_address: string
+    rc_number: string
+    gender: string
+    date_of_birth: string
+    nationality: string
+    means_of_identification: string
+    identification_number: string
+    years_of_experience: number
+    industry_id: string
+    user_type: string
+    area_office_id: string
+    lga_id: string
+    address_line1: string
+    business_registration_date: string
+    management_license_number: string
+    paykaduna_customer_code: string
+    paykaduna_customer_id: string
+    lgas: { name: string }
+    area_offices: { office_name: string }
+  }
+  properties: any[]
+  invoices: any[]
+}
+
+type Property = {
+  id: string
+  registered_property_name: string
+  property_reference: string
+  property_type: string
+  verification_status: string
+}
+
+export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate }: TaxpayerDetailsSheetProps) {
+  const [taxpayer, setTaxpayer] = useState<TaxpayerDetails | null>(null)
   const [loading, setLoading] = useState(false)
+  const [properties, setProperties] = useState<Property[]>([])
   const [updatingStatus, setUpdatingStatus] = useState(false)
-  const [isRegisterPropertyOpen, setIsRegisterPropertyOpen] = useState(false)
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null) // Add state for property details sheet
+  const [editModalOpen, setEditModalOpen] = useState(false)
   const [showPropertyDetails, setShowPropertyDetails] = useState(false)
-  const { toast } = useToast()
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
 
   useEffect(() => {
     if (open && taxpayerId) {
@@ -43,11 +99,7 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
       const { taxpayer: data, error } = await getTaxpayerById(taxpayerId)
       if (error) {
         console.error("Error fetching taxpayer details:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load taxpayer details",
-          variant: "destructive",
-        })
+        toast.error("Failed to load taxpayer details")
       } else {
         console.log("[v0] Taxpayer data:", data)
         console.log("[v0] Properties:", data?.properties)
@@ -61,33 +113,22 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
     }
   }
 
-  async function handleToggleStatus() {
+  async function handleStatusToggle(newStatus: boolean) {
     if (!taxpayer) return
-
     setUpdatingStatus(true)
+
     try {
-      const result = await updateTaxpayerStatus(taxpayer.id, !taxpayer.is_active)
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: `Taxpayer ${!taxpayer.is_active ? "activated" : "deactivated"} successfully`,
-        })
-        await fetchTaxpayerDetails()
-        onUpdate()
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to update status",
-          variant: "destructive",
-        })
-      }
+      const supabase = createClient()
+      const { error } = await supabase.from("users").update({ is_active: newStatus }).eq("id", taxpayer.id)
+
+      if (error) throw error
+
+      setTaxpayer((prev) => (prev ? { ...prev, is_active: newStatus } : null))
+      toast.success(newStatus ? "Taxpayer account activated" : "Taxpayer account deactivated")
+      onUpdate()
     } catch (error) {
       console.error("Error updating status:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
+      toast.error("An unexpected error occurred")
     } finally {
       setUpdatingStatus(false)
     }
@@ -96,6 +137,50 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
   function handlePropertyClick(propertyId: string) {
     setSelectedPropertyId(propertyId)
     setShowPropertyDetails(true)
+  }
+
+  function handleEditUpdate() {
+    fetchTaxpayerDetails()
+    onUpdate()
+  }
+
+  function getEditTaxpayerData() {
+    if (!taxpayer) return null
+    const profile = taxpayer.taxpayer_profiles
+    return {
+      id: profile?.id || "",
+      user_id: taxpayer.id,
+      kadirs_id: profile?.kadirs_id,
+      first_name: taxpayer.first_name,
+      last_name: taxpayer.last_name,
+      middle_name: taxpayer.middle_name,
+      email: taxpayer.email,
+      phone_number: taxpayer.phone_number,
+      is_active: taxpayer.is_active,
+      tin: profile?.tin,
+      tax_id_or_nin: profile?.tax_id_or_nin,
+      is_business: profile?.is_business || false,
+      business_name: profile?.business_name,
+      business_type: profile?.business_type,
+      business_address: profile?.business_address,
+      residential_address: profile?.residential_address,
+      rc_number: profile?.rc_number,
+      gender: profile?.gender,
+      date_of_birth: profile?.date_of_birth,
+      nationality: profile?.nationality,
+      means_of_identification: profile?.means_of_identification,
+      identification_number: profile?.identification_number,
+      years_of_experience: profile?.years_of_experience,
+      industry_id: profile?.industry_id,
+      user_type: profile?.user_type,
+      area_office_id: profile?.area_office_id,
+      lga_id: profile?.lga_id,
+      address_line1: profile?.address_line1,
+      business_registration_date: profile?.business_registration_date,
+      management_license_number: profile?.management_license_number,
+      paykaduna_customer_code: profile?.paykaduna_customer_code,
+      paykaduna_customer_id: profile?.paykaduna_customer_id,
+    }
   }
 
   return (
@@ -123,12 +208,17 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
                         </Badge>
                       )}
                       <Badge variant="outline" className="capitalize">
-                        {taxpayer.role?.replace("_", " ")}
+                        {taxpayer.taxpayer_profiles?.user_type?.replace("_", " ") || "No User Type"}
                       </Badge>
                     </SheetTitle>
                     <SheetDescription>{taxpayer.taxpayer_profiles?.kadirs_id || "No KADIRS ID"}</SheetDescription>
                   </div>
-                  <Button size="sm" variant="outline" className="gap-2 mr-6 bg-transparent">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 mr-6 bg-transparent"
+                    onClick={() => setEditModalOpen(true)}
+                  >
                     <Pencil className="h-4 w-4" />
                     Edit
                   </Button>
@@ -176,30 +266,49 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
                 <Separator />
 
                 {/* Contact Information */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    Contact Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                    <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground">Email</div>
-                      <div className="font-medium">{taxpayer.email}</div>
-                    </div>
-                    {taxpayer.phone_number && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Contact Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-1">
-                        <div className="text-xs text-muted-foreground">Phone</div>
-                        <div className="font-medium">{taxpayer.phone_number}</div>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          Email
+                          {taxpayer.email_verified ? (
+                            <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <ShieldX className="h-3.5 w-3.5 text-red-500" />
+                          )}
+                        </p>
+                        <a href={`mailto:${taxpayer.email}`} className="text-sm text-primary hover:underline">
+                          {taxpayer.email}
+                        </a>
                       </div>
-                    )}
-                    {taxpayer.taxpayer_profiles?.residential_address && (
-                      <div className="space-y-1 md:col-span-2 lg:col-span-3">
-                        <div className="text-xs text-muted-foreground">Residential Address</div>
-                        <div className="font-medium">{taxpayer.taxpayer_profiles.residential_address}</div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          Phone
+                          {taxpayer.phone_number &&
+                            (taxpayer.phone_verified ? (
+                              <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
+                            ) : (
+                              <ShieldX className="h-3.5 w-3.5 text-red-500" />
+                            ))}
+                        </p>
+                        {taxpayer.phone_number ? (
+                          <a href={`tel:${taxpayer.phone_number}`} className="text-sm text-primary hover:underline">
+                            {taxpayer.phone_number}
+                          </a>
+                        ) : (
+                          <p className="text-sm">—</p>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <Separator />
 
@@ -228,11 +337,75 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
                       <div className="font-medium">{taxpayer.taxpayer_profiles?.nationality || "—"}</div>
                     </div>
                     <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">User Type</div>
+                      <div className="font-medium capitalize">{taxpayer.taxpayer_profiles?.user_type || "—"}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">Means of ID</div>
+                      <div className="font-medium capitalize">
+                        {taxpayer.taxpayer_profiles?.means_of_identification?.replace(/_/g, " ") || "—"}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">ID Number</div>
+                      <div className="font-medium font-mono">
+                        {taxpayer.taxpayer_profiles?.identification_number || "—"}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
                       <div className="text-xs text-muted-foreground">Registered</div>
                       <div className="font-medium">{new Date(taxpayer.created_at).toLocaleDateString()}</div>
                     </div>
+                    {taxpayer.taxpayer_profiles?.years_of_experience && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Years of Experience</div>
+                        <div className="font-medium">{taxpayer.taxpayer_profiles.years_of_experience} years</div>
+                      </div>
+                    )}
+                    {taxpayer.taxpayer_profiles?.management_license_number && (
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">License Number</div>
+                        <div className="font-medium font-mono">
+                          {taxpayer.taxpayer_profiles.management_license_number}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Location Information */}
+                {(taxpayer.taxpayer_profiles?.lga_id ||
+                  taxpayer.taxpayer_profiles?.area_office_id ||
+                  taxpayer.taxpayer_profiles?.address_line1) && (
+                  <>
+                    <Separator />
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold">Location Information</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                        {taxpayer.taxpayer_profiles?.lgas?.name && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">LGA</div>
+                            <div className="font-medium">{taxpayer.taxpayer_profiles.lgas.name}</div>
+                          </div>
+                        )}
+                        {taxpayer.taxpayer_profiles?.area_offices?.office_name && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Area Office</div>
+                            <div className="font-medium">{taxpayer.taxpayer_profiles.area_offices.office_name}</div>
+                          </div>
+                        )}
+                        {taxpayer.taxpayer_profiles?.address_line1 && (
+                          <div className="space-y-1 md:col-span-2 lg:col-span-3">
+                            <div className="text-xs text-muted-foreground">Address</div>
+                            <div className="font-medium">{taxpayer.taxpayer_profiles.address_line1}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <Separator />
 
                 {/* Business Information */}
                 {taxpayer.taxpayer_profiles?.is_business && (
@@ -268,7 +441,7 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold">Properties ({taxpayer.properties?.length || 0})</h3>
-                    <Button size="sm" variant="outline" onClick={() => setIsRegisterPropertyOpen(true)}>
+                    <Button size="sm" variant="outline">
                       Add Property
                     </Button>
                   </div>
@@ -364,7 +537,7 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
                   ) : (
                     <Card>
                       <CardContent className="flex flex-col items-center justify-center py-8">
-                        <FileText className="h-12 w-12 text-muted-foreground/50 mb-2" />
+                        <Mail className="h-12 w-12 text-muted-foreground/50 mb-2" />
                         <p className="text-sm text-muted-foreground">No invoices found</p>
                       </CardContent>
                     </Card>
@@ -378,19 +551,19 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
                   <Button
                     variant={taxpayer.is_active ? "destructive" : "default"}
                     className="flex-1 gap-2"
-                    onClick={handleToggleStatus}
+                    onClick={() => handleStatusToggle(!taxpayer.is_active)}
                     disabled={updatingStatus}
                   >
                     {updatingStatus ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : taxpayer.is_active ? (
                       <>
-                        <UserX className="h-4 w-4" />
+                        <User className="h-4 w-4" />
                         Deactivate
                       </>
                     ) : (
                       <>
-                        <UserCheck className="h-4 w-4" />
+                        <User className="h-4 w-4" />
                         Activate
                       </>
                     )}
@@ -399,8 +572,9 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">No taxpayer selected</p>
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+              <User className="h-12 w-12 mb-2" />
+              <p>No taxpayer selected</p>
             </div>
           )}
         </SheetContent>
@@ -414,15 +588,12 @@ export function TaxpayerDetailsSheet({ open, onOpenChange, taxpayerId, onUpdate 
         onUpdate={fetchTaxpayerDetails}
       />
 
-      {/* Register Property Modal */}
-      <RegisterPropertyModal
-        open={isRegisterPropertyOpen}
-        onOpenChange={setIsRegisterPropertyOpen}
-        taxpayerId={taxpayerId}
-        onSuccess={() => {
-          fetchTaxpayerDetails()
-          onUpdate()
-        }}
+      {/* Edit Taxpayer Modal */}
+      <EditTaxpayerModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        taxpayer={getEditTaxpayerData()}
+        onSuccess={handleEditUpdate}
       />
     </>
   )

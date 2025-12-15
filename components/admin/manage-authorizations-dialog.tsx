@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createBrowserClient } from "@/lib/supabase-client"
 import { Search, X, UserCheck, Loader2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 
 interface User {
   id: string
@@ -44,7 +44,6 @@ export function ManageAuthorizationsDialog({ open, onOpenChange }: ManageAuthori
   const [ownerSearch, setOwnerSearch] = useState("")
   const [showManagerDropdown, setShowManagerDropdown] = useState(false)
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false)
-  const { toast } = useToast()
   const supabase = createBrowserClient()
 
   useEffect(() => {
@@ -108,11 +107,7 @@ export function ManageAuthorizationsDialog({ open, onOpenChange }: ManageAuthori
 
   const handleCreateAuthorization = async () => {
     if (!selectedManager || !selectedOwner) {
-      toast({
-        title: "Missing Information",
-        description: "Please select both a manager and an owner.",
-        variant: "destructive",
-      })
+      toast.error("Please select both a manager and an owner.")
       return
     }
 
@@ -131,10 +126,9 @@ export function ManageAuthorizationsDialog({ open, onOpenChange }: ManageAuthori
 
       if (error) throw error
 
-      toast({
-        title: "Authorization Created",
-        description: `${selectedManager.first_name} ${selectedManager.last_name} can now manage properties for ${selectedOwner.first_name} ${selectedOwner.last_name}.`,
-      })
+      toast.success(
+        `${selectedManager.first_name} ${selectedManager.last_name} can now manage properties for ${selectedOwner.first_name} ${selectedOwner.last_name}.`,
+      )
 
       // Reset form
       setSelectedManager(null)
@@ -146,11 +140,7 @@ export function ManageAuthorizationsDialog({ open, onOpenChange }: ManageAuthori
       // Refresh list
       fetchAuthorizations()
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create authorization.",
-        variant: "destructive",
-      })
+      toast.error(error.message || "Failed to create authorization.")
     } finally {
       setLoading(false)
     }
@@ -165,18 +155,11 @@ export function ManageAuthorizationsDialog({ open, onOpenChange }: ManageAuthori
 
       if (error) throw error
 
-      toast({
-        title: currentStatus ? "Authorization Deactivated" : "Authorization Activated",
-        description: `The authorization has been ${currentStatus ? "deactivated" : "activated"}.`,
-      })
+      toast.success(`The authorization has been ${currentStatus ? "deactivated" : "activated"}.`)
 
       fetchAuthorizations()
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update authorization.",
-        variant: "destructive",
-      })
+      toast.error(error.message || "Failed to update authorization.")
     }
   }
 

@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, DollarSign, AlertCircle, Calendar } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -58,7 +58,6 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
   const [loading, setLoading] = useState(false)
   const [existingCalculations, setExistingCalculations] = useState<any[]>([])
 
-  const { toast } = useToast()
   const supabase = createClient()
 
   useEffect(() => {
@@ -400,20 +399,13 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
         successMessage += ` and ${totalInvoicesCreated} PayKaduna invoice(s) generated`
       }
 
-      toast({
-        title: "Success",
-        description: successMessage,
-      })
+      toast.success(successMessage)
 
       onOpenChange(false)
       onSuccess()
     } catch (error) {
       console.error("Error calculating tax:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to calculate tax",
-        variant: "destructive",
-      })
+      toast.error(error instanceof Error ? error.message : "Failed to calculate tax")
     } finally {
       setLoading(false)
     }

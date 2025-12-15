@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
 import { createTaxpayer } from "@/app/actions/taxpayers"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 
 type AddTaxpayerModalProps = {
   open: boolean
@@ -27,7 +27,6 @@ type AddTaxpayerModalProps = {
 
 export function AddTaxpayerModal({ open, onOpenChange, onSuccess }: AddTaxpayerModalProps) {
   const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
   const [formData, setFormData] = useState({
     firstName: "",
     middleName: "",
@@ -70,27 +69,16 @@ export function AddTaxpayerModal({ open, onOpenChange, onSuccess }: AddTaxpayerM
       })
 
       if (result.success) {
-        toast({
-          title: "Success",
-          description: "Taxpayer created successfully",
-        })
+        toast.success("Success", "Taxpayer created successfully")
         onSuccess()
         onOpenChange(false)
         resetForm()
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to create taxpayer",
-          variant: "destructive",
-        })
+        toast.error("Error", result.error || "Failed to create taxpayer")
       }
     } catch (error) {
       console.error("Error creating taxpayer:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
+      toast.error("Error", "An unexpected error occurred")
     } finally {
       setLoading(false)
     }

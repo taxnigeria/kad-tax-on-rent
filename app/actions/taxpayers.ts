@@ -29,6 +29,14 @@ export type TaxpayerWithProfile = {
     date_of_birth: string | null
     residential_address: string | null
     business_address: string | null
+    lgas: {
+      id: string
+      name: string
+    } | null
+    area_offices: {
+      id: string
+      office_name: string
+    } | null
   } | null
   property_count?: number
   invoice_count?: number
@@ -76,7 +84,11 @@ export async function getTaxpayerById(taxpayerId: string) {
       .select(
         `
         *,
-        taxpayer_profiles (*)
+        taxpayer_profiles (
+          *,
+          lgas (id, name),
+          area_offices (id, office_name)
+        )
       `,
       )
       .eq("id", taxpayerId)

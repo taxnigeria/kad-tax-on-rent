@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
 import { Loader2, ChevronLeft, ChevronRight, Search, User, Mail, Phone, Award as IdCard, Building2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { createBrowserClient } from "@supabase/ssr"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -74,7 +74,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
   const [loading, setLoading] = useState(false)
   const [searchingTaxpayers, setSearchingTaxpayers] = useState(false)
   const [searchingManagers, setSearchingManagers] = useState(false)
-  const { toast } = useToast()
+  // const { toast } = useToast() // Removed useToast hook
 
   const [cities, setCities] = useState<City[]>([])
   const [lgas, setLgas] = useState<LGA[]>([])
@@ -321,10 +321,8 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
       !formData.streetAddress ||
       !formData.areaOfficeId
     ) {
-      toast({
-        title: "Missing Information",
+      toast.error("Missing Information", {
         description: "Please fill in all required fields including Area Office",
-        variant: "destructive",
       })
       return
     }
@@ -333,10 +331,8 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
 
   function handleNextFromStep2() {
     if (!formData.annualRent || !formData.totalUnits) {
-      toast({
-        title: "Missing Information",
+      toast.error("Missing Information", {
         description: "Please fill in Annual Rent and Total Units",
-        variant: "destructive",
       })
       return
     }
@@ -351,19 +347,15 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     e.preventDefault()
 
     if (formData.registrationType === "owner" && !selectedTaxpayer) {
-      toast({
-        title: "No Owner Selected",
+      toast.error("No Owner Selected", {
         description: "Please select a taxpayer as the property owner",
-        variant: "destructive",
       })
       return
     }
 
     if (formData.registrationType === "manager" && !selectedManager) {
-      toast({
-        title: "No Manager Selected",
+      toast.error("No Manager Selected", {
         description: "Please select a property manager",
-        variant: "destructive",
       })
       return
     }
@@ -430,8 +422,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
         throw new Error("Failed to create property")
       }
 
-      toast({
-        title: "Success",
+      toast.success("Success", {
         description: "Property created successfully",
       })
 
@@ -440,10 +431,8 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
       resetForm()
     } catch (error) {
       console.error("Error creating property:", error)
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: error instanceof Error ? error.message : "Failed to create property",
-        variant: "destructive",
       })
     } finally {
       setLoading(false)

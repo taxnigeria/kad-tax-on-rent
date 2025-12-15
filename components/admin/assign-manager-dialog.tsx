@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2, Search, UserCog, X } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { createClient } from "@/utils/supabase/client"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -31,7 +31,6 @@ function AssignManagerDialog({ open, onOpenChange, property, onSuccess }: Assign
   const [managementStartDate, setManagementStartDate] = useState(new Date().toISOString().split("T")[0])
   const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
-  const { toast } = useToast()
   const supabase = createClient()
 
   useEffect(() => {
@@ -82,11 +81,7 @@ function AssignManagerDialog({ open, onOpenChange, property, onSuccess }: Assign
       setManagers(results)
     } catch (error) {
       console.error("Error searching managers:", error)
-      toast({
-        title: "Error",
-        description: "Failed to search managers",
-        variant: "destructive",
-      })
+      toast.error("Failed to search managers")
     } finally {
       setSearching(false)
     }
@@ -113,20 +108,12 @@ function AssignManagerDialog({ open, onOpenChange, property, onSuccess }: Assign
 
       if (error) throw error
 
-      toast({
-        title: "Success",
-        description: "Property manager assigned successfully",
-      })
-
+      toast.success("Property manager assigned successfully")
       onOpenChange(false)
       onSuccess()
     } catch (error) {
       console.error("Error assigning manager:", error)
-      toast({
-        title: "Error",
-        description: "Failed to assign manager",
-        variant: "destructive",
-      })
+      toast.error("Failed to assign manager")
     } finally {
       setLoading(false)
     }
@@ -152,20 +139,12 @@ function AssignManagerDialog({ open, onOpenChange, property, onSuccess }: Assign
 
       if (error) throw error
 
-      toast({
-        title: "Success",
-        description: "Property manager removed successfully",
-      })
-
+      toast.success("Property manager removed successfully")
       onOpenChange(false)
       onSuccess()
     } catch (error) {
       console.error("Error removing manager:", error)
-      toast({
-        title: "Error",
-        description: "Failed to remove manager",
-        variant: "destructive",
-      })
+      toast.error("Failed to remove manager")
     } finally {
       setLoading(false)
     }

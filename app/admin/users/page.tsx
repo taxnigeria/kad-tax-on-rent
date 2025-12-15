@@ -67,6 +67,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
+import { EditUserModal } from "@/components/admin/edit-user-modal"
 
 const STAFF_ROLES = ["super_admin", "superadmin", "admin", "staff", "enumerator", "qa", "area_officer"]
 
@@ -114,7 +115,7 @@ interface FirebaseUser {
   role?: string // Added for migration role
 }
 
-export default function UsersPage() {
+export default function AdminUsersPage() {
   const router = useRouter()
   const { user, userRole, loading: authLoading } = useAuth()
 
@@ -164,6 +165,9 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [enumerationStats, setEnumerationStats] = useState<EnumerationStats | null>(null)
   const [loadingEnumerations, setLoadingEnumerations] = useState(false)
+
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<StaffUser | null>(null)
 
   useEffect(() => {
     if (!authLoading) {
@@ -288,6 +292,11 @@ export default function UsersPage() {
       } else {
         toast.success("Role updated successfully")
         fetchUsers()
+        // If editing user is the one being updated, close modal and update selectedUser
+        if (editingUser && editingUser.id === userId) {
+          setEditingUser({ ...editingUser, role: newRole })
+          setSelectedUser({ ...selectedUser!, role: newRole })
+        }
       }
     } catch (error) {
       toast.error("Failed to update role")
@@ -308,6 +317,11 @@ export default function UsersPage() {
       } else {
         toast.success(isActive ? "User deactivated" : "User activated")
         fetchUsers()
+        // If editing user is the one being updated, close modal and update selectedUser
+        if (editingUser && editingUser.id === userId) {
+          setEditingUser({ ...editingUser, is_active: !isActive })
+          setSelectedUser({ ...selectedUser!, is_active: !isActive })
+        }
       }
     } catch (error) {
       toast.error("Failed to update user status")
@@ -445,6 +459,11 @@ export default function UsersPage() {
     } else {
       setEnumerationStats(null)
     }
+  }
+
+  function handleEditUser(user: StaffUser) {
+    setEditingUser(user)
+    setEditModalOpen(true)
   }
 
   function getRoleBadgeVariant(role: string) {
@@ -825,6 +844,7 @@ export default function UsersPage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem onClick={() => handleViewUser(u)}>View Details</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleEditUser(u)}>Edit</DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => handleToggleStatus(u.id, u.is_active)}>
                                     {u.is_active ? "Deactivate" : "Activate"}
@@ -1303,6 +1323,7 @@ export default function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Add User Dialog */}
       <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1380,6 +1401,19 @@ export default function UsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <EditUserModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          user={editingUser}
+          onUpdate={() => {
+            fetchUsers()
+            setEditModalOpen(false)
+          }}
+        />
+      )}
     </SidebarProvider>
   )
 }

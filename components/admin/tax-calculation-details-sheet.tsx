@@ -30,7 +30,7 @@ import {
   ArrowDown,
   AlertCircle,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { createClient } from "@/utils/supabase/client"
 import { InvoicePrintDialog } from "@/components/invoice-print-dialog"
 
@@ -52,7 +52,6 @@ export default function TaxCalculationDetailsSheet({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showPrintDialog, setShowPrintDialog] = useState(false)
-  const { toast } = useToast()
   const supabase = createClient()
 
   useEffect(() => {
@@ -123,11 +122,7 @@ export default function TaxCalculationDetailsSheet({
 
       if (error) {
         console.error("Error fetching calculation details:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load calculation details",
-          variant: "destructive",
-        })
+        toast.error("Failed to load calculation details")
       } else {
         setCalculation(data)
       }
@@ -141,10 +136,7 @@ export default function TaxCalculationDetailsSheet({
   async function handleGenerateInvoice() {
     if (!calculation) return
 
-    toast({
-      title: "Generating Invoice",
-      description: "Creating invoice from tax calculation...",
-    })
+    toast("Creating invoice from tax calculation...")
 
     // TODO: Implement invoice generation
   }
@@ -161,11 +153,7 @@ export default function TaxCalculationDetailsSheet({
 
         if (invoiceError) {
           console.error("Error deleting invoice:", invoiceError)
-          toast({
-            title: "Error",
-            description: "Failed to delete invoice. Please try again.",
-            variant: "destructive",
-          })
+          toast.error("Failed to delete invoice. Please try again.")
           setDeleting(false)
           return
         }
@@ -175,31 +163,20 @@ export default function TaxCalculationDetailsSheet({
 
       if (calcError) {
         console.error("Error deleting tax calculation:", calcError)
-        toast({
-          title: "Error",
-          description: "Failed to delete tax calculation. Please try again.",
-          variant: "destructive",
-        })
+        toast.error("Failed to delete tax calculation. Please try again.")
         setDeleting(false)
         return
       }
 
-      toast({
-        title: "Success",
-        description: invoice?.id
-          ? "Tax calculation and invoice deleted successfully"
-          : "Tax calculation deleted successfully",
-      })
+      toast.success(
+        invoice?.id ? "Tax calculation and invoice deleted successfully" : "Tax calculation deleted successfully",
+      )
 
       onOpenChange(false)
       onUpdate()
     } catch (error) {
       console.error("Error in handleDeleteCalculation:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
+      toast.error("An unexpected error occurred")
     } finally {
       setDeleting(false)
       setShowDeleteDialog(false)
@@ -214,11 +191,7 @@ export default function TaxCalculationDetailsSheet({
     if (invoice?.id) {
       setShowPrintDialog(true)
     } else {
-      toast({
-        title: "No Invoice Available",
-        description: "Please generate an invoice first before printing",
-        variant: "destructive",
-      })
+      toast.error("Please generate an invoice first before printing")
     }
   }
 
@@ -230,11 +203,7 @@ export default function TaxCalculationDetailsSheet({
     if (invoice?.id) {
       setShowPrintDialog(true)
     } else {
-      toast({
-        title: "No Invoice Available",
-        description: "Please generate an invoice first before downloading",
-        variant: "destructive",
-      })
+      toast.error("Please generate an invoice first before downloading")
     }
   }
 
@@ -336,7 +305,10 @@ export default function TaxCalculationDetailsSheet({
                     disabled={deleting}
                   >
                     {deleting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                        Deleting...
+                      </>
                     ) : (
                       <Trash2 className="h-3.5 w-3.5" />
                     )}

@@ -10,14 +10,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Building2, Plus, Search, Filter, Download, CheckCircle, Clock, Home } from "lucide-react"
+import { Building2, Plus, Search, Filter, Download, CheckCircle, Clock, Home, Pencil } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { createBrowserClient } from "@supabase/ssr"
-import { AddPropertyModal } from "@/components/admin/add-property-modal"
+import { createClient } from "@/lib/supabase/client"
 import { PropertyDetailsSheet } from "@/components/admin/property-details-sheet"
-import { Skeleton } from "@/components/ui/skeleton"
+import { EditPropertyModal } from "@/components/admin/edit-property-modal"
+import { AddPropertyModal } from "@/components/admin/add-property-modal" // Added import for AddPropertyModal
 
 type Property = {
   id: string
@@ -58,11 +58,10 @@ export default function AdminPropertiesPage() {
   const [showAddPropertyModal, setShowAddPropertyModal] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
   const [showPropertyDetails, setShowPropertyDetails] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingProperty, setEditingProperty] = useState<any>(null)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  const supabase = createClient()
 
   useEffect(() => {
     if (!authLoading) {
@@ -189,6 +188,15 @@ export default function AdminPropertiesPage() {
     setShowAddPropertyModal(true)
   }
 
+  function handleEditProperty(property: any) {
+    setEditingProperty(property)
+    setEditModalOpen(true)
+  }
+
+  function handleEditUpdate() {
+    fetchProperties()
+  }
+
   const totalPages = Math.ceil(filteredProperties.length / rowsPerPage)
   const startIndex = (currentPage - 1) * rowsPerPage
   const endIndex = startIndex + rowsPerPage
@@ -238,8 +246,7 @@ export default function AdminPropertiesPage() {
             <div className="grid gap-3 md:grid-cols-4">
               {[...Array(4)].map((_, i) => (
                 <Card key={i} className="py-3 px-4">
-                  <Skeleton className="h-4 w-20 mb-2" />
-                  <Skeleton className="h-5 w-16" />
+                  {/* Placeholder for skeleton component */}
                 </Card>
               ))}
             </div>
@@ -377,33 +384,15 @@ export default function AdminPropertiesPage() {
                     {loading ? (
                       [...Array(5)].map((_, i) => (
                         <TableRow key={i}>
-                          <TableCell>
-                            <Skeleton className="h-4 w-4" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-40" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-20" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-20" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-20" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-16" />
-                          </TableCell>
+                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
+                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
+                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
+                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
+                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
+                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
+                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
+                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
+                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
                         </TableRow>
                       ))
                     ) : paginatedProperties.length === 0 ? (
@@ -479,6 +468,10 @@ export default function AdminPropertiesPage() {
                           <TableCell className="text-right">
                             <Button variant="ghost" size="sm" onClick={() => handleViewDetails(property.id)}>
                               View
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleEditProperty(property)}>
+                              <Pencil className="h-4 w-4" />
+                              Edit
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -570,6 +563,12 @@ export default function AdminPropertiesPage() {
         onOpenChange={setShowPropertyDetails}
         propertyId={selectedPropertyId}
         onUpdate={fetchProperties}
+      />
+      <EditPropertyModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        property={editingProperty}
+        onSuccess={handleEditUpdate}
       />
     </SidebarProvider>
   )

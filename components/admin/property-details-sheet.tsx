@@ -35,16 +35,17 @@ import {
   DollarSign,
   Home,
   UserCog,
-  Edit,
   Trash2,
   Download,
   Printer,
+  Pencil,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { createClient } from "@/utils/supabase/client"
 import AssignManagerDialog from "@/components/admin/assign-manager-dialog"
 import CalculateTaxDialog from "@/components/admin/calculate-tax-dialog"
 import TaxCalculationDetailsSheet from "@/components/admin/tax-calculation-details-sheet"
+import { EditPropertyModal } from "@/components/admin/edit-property-modal"
 
 type PropertyDetailsSheetProps = {
   open: boolean
@@ -66,7 +67,6 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
   const [transferNotes, setTransferNotes] = useState("")
   const [transferring, setTransferring] = useState(false)
   const [searching, setSearching] = useState(false)
-  const { toast } = useToast()
   const supabase = createClient()
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -76,6 +76,16 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
   const [loadingTaxData, setLoadingTaxData] = useState(false)
   const [taxCalcSheetOpen, setTaxCalcSheetOpen] = useState(false)
   const [selectedTaxCalcId, setSelectedTaxCalcId] = useState<string | null>(null)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+
+  function handleEdit() {
+    setEditModalOpen(true)
+  }
+
+  function handleEditUpdate() {
+    fetchPropertyDetails()
+    onUpdate()
+  }
 
   useEffect(() => {
     if (open && propertyId) {
@@ -113,7 +123,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
           ),
           addresses (
             id,
-            street_name,
+            street_address,
             city,
             lga,
             state,
@@ -142,11 +152,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
 
       if (error) {
         console.error("Error fetching property details:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load property details",
-          variant: "destructive",
-        })
+        toast.error("Failed to load property details")
       } else {
         setProperty(data)
       }
@@ -183,11 +189,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
 
       if (error) {
         console.error("Error fetching tax calculations:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load tax calculations",
-          variant: "destructive",
-        })
+        toast.error("Failed to load tax calculations")
       } else {
         setTaxCalculations(data || [])
       }
@@ -202,17 +204,10 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
     e.stopPropagation() // Prevent row click
     const invoice = calc.invoices?.[0]
     if (invoice) {
-      toast({
-        title: "Downloading Invoice",
-        description: `Downloading invoice ${invoice.invoice_number}...`,
-      })
+      toast(`Downloading invoice ${invoice.invoice_number}...`)
       // TODO: Implement actual download logic
     } else {
-      toast({
-        title: "No Invoice",
-        description: "This calculation doesn't have an associated invoice yet.",
-        variant: "destructive",
-      })
+      toast.error("This calculation doesn't have an associated invoice yet.")
     }
   }
 
@@ -220,17 +215,10 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
     e.stopPropagation() // Prevent row click
     const invoice = calc.invoices?.[0]
     if (invoice) {
-      toast({
-        title: "Printing Invoice",
-        description: `Preparing to print invoice ${invoice.invoice_number}...`,
-      })
+      toast(`Preparing to print invoice ${invoice.invoice_number}...`)
       // TODO: Implement actual print logic
     } else {
-      toast({
-        title: "No Invoice",
-        description: "This calculation doesn't have an associated invoice yet.",
-        variant: "destructive",
-      })
+      toast.error("This calculation doesn't have an associated invoice yet.")
     }
   }
 
@@ -249,19 +237,14 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
 
       if (error) throw error
 
-      toast({
-        title: "Success",
-        description: `Property ${action === "approved" ? "approved" : action === "rejected" ? "rejected" : "marked as needs info"}`,
-      })
+      toast.success(
+        `Property ${action === "approved" ? "approved" : action === "rejected" ? "rejected" : "marked as needs info"}`,
+      )
       await fetchPropertyDetails()
       onUpdate()
     } catch (error) {
       console.error("Error updating verification status:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update verification status",
-        variant: "destructive",
-      })
+      toast.error("Failed to update verification status")
     } finally {
       setUpdatingStatus(false)
     }
@@ -300,11 +283,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
       setSearchResults(data || [])
     } catch (error) {
       console.error("Error searching taxpayers:", error)
-      toast({
-        title: "Error",
-        description: "Failed to search taxpayers",
-        variant: "destructive",
-      })
+      toast.error("Failed to search taxpayers")
     } finally {
       setSearching(false)
     }
@@ -340,10 +319,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
         console.log("Property ownership history table not found, skipping history record")
       }
 
-      toast({
-        title: "Success",
-        description: "Property ownership transferred successfully",
-      })
+      toast.success("Property ownership transferred successfully")
 
       // Reset dialog state
       setTransferDialogOpen(false)
@@ -357,11 +333,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
       onUpdate()
     } catch (error) {
       console.error("Error transferring ownership:", error)
-      toast({
-        title: "Error",
-        description: "Failed to transfer ownership",
-        variant: "destructive",
-      })
+      toast.error("Failed to transfer ownership")
     } finally {
       setTransferring(false)
     }
@@ -388,10 +360,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
 
       if (deleteError) throw deleteError
 
-      toast({
-        title: "Success",
-        description: "Property archived and deleted successfully",
-      })
+      toast.success("Property archived and deleted successfully")
 
       // Close dialogs and refresh
       setDeleteDialogOpen(false)
@@ -400,11 +369,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
       onUpdate()
     } catch (error) {
       console.error("Error deleting property:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete property",
-        variant: "destructive",
-      })
+      toast.error("Failed to delete property")
     } finally {
       setDeleting(false)
     }
@@ -457,8 +422,14 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" className="gap-2 h-8 bg-transparent">
-                    <Edit className="h-3.5 w-3.5" />
+                  {/* Add Edit button to open modal */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 h-8 bg-transparent"
+                    onClick={handleEdit} // Use handleEdit function
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
                     Edit
                   </Button>
                   <Button
@@ -707,7 +678,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div className="space-y-1">
                       <div className="text-xs font-medium text-muted-foreground">Street Name</div>
-                      <div>{property.addresses.street_name}</div>
+                      <div>{property.addresses.street_address}</div> {/* Displaying street_address */}
                     </div>
                     <div className="space-y-1">
                       <div className="text-xs font-medium text-muted-foreground">City</div>
@@ -1211,6 +1182,14 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
           fetchTaxCalculationsAndInvoices()
           onUpdate()
         }}
+      />
+
+      {/* Add EditPropertyModal */}
+      <EditPropertyModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        propertyId={propertyId!}
+        onUpdate={handleEditUpdate} // Use handleEditUpdate function
       />
     </>
   )

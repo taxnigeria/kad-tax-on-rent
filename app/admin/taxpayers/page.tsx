@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Users, UserPlus, AlertCircle, UserCheck, Search, Filter, Download } from "lucide-react"
+import { Users, UserPlus, AlertCircle, UserCheck, Search, Filter, Download, Pencil } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AddTaxpayerModal } from "@/components/admin/add-taxpayer-modal"
 import { TaxpayerDetailsSheet } from "@/components/admin/taxpayer-details-sheet"
+import { EditTaxpayerModal } from "@/components/admin/edit-taxpayer-modal"
 import { getTaxpayers, type TaxpayerWithProfile } from "@/app/actions/taxpayers"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -34,6 +35,8 @@ export default function AdminTaxpayersPage() {
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(50)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingTaxpayer, setEditingTaxpayer] = useState<any>(null)
 
   useEffect(() => {
     if (!authLoading) {
@@ -127,6 +130,22 @@ export default function AdminTaxpayersPage() {
   function handleExport() {
     // TODO: Implement CSV export
     console.log("Exporting taxpayers:", selectedTaxpayers.length > 0 ? selectedTaxpayers : "all")
+  }
+
+  function handleEditTaxpayer(taxpayer: TaxpayerWithProfile) {
+    setEditingTaxpayer({
+      id: taxpayer.taxpayer_profiles?.[0]?.id,
+      user_id: taxpayer.id,
+      kadirs_id: taxpayer.taxpayer_profiles?.[0]?.kadirs_id,
+      first_name: taxpayer.first_name,
+      last_name: taxpayer.last_name,
+      middle_name: taxpayer.middle_name,
+      email: taxpayer.email,
+      phone_number: taxpayer.phone_number,
+      is_active: taxpayer.is_active,
+      ...taxpayer.taxpayer_profiles?.[0],
+    })
+    setEditModalOpen(true)
   }
 
   const totalPages = Math.ceil(filteredTaxpayers.length / rowsPerPage)
@@ -335,23 +354,27 @@ export default function AdminTaxpayersPage() {
                       </TableRow>
                     ) : (
                       paginatedTaxpayers.map((taxpayer) => (
-                        <TableRow key={taxpayer.id}>
-                          <TableCell>
+                        <TableRow
+                          key={taxpayer.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleViewDetails(taxpayer.id)}
+                        >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={selectedTaxpayers.includes(taxpayer.id)}
                               onCheckedChange={(checked) => handleSelectTaxpayer(taxpayer.id, checked as boolean)}
                             />
                           </TableCell>
                           <TableCell className="font-mono text-sm">
-                            {taxpayer.taxpayer_profiles?.kadirs_id || "—"}
+                            {taxpayer.taxpayer_profiles?.[0]?.kadirs_id || "—"}
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">
                               {taxpayer.first_name} {taxpayer.middle_name} {taxpayer.last_name}
                             </div>
-                            {taxpayer.taxpayer_profiles?.business_name && (
+                            {taxpayer.taxpayer_profiles?.[0]?.business_name && (
                               <div className="text-xs text-muted-foreground">
-                                {taxpayer.taxpayer_profiles.business_name}
+                                {taxpayer.taxpayer_profiles?.[0]?.business_name}
                               </div>
                             )}
                           </TableCell>
@@ -376,9 +399,10 @@ export default function AdminTaxpayersPage() {
                           <TableCell className="text-sm text-muted-foreground">
                             {new Date(taxpayer.created_at).toLocaleDateString()}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" onClick={() => handleViewDetails(taxpayer.id)}>
-                              View Details
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" onClick={() => handleEditTaxpayer(taxpayer)}>
+                              <Pencil className="h-4 w-4" />
+                              Edit
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -463,6 +487,13 @@ export default function AdminTaxpayersPage() {
         onOpenChange={setIsDetailsSheetOpen}
         taxpayerId={selectedTaxpayerId}
         onUpdate={fetchTaxpayers}
+      />
+
+      <EditTaxpayerModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        taxpayer={editingTaxpayer}
+        onSuccess={fetchTaxpayers}
       />
     </SidebarProvider>
   )
