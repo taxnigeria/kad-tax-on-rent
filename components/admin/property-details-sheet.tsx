@@ -101,7 +101,6 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
             last_name,
             email,
             phone_number,
-            profile_picture_url,
             role
           ),
           area_offices (
