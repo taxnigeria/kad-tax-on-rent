@@ -25,7 +25,7 @@ export async function signIn(email: string, password: string, rememberMe = false
   }
 }
 
-export async function signOut() {
+export async function logout() {
   try {
     const supabase = getSupabase()
     const { error } = await supabase.auth.signOut()
@@ -39,8 +39,6 @@ export async function signOut() {
     return { error: error.message || "Failed to sign out" }
   }
 }
-
-export { signOut as logout }
 
 export async function resetPassword(email: string) {
   try {

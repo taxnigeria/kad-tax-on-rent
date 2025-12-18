@@ -19,8 +19,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { sendEmailVerification as firebaseSendEmailVerification } from "firebase/auth"
-import { auth } from "@/lib/firebase"
 import {
   sendPhoneOTP,
   verifyPhoneOTP,
@@ -30,6 +28,7 @@ import {
 } from "@/app/actions/verification"
 import { KadirsIDDialog } from "@/components/kadirs-id-dialog"
 import { SuccessModal } from "@/components/success-modal"
+import { createClient } from "@/lib/supabase/client"
 
 interface CompletionItem {
   id: string
@@ -79,22 +78,17 @@ export function ProfileCompletionSection() {
     if (!user) return
 
     const checkEmailVerification = async () => {
-      await user.reload()
-
-      if (user.emailVerified && !previousEmailVerified) {
-        // Email was just verified, sync and reload
-        await syncEmailVerificationStatus(user.uid, true)
+      if (user.email_confirmed_at && !previousEmailVerified) {
+        await syncEmailVerificationStatus(user.id, true)
         setPreviousEmailVerified(true)
         loadProfileCompletion()
-      } else if (user.emailVerified) {
-        // Already verified, just update the tracked state
+      } else if (user.email_confirmed_at) {
         setPreviousEmailVerified(true)
       }
     }
 
     checkEmailVerification()
 
-    // Check every 30 seconds, but only reload if status changes
     const interval = setInterval(checkEmailVerification, 30000)
 
     return () => clearInterval(interval)
@@ -106,7 +100,7 @@ export function ProfileCompletionSection() {
     setLoading(true)
 
     try {
-      const result = await getProfileCompletionStatus(user.uid)
+      const result = await getProfileCompletionStatus(user.id)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -161,12 +155,15 @@ export function ProfileCompletionSection() {
     try {
       setVerifying(true)
 
-      const currentUser = auth.currentUser
-      if (!currentUser) {
-        throw new Error("No authenticated user found")
-      }
+      const supabase = createClient()
+      const { error } = await supabase.auth.resendEmail({
+        type: "signup",
+        email: user.email!,
+      })
 
-      await firebaseSendEmailVerification(currentUser)
+      if (error) {
+        throw new Error(error.message)
+      }
 
       setEmailDialogOpen(false)
       setSuccessModalData({
@@ -213,7 +210,7 @@ export function ProfileCompletionSection() {
 
     try {
       setVerifying(true)
-      const result = await sendPhoneOTP(user.uid, trimmedPhone)
+      const result = await sendPhoneOTP(user.id, trimmedPhone)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -249,7 +246,7 @@ export function ProfileCompletionSection() {
 
     try {
       setVerifying(true)
-      const result = await verifyPhoneOTP(user.uid, otp)
+      const result = await verifyPhoneOTP(user.id, otp)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -312,7 +309,7 @@ export function ProfileCompletionSection() {
       const formData = new FormData()
       formData.append("file", selectedFile)
 
-      const result = await uploadProfilePhoto(user.uid, formData)
+      const result = await uploadProfilePhoto(user.id, formData)
 
       if (!result.success) {
         throw new Error(result.error)

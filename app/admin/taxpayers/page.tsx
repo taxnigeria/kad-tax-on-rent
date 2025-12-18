@@ -366,7 +366,17 @@ export default function AdminTaxpayersPage() {
                             />
                           </TableCell>
                           <TableCell className="font-mono text-sm">
-                            {taxpayer.taxpayer_profiles?.[0]?.kadirs_id || "—"}
+                            {(() => {
+                              const kadirsId = taxpayer.taxpayer_profiles?.[0]?.kadirs_id
+                              console.log(
+                                "[v0] Taxpayer:",
+                                taxpayer.first_name,
+                                taxpayer.last_name,
+                                "kadirs_id:",
+                                kadirsId,
+                              )
+                              return kadirsId || "—"
+                            })()}
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">
@@ -374,7 +384,7 @@ export default function AdminTaxpayersPage() {
                             </div>
                             {taxpayer.taxpayer_profiles?.[0]?.business_name && (
                               <div className="text-xs text-muted-foreground">
-                                {taxpayer.taxpayer_profiles?.[0]?.business_name}
+                                {taxpayer.taxpayer_profiles?.business_name}
                               </div>
                             )}
                           </TableCell>

@@ -120,7 +120,6 @@ export async function listFirebaseUsers(maxResults = 1000) {
         customClaims: user.customClaims || null,
         creationTime: user.metadata.creationTime,
         lastSignInTime: user.metadata.lastSignInTime,
-        providerData: user.providerData,
       })),
       error: null,
     }
@@ -173,5 +172,27 @@ export async function deleteFirebaseUser(uid: string) {
   } catch (error) {
     console.error("[Firebase Admin] Error deleting user:", error)
     return { success: false, error: "Failed to delete Firebase user" }
+  }
+}
+
+export async function createFirebaseUser(email: string, password: string, displayName: string) {
+  const { auth } = getFirebaseAdmin()
+
+  if (!auth) {
+    return { success: false, error: "Firebase Admin not configured" }
+  }
+
+  try {
+    const userRecord = await auth.createUser({
+      email,
+      password,
+      displayName,
+      emailVerified: false,
+    })
+
+    return { success: true, uid: userRecord.uid, error: null }
+  } catch (error: any) {
+    console.error("[Firebase Admin] Error creating user:", error)
+    return { success: false, uid: null, error: error.message || "Failed to create Firebase user" }
   }
 }

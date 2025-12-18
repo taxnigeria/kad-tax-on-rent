@@ -37,6 +37,19 @@ export type TaxpayerWithProfile = {
       id: string
       office_name: string
     } | null
+    tin: string | null
+    means_of_identification: string | null
+    identification_number: string | null
+    user_type: string
+    profile_photo_url: string | null
+    lga_id: string | null
+    area_office_id: string | null
+    address_line1: string | null
+    rc_number: string | null
+    industry_id: number | null
+    business_registration_date: string | null
+    management_license_number: string | null
+    years_of_experience: number | null
   } | null
   property_count?: number
   invoice_count?: number
@@ -59,7 +72,7 @@ export async function getTaxpayers() {
         taxpayer_profiles (*)
       `,
       )
-      .in("role", ["taxpayer", "property_manager"])
+      .in("role", ["taxpayer", "property_manager", "tenant"])
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -161,39 +174,147 @@ export async function getTaxpayerById(taxpayerId: string) {
   }
 }
 
-export async function createTaxpayer(data: {
-  firstName: string
-  middleName?: string
-  lastName: string
-  email: string
-  phoneNumber?: string
-  role: string
-  taxIdOrNin: string
-  gender?: string
-  nationality?: string
-  dateOfBirth?: string
-  residentialAddress?: string
-  isBusiness: boolean
-  businessName?: string
-  businessType?: string
-  businessAddress?: string
-}) {
+export async function createTaxpayer(
+  data: {
+    firstName: string
+    middleName?: string
+    lastName: string
+    email: string
+    phoneNumber?: string
+    role: string
+    taxIdOrNin?: string
+    gender?: string
+    nationality?: string
+    dateOfBirth?: string
+    residentialAddress?: string
+    isBusiness: boolean
+    businessName?: string
+    businessType?: string
+    businessAddress?: string
+    tin?: string
+    meansOfIdentification?: string
+    identificationNumber?: string
+    userType?: string
+    profilePhotoUrl?: string
+    lgaId?: string
+    areaOfficeId?: string
+    addressLine1?: string
+    rcNumber?: string
+    industryId?: string
+    businessRegistrationDate?: string
+    managementLicenseNumber?: string
+    yearsOfExperience?: string
+  },
+  firebaseToken: string, // Added Firebase token parameter for admin verification
+) {
   try {
     const supabase = createAdminClient()
 
-    // Generate a temporary Firebase UID (in production, you'd create this via Firebase Admin SDK)
-    const tempFirebaseUid = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`
+    const { data: existingEmail, error: emailError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", data.email)
+      .maybeSingle()
 
-    // Create user in users table
+    if (emailError) {
+      console.error("Error checking email:", emailError)
+      return { success: false, error: "Failed to validate email" }
+    }
+
+    if (existingEmail) {
+      return { success: false, error: "Email already in use" }
+    }
+
+    if (data.phoneNumber) {
+      let normalizedPhone = data.phoneNumber.trim()
+      if (!normalizedPhone.startsWith("+")) {
+        normalizedPhone = normalizedPhone.startsWith("0") ? `+234${normalizedPhone.slice(1)}` : `+234${normalizedPhone}`
+      }
+
+      const { data: existingPhone, error: phoneError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("phone_number", normalizedPhone)
+        .maybeSingle()
+
+      if (phoneError) {
+        console.error("Error checking phone:", phoneError)
+        return { success: false, error: "Failed to validate phone number" }
+      }
+
+      if (existingPhone) {
+        return { success: false, error: "Phone number already in use" }
+      }
+    }
+
+    let password = ""
+    if (data.phoneNumber) {
+      let phoneDigits = data.phoneNumber.replace(/\D/g, "")
+      if (phoneDigits.startsWith("234")) {
+        phoneDigits = "0" + phoneDigits.slice(3)
+      }
+      if (!phoneDigits.startsWith("0") && phoneDigits.length === 10) {
+        phoneDigits = "0" + phoneDigits
+      }
+      password = phoneDigits.slice(0, 11)
+    } else {
+      password = Math.random().toString(36).slice(-10)
+    }
+
+    const displayName = `${data.firstName} ${data.lastName}`
+
+    let firebaseUid: string
+    try {
+      const firebaseResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/admin/create-firebase-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${firebaseToken}`, // Include Firebase token
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password,
+          displayName,
+          phoneNumber: data.phoneNumber,
+        }),
+      })
+
+      if (!firebaseResponse.ok) {
+        const contentType = firebaseResponse.headers.get("content-type")
+        let errorMessage = "Failed to create Firebase account"
+
+        if (contentType?.includes("application/json")) {
+          const errorData = await firebaseResponse.json()
+          errorMessage = errorData.error || errorMessage
+        }
+
+        return { success: false, error: errorMessage }
+      }
+
+      const firebaseData = await firebaseResponse.json()
+      firebaseUid = firebaseData.uid
+    } catch (firebaseError: any) {
+      console.error("Firebase API error:", firebaseError)
+      return { success: false, error: "Failed to connect to Firebase service" }
+    }
+
+    let normalizedPhone = data.phoneNumber || null
+    if (normalizedPhone) {
+      normalizedPhone = normalizedPhone.trim()
+      if (!normalizedPhone.startsWith("+")) {
+        normalizedPhone = normalizedPhone.startsWith("0") ? `+234${normalizedPhone.slice(1)}` : `+234${normalizedPhone}`
+      }
+    }
+
     const { data: user, error: userError } = await supabase
       .from("users")
       .insert({
-        firebase_uid: tempFirebaseUid,
+        firebase_uid: firebaseUid,
         email: data.email,
         first_name: data.firstName,
         middle_name: data.middleName || null,
         last_name: data.lastName,
-        phone_number: data.phoneNumber || null,
+        phone_number: normalizedPhone,
         role: data.role,
         is_active: true,
         email_verified: false,
@@ -206,12 +327,15 @@ export async function createTaxpayer(data: {
       return { success: false, error: userError.message }
     }
 
-    // Create taxpayer profile
     const { data: profile, error: profileError } = await supabase
       .from("taxpayer_profiles")
       .insert({
         user_id: user.id,
-        tax_id_or_nin: data.taxIdOrNin,
+        tax_id_or_nin: data.taxIdOrNin || null,
+        tin: data.tin || null,
+        means_of_identification: data.meansOfIdentification || null,
+        identification_number: data.identificationNumber || null,
+        user_type: data.userType || "Individual",
         gender: data.gender || null,
         nationality: data.nationality || null,
         date_of_birth: data.dateOfBirth || null,
@@ -220,21 +344,83 @@ export async function createTaxpayer(data: {
         business_name: data.businessName || null,
         business_type: data.businessType || null,
         business_address: data.businessAddress || null,
+        profile_photo_url: data.profilePhotoUrl || null,
+        lga_id: data.lgaId || null,
+        area_office_id: data.areaOfficeId || null,
+        address_line1: data.addressLine1 || null,
+        rc_number: data.rcNumber || null,
+        industry_id: data.industryId ? Number.parseInt(data.industryId) : null,
+        business_registration_date: data.businessRegistrationDate || null,
+        management_license_number: data.managementLicenseNumber || null,
+        years_of_experience: data.yearsOfExperience ? Number.parseInt(data.yearsOfExperience) : null,
       })
       .select()
       .single()
 
     if (profileError) {
       console.error("Error creating taxpayer profile:", profileError)
-      // Rollback user creation
       await supabase.from("users").delete().eq("id", user.id)
       return { success: false, error: profileError.message }
+    }
+
+    if (normalizedPhone) {
+      await sendWhatsAppRegistrationAlert({
+        phoneNumber: normalizedPhone,
+        name: displayName,
+        email: data.email,
+        password,
+      })
     }
 
     return { success: true, data: { user, profile } }
   } catch (error: any) {
     console.error("Error in createTaxpayer:", error)
     return { success: false, error: error.message || "Failed to create taxpayer" }
+  }
+}
+
+async function sendWhatsAppRegistrationAlert(data: {
+  phoneNumber: string
+  name: string
+  email: string
+  password: string
+}) {
+  try {
+    const webhookUrl = process.env.N8N_WEBHOOK_URL
+    const authToken = process.env.N8N_WEBHOOK_AUTH_TOKEN
+
+    if (!webhookUrl || !authToken) {
+      console.error("[v0] WhatsApp webhook not configured")
+      return { success: false, error: "WhatsApp webhook not configured" }
+    }
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "send_reg_info",
+        channel: "whatsapp",
+        phone_number: data.phoneNumber,
+        user_name: data.name,
+        email: data.email,
+        password: data.password,
+        message_template: `Welcome to KADIRS!\n\nYour account has been created.\n\nLogin Details:\nEmail: ${data.email}\nPassword: ${data.password}\n\nPlease login and change your password.`,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("[v0] WhatsApp webhook error:", errorText)
+      return { success: false, error: "Failed to send WhatsApp alert" }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[v0] Error sending WhatsApp alert:", error)
+    return { success: false, error: error.message }
   }
 }
 

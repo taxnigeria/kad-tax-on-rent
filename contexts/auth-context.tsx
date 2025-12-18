@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState } from "react"
-import type { User } from "firebase/auth"
-import { onAuthStateChange, logout as firebaseLogout } from "@/lib/auth"
+import { createContext, useContext, useEffect, useState, useRef } from "react"
+import type { User } from "@supabase/supabase-js"
+import { onAuthStateChange, logout } from "@/lib/supabase-auth"
 import { getUserRole } from "@/app/actions/get-user-role"
 
 interface AuthContextType {
@@ -19,32 +19,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const prevUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChange(async (firebaseUser) => {
-      setUser(firebaseUser)
+    let isMounted = true
 
-      if (firebaseUser) {
-        try {
-          const role = await getUserRole(firebaseUser.uid)
-          setUserRole(role)
-        } catch (error) {
-          console.error("[v0] Error fetching user role:", error)
-          setUserRole(null)
-        }
-      } else {
-        setUserRole(null)
+    const unsubscribe = onAuthStateChange(async (supabaseUser) => {
+      if (!isMounted) return
+
+      if (supabaseUser?.id === prevUserIdRef.current) {
+        return
       }
 
-      setLoading(false)
+      prevUserIdRef.current = supabaseUser?.id || null
+      setUser(supabaseUser)
+
+      // Fetch role only when user changes
+      if (supabaseUser) {
+        try {
+          const role = await getUserRole(supabaseUser.id)
+          if (isMounted) {
+            setUserRole(role)
+          }
+        } catch (error) {
+          console.error("[v0] Error fetching user role:", error)
+          if (isMounted) {
+            setUserRole(null)
+          }
+        }
+      } else {
+        if (isMounted) {
+          setUserRole(null)
+        }
+      }
+
+      if (isMounted) {
+        setLoading(false)
+      }
     })
 
-    return () => unsubscribe()
+    return () => {
+      isMounted = false
+      unsubscribe()
+    }
   }, [])
 
-  return (
-    <AuthContext.Provider value={{ user, userRole, loading, logout: firebaseLogout }}>{children}</AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={{ user, userRole, loading, logout }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

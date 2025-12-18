@@ -6,7 +6,11 @@ export async function getUserRole(userId: string): Promise<string | null> {
   try {
     const supabase = createAdminClient()
 
-    const { data, error } = await supabase.from("users").select("role").eq("firebase_uid", userId).single()
+    const { data, error } = await supabase
+      .from("users")
+      .select("role, id, auth_id, firebase_uid")
+      .eq("auth_id", userId)
+      .maybeSingle()
 
     if (error) {
       console.error("[v0] Error fetching user role:", error.message)

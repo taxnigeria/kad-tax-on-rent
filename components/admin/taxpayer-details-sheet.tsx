@@ -3,16 +3,22 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { getTaxpayerById } from "@/app/actions/taxpayers"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
-import { Building2, DollarSign, CheckCircle, Loader2, Mail, Pencil, User, ShieldCheck, ShieldX } from "lucide-react"
+import { Building2, DollarSign, CheckCircle, Loader2, Mail, Pencil, User, ShieldCheck, ShieldX, X } from "lucide-react"
 import { EditTaxpayerModal } from "./edit-taxpayer-modal"
 import { PropertyDetailsSheet } from "./property-details-sheet"
+import { InvoiceDetailsSheet } from "./invoice-details-sheet"
+import { AddPropertyModal } from "./add-property-modal"
+import CalculateTaxDialog from "./calculate-tax-dialog"
+import { GenerateKadirsIdModal } from "./generate-kadirs-id-modal"
+import { useAuth } from "@/contexts/auth-context"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 type TaxpayerDetailsSheetProps = {
   taxpayerId: string | null
@@ -84,6 +90,13 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [showPropertyDetails, setShowPropertyDetails] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
+  const [showInvoiceDetails, setShowInvoiceDetails] = useState(false)
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
+  const [showAddPropertyModal, setShowAddPropertyModal] = useState(false)
+  const [showCalculateTaxDialog, setShowCalculateTaxDialog] = useState(false)
+  const { userRole } = useAuth()
+  const [generateKadirsModalOpen, setGenerateKadirsModalOpen] = useState(false)
+  const [showPropertySelection, setShowPropertySelection] = useState(false)
 
   useEffect(() => {
     if (open && taxpayerId) {
@@ -139,9 +152,34 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
     setShowPropertyDetails(true)
   }
 
+  function handleInvoiceClick(invoiceId: string) {
+    setSelectedInvoiceId(invoiceId)
+    setShowInvoiceDetails(true)
+  }
+
   function handleEditUpdate() {
     fetchTaxpayerDetails()
     onUpdate()
+  }
+
+  function handleAddProperty() {
+    setShowAddPropertyModal(true)
+  }
+
+  function handleCreateInvoice() {
+    if (!taxpayer.properties || taxpayer.properties.length === 0) {
+      toast.error("Please register a property first")
+      return
+    }
+
+    if (taxpayer.properties.length === 1) {
+      setSelectedPropertyId(taxpayer.properties[0].id)
+      setShowCalculateTaxDialog(true)
+      return
+    }
+
+    // Multiple properties - show selection modal
+    setShowPropertySelection(true)
   }
 
   function getEditTaxpayerData() {
@@ -183,6 +221,18 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
     }
   }
 
+  const handleGenerateKadirsId = () => {
+    setGenerateKadirsModalOpen(true)
+  }
+
+  const handleKadirsIdGenerated = async () => {
+    // Refresh taxpayer data
+    await fetchTaxpayerDetails()
+    if (onUpdate) {
+      onUpdate()
+    }
+  }
+
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -193,35 +243,69 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
             </div>
           ) : taxpayer ? (
             <>
-              <SheetHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <SheetTitle className="flex items-center gap-3 flex-wrap">
-                      {taxpayer.first_name} {taxpayer.middle_name} {taxpayer.last_name}
+              <SheetHeader className="pb-6 border-b sticky top-0 bg-background z-10">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-sm font-bold text-primary uppercase">
+                          {taxpayer.first_name?.[0]}
+                          {taxpayer.last_name?.[0]}
+                        </span>
+                      </div>
+                      <SheetTitle className="text-xl">
+                        {taxpayer.first_name} {taxpayer.last_name}
+                      </SheetTitle>
                       {taxpayer.is_active ? (
-                        <Badge className="bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20">
-                          Active
-                        </Badge>
+                        <Badge className="bg-green-500">Active</Badge>
                       ) : (
-                        <Badge className="bg-gray-500/10 text-gray-500 border-gray-500/20 hover:bg-gray-500/20">
-                          Inactive
-                        </Badge>
+                        <Badge variant="destructive">Inactive</Badge>
                       )}
                       <Badge variant="outline" className="capitalize">
                         {taxpayer.taxpayer_profiles?.user_type?.replace("_", " ") || "No User Type"}
                       </Badge>
-                    </SheetTitle>
-                    <SheetDescription>{taxpayer.taxpayer_profiles?.kadirs_id || "No KADIRS ID"}</SheetDescription>
+                    </div>
+                    <SheetDescription className="flex items-center gap-2">
+                      {taxpayer.taxpayer_profiles?.kadirs_id ? (
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center">
+                            <span className="text-xs font-semibold text-blue-600">KD</span>
+                          </div>
+                          <span className="font-mono text-sm">{taxpayer.taxpayer_profiles.kadirs_id}</span>
+                        </div>
+                      ) : (
+                        <span>No KADIRS ID</span>
+                      )}
+                      {!taxpayer.taxpayer_profiles?.kadirs_id &&
+                        userRole &&
+                        ["admin", "super_admin"].includes(userRole) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="ml-2 h-6 text-xs bg-transparent"
+                            onClick={handleGenerateKadirsId}
+                          >
+                            Generate KADIRS ID
+                          </Button>
+                        )}
+                    </SheetDescription>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2 mr-6 bg-transparent"
-                    onClick={() => setEditModalOpen(true)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Edit
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2 bg-transparent"
+                      onClick={() => setEditModalOpen(true)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </Button>
+                    <SheetClose asChild>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </SheetClose>
+                  </div>
                 </div>
               </SheetHeader>
 
@@ -267,7 +351,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
 
                 {/* Contact Information */}
                 <Card>
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Mail className="h-4 w-4" />
                       Contact Information
@@ -441,7 +525,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold">Properties ({taxpayer.properties?.length || 0})</h3>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" onClick={handleAddProperty}>
                       Add Property
                     </Button>
                   </div>
@@ -494,7 +578,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold">Recent Invoices ({taxpayer.invoices?.length || 0})</h3>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" onClick={handleCreateInvoice}>
                       Create Invoice
                     </Button>
                   </div>
@@ -511,7 +595,11 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                         </TableHeader>
                         <TableBody>
                           {taxpayer.invoices.slice(0, 5).map((invoice: any) => (
-                            <TableRow key={invoice.id}>
+                            <TableRow
+                              key={invoice.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => handleInvoiceClick(invoice.id)}
+                            >
                               <TableCell className="font-medium font-mono text-sm">{invoice.invoice_number}</TableCell>
                               <TableCell>{new Date(invoice.created_at).toLocaleDateString()}</TableCell>
                               <TableCell className="font-semibold">
@@ -571,12 +659,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                 </div>
               </div>
             </>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <User className="h-12 w-12 mb-2" />
-              <p>No taxpayer selected</p>
-            </div>
-          )}
+          ) : null}
         </SheetContent>
       </Sheet>
 
@@ -588,6 +671,14 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
         onUpdate={fetchTaxpayerDetails}
       />
 
+      {/* Invoice Details Sheet component */}
+      <InvoiceDetailsSheet
+        open={showInvoiceDetails}
+        onOpenChange={setShowInvoiceDetails}
+        invoiceId={selectedInvoiceId}
+        onUpdate={fetchTaxpayerDetails}
+      />
+
       {/* Edit Taxpayer Modal */}
       <EditTaxpayerModal
         open={editModalOpen}
@@ -595,6 +686,75 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
         taxpayer={getEditTaxpayerData()}
         onSuccess={handleEditUpdate}
       />
+
+      {/* AddPropertyModal */}
+      <AddPropertyModal
+        open={showAddPropertyModal}
+        onOpenChange={setShowAddPropertyModal}
+        ownerId={taxpayer?.id}
+        onSuccess={() => {
+          setShowAddPropertyModal(false)
+          fetchTaxpayerDetails()
+          onUpdate()
+          toast.success("Property added successfully")
+        }}
+      />
+
+      {/* Property Selection Dialog */}
+      {taxpayer?.properties && taxpayer.properties.length > 1 && (
+        <Dialog open={showPropertySelection} onOpenChange={setShowPropertySelection}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Select Property</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              {taxpayer.properties.map((property: any) => (
+                <Button
+                  key={property.id}
+                  variant="outline"
+                  className="w-full justify-start h-auto py-3 bg-transparent"
+                  onClick={() => {
+                    setSelectedPropertyId(property.id)
+                    setShowPropertySelection(false)
+                    setShowCalculateTaxDialog(true)
+                  }}
+                >
+                  <div className="text-left">
+                    <div className="font-medium">{property.registered_property_name}</div>
+                    <div className="text-xs text-muted-foreground">{property.property_reference}</div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* CalculateTaxDialog with selected property */}
+      {selectedPropertyId && taxpayer?.properties && (
+        <CalculateTaxDialog
+          open={showCalculateTaxDialog}
+          onOpenChange={setShowCalculateTaxDialog}
+          property={taxpayer.properties.find((p: any) => p.id === selectedPropertyId)}
+          onSuccess={() => {
+            setShowCalculateTaxDialog(false)
+            setSelectedPropertyId(null)
+            fetchTaxpayerDetails()
+            onUpdate()
+            toast.success("Invoice created successfully")
+          }}
+        />
+      )}
+
+      {/* Generate KADIRS ID Modal */}
+      {taxpayer && (
+        <GenerateKadirsIdModal
+          open={generateKadirsModalOpen}
+          onOpenChange={setGenerateKadirsModalOpen}
+          taxpayerId={taxpayer.id}
+          onSuccess={handleKadirsIdGenerated}
+        />
+      )}
     </>
   )
 }

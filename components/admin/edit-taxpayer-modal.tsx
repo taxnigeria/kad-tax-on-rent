@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, AlertCircle, User, Building2, Lock, MapPin } from "lucide-react"
+import { Loader2, AlertCircle, User, Building2, MapPin } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
@@ -103,9 +103,8 @@ const BUSINESS_TYPES = [
 ]
 
 const USER_TYPES = [
-  { value: "individual", label: "Individual" },
-  { value: "business", label: "Business" },
-  { value: "property_manager", label: "Property Manager" },
+  { value: "Individual", label: "Individual" },
+  { value: "Corporate", label: "Corporate" },
 ]
 
 export function EditTaxpayerModal({ open, onOpenChange, taxpayer, onSuccess }: EditTaxpayerModalProps) {
@@ -341,17 +340,19 @@ export function EditTaxpayerModal({ open, onOpenChange, taxpayer, onSuccess }: E
       <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Taxpayer</DialogTitle>
-          <DialogDescription>
-            {isKadirsUser ? (
-              <span className="flex items-center gap-1 text-amber-600">
-                <Lock className="h-3 w-3" />
-                Personal details are managed via PayKaduna and cannot be edited here
-              </span>
-            ) : (
-              "Update taxpayer information and business details"
-            )}
-          </DialogDescription>
+          <DialogDescription>Update taxpayer information and business details</DialogDescription>
         </DialogHeader>
+
+        {isKadirsUser && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 mb-4 flex gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-400">
+                Personal details are managed via PayKaduna and cannot be edited here
+              </p>
+            </div>
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -371,12 +372,6 @@ export function EditTaxpayerModal({ open, onOpenChange, taxpayer, onSuccess }: E
 
           {/* Personal Info Tab */}
           <TabsContent value="personal" className="space-y-4 mt-4">
-            {isKadirsUser && (
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-sm text-amber-600">
-                <strong>KADIRS User:</strong> Personal details are synced from PayKaduna and cannot be edited here.
-              </div>
-            )}
-
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="first_name">

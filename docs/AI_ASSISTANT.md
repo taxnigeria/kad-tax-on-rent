@@ -78,7 +78,7 @@ Click the floating bot icon in the bottom-right corner of any dashboard page.
 
 1. **Define the tool** in `app/api/ai-assistant/route.ts`:
 
-\`\`\`typescript
+```typescript
 const myNewTool = tool({
   description: "Clear description of what this tool does",
   inputSchema: z.object({
@@ -95,22 +95,22 @@ const myNewTool = tool({
     }
   },
 })
-\`\`\`
+```
 
 2. **Add to tool set**:
 
-\`\`\`typescript
+```typescript
 const taxpayerTools = {
   // ... existing tools
   myNewTool: myNewTool,
 } as const
-\`\`\`
+```
 
 3. **Handle in UI** (optional, for custom visualization):
 
 In `components/ai-assistant-sidebar.tsx`, add a case for your tool:
 
-\`\`\`typescript
+```typescript
 case "tool-myNewTool":
   if (part.state === "input-available") {
     return <div>Processing...</div>
@@ -119,7 +119,7 @@ case "tool-myNewTool":
     return <div>Result: {part.output.result}</div>
   }
   break
-\`\`\`
+```
 
 ### Connecting to Real Data
 
@@ -128,7 +128,7 @@ The current implementation uses mock data. To connect to Supabase:
 1. **Uncomment Supabase queries** in tool execute functions
 2. **Add proper error handling**:
 
-\`\`\`typescript
+```typescript
 async execute({ query }) {
   try {
     const supabase = await createClient()
@@ -145,11 +145,11 @@ async execute({ query }) {
     throw new Error("Failed to fetch property information")
   }
 }
-\`\`\`
+```
 
 3. **Add authentication checks**:
 
-\`\`\`typescript
+```typescript
 async execute({ query }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -160,29 +160,29 @@ async execute({ query }) {
   
   // Continue with query...
 }
-\`\`\`
+```
 
 ### Customizing System Prompts
 
 Edit the system prompts in `app/api/ai-assistant/route.ts`:
 
-\`\`\`typescript
+```typescript
 const systemPrompt =
   userRole === "admin"
     ? "Your custom admin prompt here..."
     : "Your custom taxpayer prompt here..."
-\`\`\`
+```
 
 ### Adjusting AI Model
 
 Change the model in the API route:
 
-\`\`\`typescript
+```typescript
 const result = streamText({
   model: "openai/gpt-4o",  // or "anthropic/claude-sonnet-4.5", etc.
   // ... rest of config
 })
-\`\`\`
+```
 
 ## Environment Variables
 
