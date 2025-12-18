@@ -34,8 +34,8 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
       setLoading(false)
     } else if (user) {
       try {
-        const role = await getUserRole(user.uid)
-
+        const role = await getUserRole(user.id)
+        console.log(`Role: ${role}`)
         if (role) {
           if (role === "tenant") {
             router.push("/tenant-dashboard")
