@@ -12,6 +12,8 @@ export async function getUserRole(userId: string): Promise<string | null> {
       .eq("auth_id", userId)
       .maybeSingle()
 
+    console.log(` User ID: ${userId} \n User Data: ${data}`)
+    
     if (error) {
       console.error("[v0] Error fetching user role:", error.message)
       return null
