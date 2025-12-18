@@ -142,34 +142,42 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
   // Add callback to listeners
   authStateListeners.push(callback)
 
-  // Set up Supabase listener only once
   if (!supabaseUnsubscribe) {
     const supabase = getSupabase()
 
-    // supabase.auth.onAuthStateChange returns { data: { subscription: { unsubscribe } } }
-    // We need to call the unsubscribe method from the subscription object
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    // First, get the current session immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("[v0] Initial session check:", session?.user?.id)
       if (session?.user?.id !== currentSession?.user?.id) {
         currentSession = session
-
-        // Notify all listeners at once
+        // Notify all current listeners with the existing session
         authStateListeners.forEach((listener) => {
           listener(session?.user || null)
         })
       }
     })
 
-    // Store the unsubscribe function
-    if (data?.subscription?.unsubscribe) {
-      supabaseUnsubscribe = data.subscription.unsubscribe as () => void
-    }
+    // Then set up the real-time listener for future changes
+    const subscription = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[v0] Auth state changed:", event, session?.user?.id)
+      if (session?.user?.id !== currentSession?.user?.id) {
+        currentSession = session
+
+        // Notify all listeners
+        authStateListeners.forEach((listener) => {
+          listener(session?.user || null)
+        })
+      }
+    })
+
+    supabaseUnsubscribe = subscription.data?.subscription?.unsubscribe || (() => {})
   }
 
   // Return unsubscribe function for this listener
   return () => {
     authStateListeners = authStateListeners.filter((listener) => listener !== callback)
 
-    // Only call if supabaseUnsubscribe is actually a function
+    // Only unsubscribe from Supabase when no more listeners exist
     if (authStateListeners.length === 0 && typeof supabaseUnsubscribe === "function") {
       supabaseUnsubscribe()
       supabaseUnsubscribe = null
