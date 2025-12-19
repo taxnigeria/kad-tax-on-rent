@@ -43,10 +43,12 @@ export default function LandingPage() {
       }
 
       // Redirect based on role
-      if (userRole === "admin" || userRole === "super_admin") {
+      if (userRole === "admin" || userRole === "super_admin" || userRole === "superadmin") {
         router.push("/admin")
       } else if (userRole === "enumerator") {
         router.push("/enumerator-dashboard")
+      } else if (userRole === "tenant") {
+        router.push("/tenant-dashboard")
       } else {
         router.push("/taxpayer-dashboard")
       }

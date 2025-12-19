@@ -14,7 +14,7 @@ const roles = [
     icon: Building2,
   },
   {
-    id: "taxpayer", // Changed from "enumerator" to "taxpayer" - Tenant is also a taxpayer
+    id: "tenant", // Changed from "enumerator" to "taxpayer" - Tenant is also a taxpayer
     label: "Tenant",
     description: "I rent a property and want to pay my portion of tax",
     icon: Key,
