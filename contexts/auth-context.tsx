@@ -3,7 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useEffect, useState, useRef } from "react"
 import type { User } from "@supabase/supabase-js"
-import { onAuthStateChange, logout } from "@/lib/supabase-auth"
+import { onAuthStateChange, logout } from "@/lib/auth"
 import { getUserRole } from "@/app/actions/get-user-role"
 
 interface AuthContextType {
