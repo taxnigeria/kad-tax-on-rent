@@ -34,7 +34,7 @@ export function GoogleSignInButton({ role }: GoogleSignInButtonProps) {
       const { exists } = await checkUserExists(user.id)
 
       if (!exists) {
-        if (!role) {
+        if (role) {
           await confirmGoogleRole(role)
           setLoading(false)
           return
