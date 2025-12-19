@@ -6,11 +6,23 @@ import type { User } from "@supabase/supabase-js"
 import { onAuthStateChange, logout } from "@/lib/auth"
 import { getUserRole } from "@/app/actions/get-user-role"
 
+export interface PendingGoogleUser {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  avatarUrl?: string
+  emailVerified: boolean
+}
+
 interface AuthContextType {
   user: User | null
   userRole: string | null
   loading: boolean
   logout: () => Promise<void>
+  pendingGoogleUser: PendingGoogleUser | null
+  setPendingGoogleUser: (user: PendingGoogleUser | null) => void
+  confirmGoogleRole: (role: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -19,7 +31,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [pendingGoogleUser, setPendingGoogleUser] = useState<PendingGoogleUser | null>(null)
   const prevUserIdRef = useRef<string | null>(null)
+
+  const confirmGoogleRole = async (role: string) => {
+    if (!pendingGoogleUser || !user) return
+
+    try {
+      const { createUserInDatabase } = await import("@/app/actions/auth")
+      const { success, error } = await createUserInDatabase({
+        authId: user.id,
+        email: pendingGoogleUser.email,
+        firstName: pendingGoogleUser.firstName,
+        lastName: pendingGoogleUser.lastName,
+        phoneNumber: "",
+        role: role,
+        emailVerified: pendingGoogleUser.emailVerified,
+        profilePhotoUrl: pendingGoogleUser.avatarUrl,
+      })
+
+      if (success) {
+        setUserRole(role)
+        setPendingGoogleUser(null)
+      }
+    } catch (error) {
+      console.error("[v0] Error confirming Google role:", error)
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -80,7 +118,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  return <AuthContext.Provider value={{ user, userRole, loading, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        userRole,
+        loading,
+        logout,
+        pendingGoogleUser,
+        setPendingGoogleUser,
+        confirmGoogleRole,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
