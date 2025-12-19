@@ -27,10 +27,14 @@ import { useEffect } from "react"
 
 export default function LandingPage() {
   const router = useRouter()
-  const { user, userRole, loading } = useAuth()
+  const { user, userRole, loading, pendingGoogleUser } = useAuth()
 
   useEffect(() => {
     if (loading) return
+
+    if (pendingGoogleUser) {
+      return
+    }
 
     if (user) {
       if (!userRole) {
@@ -47,7 +51,7 @@ export default function LandingPage() {
         router.push("/taxpayer-dashboard")
       }
     }
-  }, [user, userRole, loading, router])
+  }, [user, userRole, loading, router, pendingGoogleUser])
 
   if (user && userRole && !loading) {
     return null
