@@ -32,7 +32,12 @@ export default function LandingPage() {
   useEffect(() => {
     if (loading) return
 
-    if (user && userRole) {
+    if (user) {
+      if (!userRole) {
+        router.push("/signup")
+        return
+      }
+
       // Redirect based on role
       if (userRole === "admin" || userRole === "super_admin") {
         router.push("/admin")

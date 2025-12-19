@@ -33,7 +33,7 @@ export function GoogleSignInButton({ role }: GoogleSignInButtonProps) {
 
       if (!exists) {
         if (!role) {
-          router.push("/signup")
+          setLoading(false)
           return
         }
 
@@ -54,32 +54,11 @@ export function GoogleSignInButton({ role }: GoogleSignInButtonProps) {
           return
         }
 
-        // Redirect based on role
-        if (role === "tenant") {
-          router.push("/tenant-dashboard")
-        } else if (role === "property_manager" || role === "taxpayer") {
-          router.push("/taxpayer-dashboard")
-        } else {
-          router.push("/taxpayer-dashboard")
-        }
+        setLoading(false)
+        return
       } else {
-        if (existingRole === "tenant") {
-          router.push("/tenant-dashboard")
-        } else if (existingRole === "property_manager" || existingRole === "taxpayer") {
-          router.push("/taxpayer-dashboard")
-        } else if (existingRole === "enumerator") {
-          router.push("/enumerator-dashboard")
-        } else if (
-          existingRole === "admin" ||
-          existingRole === "super_admin" ||
-          existingRole === "superadmin" ||
-          existingRole === "staff" ||
-          existingRole === "qa"
-        ) {
-          router.push("/admin")
-        } else {
-          router.push("/taxpayer-dashboard")
-        }
+        setLoading(false)
+        return
       }
     }
 
