@@ -148,38 +148,27 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
           {step === 1 && (
             <div className="grid gap-4">
               <div className="space-y-4">
-                <GoogleSignInButton />
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">Or sign up with email</span>
-                  </div>
-                </div>
+                {roleOptions.map((role) => (
+                  <button
+                    key={role.value}
+                    type="button"
+                    onClick={() => handleRoleSelect(role.value)}
+                    className={cn(
+                      "relative flex items-start gap-4 rounded-lg border-2 p-4 text-left transition-all hover:border-primary hover:bg-accent",
+                      "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                    )}
+                  >
+                    <div className={cn("flex-shrink-0", role.color)}>{role.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-base">{role.label}</div>
+                      <div className="text-sm text-muted-foreground mt-1">{role.description}</div>
+                    </div>
+                    <div className="flex-shrink-0 text-muted-foreground">
+                      <ChevronLeft className="size-5 rotate-180" />
+                    </div>
+                  </button>
+                ))}
               </div>
-
-              {roleOptions.map((role) => (
-                <button
-                  key={role.value}
-                  type="button"
-                  onClick={() => handleRoleSelect(role.value)}
-                  className={cn(
-                    "relative flex items-start gap-4 rounded-lg border-2 p-4 text-left transition-all hover:border-primary hover:bg-accent",
-                    "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-                  )}
-                >
-                  <div className={cn("flex-shrink-0", role.color)}>{role.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-base">{role.label}</div>
-                    <div className="text-sm text-muted-foreground mt-1">{role.description}</div>
-                  </div>
-                  <div className="flex-shrink-0 text-muted-foreground">
-                    <ChevronLeft className="size-5 rotate-180" />
-                  </div>
-                </button>
-              ))}
             </div>
           )}
 
@@ -204,6 +193,19 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
                 </div>
 
                 {error && <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>}
+
+                <div className="space-y-2">
+                  <GoogleSignInButton role={selectedRole} />
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Basic Information */}
                 <div className="grid md:grid-cols-2 gap-4">

@@ -92,7 +92,7 @@ export default function PaymentsPage() {
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("id")
-        .eq("firebase_uid", user.uid)
+        .eq("auth_id", user.id)
         .single()
 
       if (userError) throw userError
