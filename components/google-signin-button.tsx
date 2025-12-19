@@ -22,8 +22,9 @@ export function GoogleSignInButton({ role }: GoogleSignInButtonProps) {
     setLoading(true)
     setError("")
 
+    console.log("before google signin")
     const { user, error: signInError } = await signInWithGoogle()
-
+    console.log("after google signin")
     if (signInError) {
       setError(signInError)
       setLoading(false)
