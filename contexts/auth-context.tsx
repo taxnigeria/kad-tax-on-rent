@@ -99,6 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.log("[v0] Found pending role in sessionStorage:", pendingRole)
               sessionStorage.removeItem("pendingGoogleRole")
               await confirmGoogleRole(pendingRole)
+              if (isMounted) {
+                setUserRole(pendingRole)
+              }
               return
             }
 
