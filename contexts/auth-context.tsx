@@ -92,6 +92,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (!role) {
             console.log("[v0] No role found - this is a new user, setting pendingGoogleUser")
+
+            const pendingRole = sessionStorage.getItem("pendingGoogleRole")
+
+            if (pendingRole) {
+              console.log("[v0] Found pending role in sessionStorage:", pendingRole)
+              sessionStorage.removeItem("pendingGoogleRole")
+              await confirmGoogleRole(pendingRole)
+              return
+            }
+
             const displayName = supabaseUser.user_metadata?.name || ""
             const [firstName, ...lastNameParts] = displayName.split(" ")
             const lastName = lastNameParts.join(" ") || ""

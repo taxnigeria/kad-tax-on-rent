@@ -22,6 +22,10 @@ export function GoogleSignInButton({ role }: GoogleSignInButtonProps) {
     setLoading(true)
     setError("")
 
+    if (role) {
+      sessionStorage.setItem("pendingGoogleRole", role)
+    }
+
     const { user, error: signInError } = await signInWithGoogle()
     if (signInError) {
       setError(signInError)

@@ -52,7 +52,7 @@ export interface InvoiceStats {
 }
 
 export async function getTaxpayerInvoices(
-  firebaseUid: string,
+  authId: string,
   filters?: {
     status?: string
     taxYear?: number
@@ -62,11 +62,11 @@ export async function getTaxpayerInvoices(
   try {
     const supabase = await createClient()
 
-    // Get user ID from firebase_uid
+    // Get user ID from auth_id
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id")
-      .eq("firebase_uid", firebaseUid)
+      .eq("auth_id", authId)
       .single()
 
     if (userError || !userData) {
@@ -126,15 +126,15 @@ export async function getTaxpayerInvoices(
   }
 }
 
-export async function getInvoiceStats(firebaseUid: string) {
+export async function getInvoiceStats(authId: string) {
   try {
     const supabase = await createClient()
 
-    // Get user ID from firebase_uid
+    // Get user ID from auth_id
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id")
-      .eq("firebase_uid", firebaseUid)
+      .eq("auth_id", authId)
       .single()
 
     if (userError || !userData) {
@@ -188,15 +188,15 @@ export async function getInvoiceStats(firebaseUid: string) {
   }
 }
 
-export async function getInvoiceDetails(firebaseUid: string, invoiceId: string) {
+export async function getInvoiceDetails(authId: string, invoiceId: string) {
   try {
     const supabase = await createClient()
 
-    // Get user ID from firebase_uid
+    // Get user ID from auth_id
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id")
-      .eq("firebase_uid", firebaseUid)
+      .eq("auth_id", authId)
       .single()
 
     if (userError || !userData) {
