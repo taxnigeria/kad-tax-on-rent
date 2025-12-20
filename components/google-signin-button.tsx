@@ -2,11 +2,11 @@
 
 import { Button } from "@/components/ui/button"
 import { signInWithGoogle } from "@/lib/auth"
-import { checkUserExists } from "@/app/actions/auth"
 import { useAuth } from "@/contexts/auth-context"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { checkUserExists } from "@/lib/user-check" // Import the checkUserExists function
 
 interface GoogleSignInButtonProps {
   role?: string // Optional role for signup flow
