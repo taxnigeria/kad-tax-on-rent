@@ -92,7 +92,7 @@ export async function signUp(data: {
     // Create user in database
     if (authData.user) {
       const result = await createUserInDatabase({
-        firebaseUid: authData.user.id, // Supabase UUID is used as firebaseUid
+        authId: authData.user.id,
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,

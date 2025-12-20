@@ -86,16 +86,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (supabaseUser?.id) {
         try {
           console.log("[v0] Fetching role for user:", supabaseUser.id)
+          console.log("[v0] User metadata:", supabaseUser.user_metadata)
           const role = await getUserRole(supabaseUser.id)
           console.log("[v0] Got role:", role)
 
           if (!role) {
             console.log("[v0] No role found - this is a new user, setting pendingGoogleUser")
+            const displayName = supabaseUser.user_metadata?.name || ""
+            const [firstName, ...lastNameParts] = displayName.split(" ")
+            const lastName = lastNameParts.join(" ") || ""
+
             setPendingGoogleUser({
               id: supabaseUser.id,
               email: supabaseUser.email || "",
-              firstName: supabaseUser.user_metadata?.first_name || supabaseUser.email?.split("@")[0] || "",
-              lastName: supabaseUser.user_metadata?.last_name || "",
+              firstName: firstName || supabaseUser.email?.split("@")[0] || "",
+              lastName: lastName,
               avatarUrl: supabaseUser.user_metadata?.avatar_url,
               emailVerified: supabaseUser.email_confirmed_at ? true : false,
             })
