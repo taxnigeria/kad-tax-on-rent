@@ -3,7 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function createUserInDatabase(userData: {
-  authId: string
+  firebaseUid: string
   email: string
   firstName: string
   lastName: string
@@ -18,7 +18,7 @@ export async function createUserInDatabase(userData: {
     const { data, error } = await supabase
       .from("users")
       .insert({
-        auth_id: userData.authId,
+        firebase_uid: userData.firebaseUid,
         email: userData.email,
         first_name: userData.firstName,
         last_name: userData.lastName,
@@ -50,11 +50,15 @@ export async function createUserInDatabase(userData: {
   }
 }
 
-export async function checkUserExists(authId: string) {
+export async function checkUserExists(firebaseUid: string) {
   try {
     const supabase = createAdminClient()
 
-    const { data, error } = await supabase.from("users").select("id, role").eq("auth_id", authId).maybeSingle()
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("firebase_uid", firebaseUid)
+      .maybeSingle()
 
     if (error) {
       console.error("[v0] Error checking user:", error)

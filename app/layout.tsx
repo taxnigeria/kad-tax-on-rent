@@ -4,7 +4,6 @@ import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Suspense } from "react"
 import { Toaster } from "@/components/ui/sonner"
-import { GoogleRoleSelectionModal } from "@/components/google-role-selection-modal"
 
 import { Inter, JetBrains_Mono, Source_Serif_4 as V0_Font_Source_Serif_4 } from "next/font/google"
 
@@ -41,10 +40,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className={`font-sans antialiased ${_sourceSerif_4.variable}`}>
         <AuthProvider>
-          <Suspense fallback={<div>Loading...</div>}>
-            <GoogleRoleSelectionModal />
-            {children}
-          </Suspense>
+          <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
           <Toaster richColors position="top-right" />
         </AuthProvider>
       </body>

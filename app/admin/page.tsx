@@ -104,7 +104,7 @@ export default function AdminDashboard() {
     if (!authLoading) {
       if (!user) {
         router.push("/login")
-      } else if (userRole && !["admin", "super_admin", "staff", "superadmin"].includes(userRole)) {
+      } else if (userRole && !["admin", "super_admin", "staff"].includes(userRole)) {
         router.push("/unauthorized")
       }
     }

@@ -24,7 +24,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { auth } from "@/lib/firebase" // Import Firebase auth
 
 type AddTaxpayerModalProps = {
   open: boolean
@@ -169,48 +168,36 @@ export function AddTaxpayerModal({ open, onOpenChange, onSuccess }: AddTaxpayerM
     setLoading(true)
 
     try {
-      const currentUser = auth.currentUser
-      if (!currentUser) {
-        toast.error("You must be logged in to create a taxpayer")
-        setLoading(false)
-        return
-      }
-
-      const firebaseToken = await currentUser.getIdToken()
-
-      const result = await createTaxpayer(
-        {
-          firstName: formData.firstName,
-          middleName: formData.middleName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phoneNumber: formData.phoneNumber,
-          role: formData.role,
-          taxIdOrNin: formData.taxIdOrNin,
-          gender: formData.gender,
-          nationality: formData.nationality,
-          dateOfBirth: formData.dateOfBirth,
-          residentialAddress: formData.residentialAddress,
-          isBusiness: formData.isBusiness,
-          businessName: formData.businessName,
-          businessType: formData.businessType,
-          businessAddress: formData.businessAddress,
-          tin: formData.tin,
-          meansOfIdentification: formData.meansOfIdentification,
-          identificationNumber: formData.identificationNumber,
-          userType: formData.userType,
-          profilePhotoUrl: formData.profilePhotoUrl,
-          lgaId: formData.lgaId,
-          areaOfficeId: formData.areaOfficeId,
-          addressLine1: formData.addressLine1,
-          rcNumber: formData.rcNumber,
-          industryId: formData.industryId,
-          businessRegistrationDate: formData.businessRegistrationDate,
-          managementLicenseNumber: formData.managementLicenseNumber,
-          yearsOfExperience: formData.yearsOfExperience,
-        },
-        firebaseToken, // Pass Firebase token
-      )
+      const result = await createTaxpayer({
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phoneNumber: formData.phoneNumber,
+        role: formData.role,
+        taxIdOrNin: formData.taxIdOrNin,
+        gender: formData.gender,
+        nationality: formData.nationality,
+        dateOfBirth: formData.dateOfBirth,
+        residentialAddress: formData.residentialAddress,
+        isBusiness: formData.isBusiness,
+        businessName: formData.businessName,
+        businessType: formData.businessType,
+        businessAddress: formData.businessAddress,
+        tin: formData.tin,
+        meansOfIdentification: formData.meansOfIdentification,
+        identificationNumber: formData.identificationNumber,
+        userType: formData.userType,
+        profilePhotoUrl: formData.profilePhotoUrl,
+        lgaId: formData.lgaId,
+        areaOfficeId: formData.areaOfficeId,
+        addressLine1: formData.addressLine1,
+        rcNumber: formData.rcNumber,
+        industryId: formData.industryId,
+        businessRegistrationDate: formData.businessRegistrationDate,
+        managementLicenseNumber: formData.managementLicenseNumber,
+        yearsOfExperience: formData.yearsOfExperience,
+      })
 
       if (result.success) {
         toast.success("Taxpayer created successfully")
@@ -406,11 +393,11 @@ export function AddTaxpayerModal({ open, onOpenChange, onSuccess }: AddTaxpayerM
                         )}
                         disabled={loading}
                       >
-                        {formData.dateOfBirth ? format(new Date(formData.dateOfBirth), "MMM dd, yyyy") : "Pick a date"}
+                        {formData.dateOfBirth ? format(new Date(formData.dateOfBirth), "PPP") : "Pick a date"}
                         <ChevronDown className="h-4 w-4 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-slate-900 border-slate-700" align="start">
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={formData.dateOfBirth ? new Date(formData.dateOfBirth) : undefined}
@@ -421,7 +408,6 @@ export function AddTaxpayerModal({ open, onOpenChange, onSuccess }: AddTaxpayerM
                           })
                         }
                         disabled={(date) => date > new Date()}
-                        className="bg-slate-900 text-white"
                       />
                     </PopoverContent>
                   </Popover>
@@ -702,41 +688,13 @@ export function AddTaxpayerModal({ open, onOpenChange, onSuccess }: AddTaxpayerM
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="businessRegistrationDate">Registration Date</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-between font-normal",
-                              !formData.businessRegistrationDate && "text-muted-foreground",
-                            )}
-                            disabled={loading}
-                          >
-                            {formData.businessRegistrationDate
-                              ? format(new Date(formData.businessRegistrationDate), "MMM dd, yyyy")
-                              : "Pick a date"}
-                            <ChevronDown className="h-4 w-4 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 bg-slate-900 border-slate-700" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={
-                              formData.businessRegistrationDate
-                                ? new Date(formData.businessRegistrationDate)
-                                : undefined
-                            }
-                            onSelect={(date) =>
-                              setFormData({
-                                ...formData,
-                                businessRegistrationDate: date ? format(date, "yyyy-MM-dd") : "",
-                              })
-                            }
-                            disabled={(date) => date > new Date()}
-                            className="bg-slate-900 text-white"
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      <Input
+                        id="businessRegistrationDate"
+                        type="date"
+                        value={formData.businessRegistrationDate}
+                        onChange={(e) => setFormData({ ...formData, businessRegistrationDate: e.target.value })}
+                        disabled={loading}
+                      />
                     </div>
                   </div>
 

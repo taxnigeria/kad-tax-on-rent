@@ -3,30 +3,21 @@
 import { Button } from "@/components/ui/button"
 import { signInWithGoogle } from "@/lib/auth"
 import { checkUserExists } from "@/app/actions/auth"
-import { useAuth } from "@/contexts/auth-context"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
-import { useRouter } from "next/navigation"
 
-interface GoogleSignInButtonProps {
-  role?: string // Optional role for signup flow
-}
-
-export function GoogleSignInButton({ role }: GoogleSignInButtonProps) {
+export function GoogleSignInButton() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const { setPendingGoogleUser, confirmGoogleRole } = useAuth()
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
     setError("")
 
-    if (role) {
-      sessionStorage.setItem("pendingGoogleRole", role)
-    }
-
     const { user, error: signInError } = await signInWithGoogle()
+
     if (signInError) {
       setError(signInError)
       setLoading(false)
@@ -34,28 +25,32 @@ export function GoogleSignInButton({ role }: GoogleSignInButtonProps) {
     }
 
     if (user) {
-      const { exists } = await checkUserExists(user.id)
+      // Check if user exists in Supabase database
+      const { exists, role } = await checkUserExists(user.uid)
 
       if (!exists) {
-        if (role) {
-          await confirmGoogleRole(role)
-          setLoading(false)
-          return
+        // New user - redirect to complete profile
+        router.push("/complete-profile")
+      } else {
+        // Existing user - redirect to appropriate dashboard
+        if (role === "tenant") {
+          router.push("/tenant-dashboard")
+        } else if (role === "taxpayer" || role === "property_manager") {
+          router.push("/taxpayer-dashboard")
+        } else if (role === "enumerator") {
+          router.push("/enumerator-dashboard")
+        } else if (
+          role === "admin" ||
+          role === "super_admin" ||
+          role === "superadmin" ||
+          role === "staff" ||
+          role === "qa"
+        ) {
+          router.push("/admin")
+        } else {
+          router.push("/taxpayer-dashboard")
         }
-
-        setPendingGoogleUser({
-          id: user.id,
-          email: user.email || "",
-          firstName: user.user_metadata?.first_name || user.email?.split("@")[0] || "",
-          lastName: user.user_metadata?.last_name || "",
-          avatarUrl: user.user_metadata?.avatar_url,
-          emailVerified: user.email_confirmed_at ? true : false,
-        })
-        setLoading(false)
-        return
       }
-      setLoading(false)
-      return
     }
 
     setLoading(false)
@@ -95,7 +90,7 @@ export function GoogleSignInButton({ role }: GoogleSignInButtonProps) {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Continue with Google.
+            Continue with Google
           </>
         )}
       </Button>

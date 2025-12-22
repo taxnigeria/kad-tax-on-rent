@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Building2, Search, Plus, MapPin, Calendar, DollarSign, Home, Filter, Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RegisterPropertyModal } from "@/components/register-property-modal"
-import { getPropertiesByAuthId } from "@/app/actions/get-properties"
+import { getPropertiesByFirebaseUid } from "@/app/actions/get-properties"
 import { TaxpayerPropertyDetailsSheet } from "@/components/taxpayer/property-details-sheet"
 import { getProfileCompletionStatus } from "@/app/actions/verification"
 import { toast } from "@/components/ui/use-toast"
@@ -60,10 +60,10 @@ export default function PropertiesPage() {
     kadirsIdGenerated: boolean
   } | null>(null)
 
-  console.log("[v0] PropertiesPage render - authLoading:", authLoading, "user:", user?.id, "loading:", loading)
+  console.log("[v0] PropertiesPage render - authLoading:", authLoading, "user:", user?.uid, "loading:", loading)
 
   useEffect(() => {
-    console.log("[v0] Auth check effect - authLoading:", authLoading, "user:", user?.id, "userRole:", userRole)
+    console.log("[v0] Auth check effect - authLoading:", authLoading, "user:", user?.uid, "userRole:", userRole)
     if (!authLoading) {
       if (!user) {
         console.log("[v0] No user, redirecting to login")
@@ -78,16 +78,16 @@ export default function PropertiesPage() {
   }, [user, userRole, authLoading, router])
 
   const fetchProperties = useCallback(async () => {
-    console.log("[v0] fetchProperties called - user.id:", user?.id)
-    if (!user?.id) {
-      console.log("[v0] No user.id, setting loading to false")
+    console.log("[v0] fetchProperties called - user.uid:", user?.uid)
+    if (!user?.uid) {
+      console.log("[v0] No user.uid, setting loading to false")
       setLoading(false)
       return
     }
 
     try {
       console.log("[v0] Fetching properties via server action...")
-      const { properties: data, error } = await getPropertiesByAuthId(user.id)
+      const { properties: data, error } = await getPropertiesByFirebaseUid(user.uid)
 
       if (error) {
         console.error("[v0] Error fetching properties:", error)
@@ -100,16 +100,17 @@ export default function PropertiesPage() {
       console.error("[v0] Error in fetchProperties:", error)
       setProperties([])
     } finally {
+      console.log("[v0] Setting loading to false")
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user?.uid])
 
   useEffect(() => {
-    console.log("[v0] Fetch properties effect - user?.id:", user?.id)
-    if (user?.id) {
+    console.log("[v0] Fetch properties effect - user?.uid:", user?.uid)
+    if (user?.uid) {
       fetchProperties()
     }
-  }, [user?.id, fetchProperties])
+  }, [user?.uid, fetchProperties])
 
   useEffect(() => {
     filterProperties()
@@ -162,15 +163,15 @@ export default function PropertiesPage() {
 
   useEffect(() => {
     const fetchProfileCompletion = async () => {
-      if (user?.id) {
-        const result = await getProfileCompletionStatus(user.id)
+      if (user?.uid) {
+        const result = await getProfileCompletionStatus(user.uid)
         if (result.success) {
           setProfileCompletion(result.items)
         }
       }
     }
     fetchProfileCompletion()
-  }, [user?.id])
+  }, [user?.uid])
 
   const handleRegisterPropertyClick = () => {
     if (!profileCompletion) {

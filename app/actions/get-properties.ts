@@ -2,15 +2,15 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 
-export async function getPropertiesByAuthId(authId: string) {
+export async function getPropertiesByFirebaseUid(firebaseUid: string) {
   try {
     const supabase = createAdminClient()
 
-    // First, get the database user ID from auth_id
+    // First, get the database user ID from Firebase UID
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id")
-      .eq("auth_id", authId)
+      .eq("firebase_uid", firebaseUid)
       .single()
 
     if (userError || !userData) {
@@ -42,7 +42,7 @@ export async function getPropertiesByAuthId(authId: string) {
 
     return { properties: properties || [], error: null }
   } catch (error: any) {
-    console.error("[v0] Error in getPropertiesByAuthId:", error)
+    console.error("[v0] Error in getPropertiesByFirebaseUid:", error)
     return { properties: [], error: error.message }
   }
 }

@@ -21,44 +21,7 @@ import {
   Menu,
 } from "lucide-react"
 
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
-import { useEffect } from "react"
-
 export default function LandingPage() {
-  const router = useRouter()
-  const { user, userRole, loading, pendingGoogleUser } = useAuth()
-
-  useEffect(() => {
-    if (loading) return
-
-    if (pendingGoogleUser) {
-      return
-    }
-
-    if (user) {
-      if (!userRole) {
-        router.push("/signup")
-        return
-      }
-
-      // Redirect based on role
-      if (userRole === "admin" || userRole === "super_admin" || userRole === "superadmin") {
-        router.push("/admin")
-      } else if (userRole === "enumerator") {
-        router.push("/enumerator-dashboard")
-      } else if (userRole === "tenant") {
-        router.push("/tenant-dashboard")
-      } else {
-        router.push("/taxpayer-dashboard")
-      }
-    }
-  }, [user, userRole, loading, router, pendingGoogleUser])
-
-  if (user && userRole && !loading) {
-    return null
-  }
-
   return (
     <div className="min-h-screen bg-[#F0FDF4] text-emerald-950 antialiased selection:bg-emerald-200 selection:text-emerald-900">
       {/* Custom Styles */}
@@ -917,6 +880,12 @@ export default function LandingPage() {
             linear-gradient(to bottom, rgba(5, 150, 105, 0.03) 1px, transparent 1px);
         }
         .text-gradient {
+          background: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .gradient-animated {
           background: linear-gradient(135deg, #065f46 0%, #059669 25%, #10b981 50%, #059669 75%, #065f46 100%);
           background-size: 400% 400%;
           animation: gradientMove 8s ease infinite;

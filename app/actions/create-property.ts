@@ -20,18 +20,18 @@ interface CreatePropertyData {
   floorArea?: number
   latitude?: number
   longitude?: number
-  authId: string
+  firebaseUid: string
 }
 
 export async function createProperty(data: CreatePropertyData) {
   try {
     const supabase = await createClient()
 
-    // First, get the database user ID from auth_id
+    // First, get the database user ID from Firebase UID
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id")
-      .eq("auth_id", data.authId)
+      .eq("firebase_uid", data.firebaseUid)
       .single()
 
     if (userError || !userData) {

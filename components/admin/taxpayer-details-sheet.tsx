@@ -18,7 +18,6 @@ import { AddPropertyModal } from "./add-property-modal"
 import CalculateTaxDialog from "./calculate-tax-dialog"
 import { GenerateKadirsIdModal } from "./generate-kadirs-id-modal"
 import { useAuth } from "@/contexts/auth-context"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 type TaxpayerDetailsSheetProps = {
   taxpayerId: string | null
@@ -96,7 +95,6 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
   const [showCalculateTaxDialog, setShowCalculateTaxDialog] = useState(false)
   const { userRole } = useAuth()
   const [generateKadirsModalOpen, setGenerateKadirsModalOpen] = useState(false)
-  const [showPropertySelection, setShowPropertySelection] = useState(false)
 
   useEffect(() => {
     if (open && taxpayerId) {
@@ -167,19 +165,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
   }
 
   function handleCreateInvoice() {
-    if (!taxpayer.properties || taxpayer.properties.length === 0) {
-      toast.error("Please register a property first")
-      return
-    }
-
-    if (taxpayer.properties.length === 1) {
-      setSelectedPropertyId(taxpayer.properties[0].id)
-      setShowCalculateTaxDialog(true)
-      return
-    }
-
-    // Multiple properties - show selection modal
-    setShowPropertySelection(true)
+    setShowCalculateTaxDialog(true)
   }
 
   function getEditTaxpayerData() {
@@ -248,7 +234,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                   <div className="space-y-1 flex-1">
                     <div className="flex items-center gap-2">
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-sm font-bold text-primary uppercase">
+                        <span className="text-sm font-semibold text-primary">
                           {taxpayer.first_name?.[0]}
                           {taxpayer.last_name?.[0]}
                         </span>
@@ -700,48 +686,16 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
         }}
       />
 
-      {/* Property Selection Dialog */}
-      {taxpayer?.properties && taxpayer.properties.length > 1 && (
-        <Dialog open={showPropertySelection} onOpenChange={setShowPropertySelection}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Select Property</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              {taxpayer.properties.map((property: any) => (
-                <Button
-                  key={property.id}
-                  variant="outline"
-                  className="w-full justify-start h-auto py-3 bg-transparent"
-                  onClick={() => {
-                    setSelectedPropertyId(property.id)
-                    setShowPropertySelection(false)
-                    setShowCalculateTaxDialog(true)
-                  }}
-                >
-                  <div className="text-left">
-                    <div className="font-medium">{property.registered_property_name}</div>
-                    <div className="text-xs text-muted-foreground">{property.property_reference}</div>
-                  </div>
-                </Button>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* CalculateTaxDialog with selected property */}
-      {selectedPropertyId && taxpayer?.properties && (
+      {/* CalculateTaxDialog for creating invoices */}
+      {taxpayer?.properties && taxpayer.properties.length > 0 && (
         <CalculateTaxDialog
           open={showCalculateTaxDialog}
           onOpenChange={setShowCalculateTaxDialog}
-          property={taxpayer.properties.find((p: any) => p.id === selectedPropertyId)}
+          property={taxpayer.properties[0]}
           onSuccess={() => {
             setShowCalculateTaxDialog(false)
-            setSelectedPropertyId(null)
             fetchTaxpayerDetails()
             onUpdate()
-            toast.success("Invoice created successfully")
           }}
         />
       )}

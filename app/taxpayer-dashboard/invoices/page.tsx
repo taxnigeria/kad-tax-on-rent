@@ -100,11 +100,11 @@ export default function InvoicesPage() {
   }, [statusFilter, typeFilter, searchQuery, user])
 
   useEffect(() => {
-    if (!user?.id) return
+    if (!user?.uid) return
 
     const fetchSupabaseUserId = async () => {
       try {
-        const { data, error } = await supabase.from("users").select("id").eq("auth_id", user.id).single()
+        const { data, error } = await supabase.from("users").select("id").eq("firebase_uid", user.uid).single()
 
         if (error) {
           console.error("Error fetching Supabase user ID:", error)
@@ -115,12 +115,12 @@ export default function InvoicesPage() {
           setSupabaseUserId(data.id)
         }
       } catch (error) {
-        console.error("Error:", error)
+        console.error("Error in fetchSupabaseUserId:", error)
       }
     }
 
     fetchSupabaseUserId()
-  }, [statusFilter, typeFilter, searchQuery, user])
+  }, [user?.uid])
 
   useEffect(() => {
     if (!supabaseUserId) return
@@ -179,13 +179,13 @@ export default function InvoicesPage() {
 
   const loadBills = async () => {
     try {
-      if (!user?.id) return
+      if (!user?.uid) return
 
       // First get the user's Supabase ID
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("id")
-        .eq("auth_id", user.id)
+        .eq("firebase_uid", user.uid)
         .single()
 
       if (userError || !userData) {
@@ -334,12 +334,12 @@ export default function InvoicesPage() {
 
   const loadStats = async () => {
     try {
-      if (!user?.id) return
+      if (!user?.uid) return
 
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("id")
-        .eq("auth_id", user.id)
+        .eq("firebase_uid", user.uid)
         .single()
 
       if (userError || !userData) {

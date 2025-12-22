@@ -72,7 +72,7 @@ export async function getTaxpayers() {
         taxpayer_profiles (*)
       `,
       )
-      .in("role", ["taxpayer", "property_manager", "tenant"])
+      .in("role", ["taxpayer", "property_manager"])
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -174,52 +174,40 @@ export async function getTaxpayerById(taxpayerId: string) {
   }
 }
 
-export async function createTaxpayer(
-  data: {
-    firstName: string
-    middleName?: string
-    lastName: string
-    email: string
-    phoneNumber?: string
-    role: string
-    taxIdOrNin?: string
-    gender?: string
-    nationality?: string
-    dateOfBirth?: string
-    residentialAddress?: string
-    isBusiness: boolean
-    businessName?: string
-    businessType?: string
-    businessAddress?: string
-    tin?: string
-    meansOfIdentification?: string
-    identificationNumber?: string
-    userType?: string
-    profilePhotoUrl?: string
-    lgaId?: string
-    areaOfficeId?: string
-    addressLine1?: string
-    rcNumber?: string
-    industryId?: string
-    businessRegistrationDate?: string
-    managementLicenseNumber?: string
-    yearsOfExperience?: string
-  },
-  firebaseToken: string, // Added Firebase token parameter for admin verification
-) {
+export async function createTaxpayer(data: {
+  firstName: string
+  middleName?: string
+  lastName: string
+  email: string
+  phoneNumber?: string
+  role: string
+  taxIdOrNin?: string
+  gender?: string
+  nationality?: string
+  dateOfBirth?: string
+  residentialAddress?: string
+  isBusiness: boolean
+  businessName?: string
+  businessType?: string
+  businessAddress?: string
+  tin?: string
+  meansOfIdentification?: string
+  identificationNumber?: string
+  userType?: string
+  profilePhotoUrl?: string
+  lgaId?: string
+  areaOfficeId?: string
+  addressLine1?: string
+  rcNumber?: string
+  industryId?: string
+  businessRegistrationDate?: string
+  managementLicenseNumber?: string
+  yearsOfExperience?: string
+}) {
   try {
     const supabase = createAdminClient()
 
-    const { data: existingEmail, error: emailError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", data.email)
-      .maybeSingle()
-
-    if (emailError) {
-      console.error("Error checking email:", emailError)
-      return { success: false, error: "Failed to validate email" }
-    }
+    const { data: existingEmail } = await supabase.from("users").select("id").eq("email", data.email).single()
 
     if (existingEmail) {
       return { success: false, error: "Email already in use" }
@@ -231,16 +219,11 @@ export async function createTaxpayer(
         normalizedPhone = normalizedPhone.startsWith("0") ? `+234${normalizedPhone.slice(1)}` : `+234${normalizedPhone}`
       }
 
-      const { data: existingPhone, error: phoneError } = await supabase
+      const { data: existingPhone } = await supabase
         .from("users")
         .select("id")
         .eq("phone_number", normalizedPhone)
-        .maybeSingle()
-
-      if (phoneError) {
-        console.error("Error checking phone:", phoneError)
-        return { success: false, error: "Failed to validate phone number" }
-      }
+        .single()
 
       if (existingPhone) {
         return { success: false, error: "Phone number already in use" }
@@ -250,9 +233,11 @@ export async function createTaxpayer(
     let password = ""
     if (data.phoneNumber) {
       let phoneDigits = data.phoneNumber.replace(/\D/g, "")
+      // Remove +234 prefix if present
       if (phoneDigits.startsWith("234")) {
         phoneDigits = "0" + phoneDigits.slice(3)
       }
+      // Add leading 0 if not present
       if (!phoneDigits.startsWith("0") && phoneDigits.length === 10) {
         phoneDigits = "0" + phoneDigits
       }
@@ -263,40 +248,25 @@ export async function createTaxpayer(
 
     const displayName = `${data.firstName} ${data.lastName}`
 
-    let firebaseUid: string
-    try {
-      const firebaseResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/admin/create-firebase-user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${firebaseToken}`, // Include Firebase token
-        },
-        body: JSON.stringify({
-          email: data.email,
-          password,
-          displayName,
-          phoneNumber: data.phoneNumber,
-        }),
-      })
+    const firebaseResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/admin/create-firebase-user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: data.email,
+        password,
+        displayName,
+        phoneNumber: data.phoneNumber,
+      }),
+    })
 
-      if (!firebaseResponse.ok) {
-        const contentType = firebaseResponse.headers.get("content-type")
-        let errorMessage = "Failed to create Firebase account"
-
-        if (contentType?.includes("application/json")) {
-          const errorData = await firebaseResponse.json()
-          errorMessage = errorData.error || errorMessage
-        }
-
-        return { success: false, error: errorMessage }
-      }
-
-      const firebaseData = await firebaseResponse.json()
-      firebaseUid = firebaseData.uid
-    } catch (firebaseError: any) {
-      console.error("Firebase API error:", firebaseError)
-      return { success: false, error: "Failed to connect to Firebase service" }
+    if (!firebaseResponse.ok) {
+      const errorData = await firebaseResponse.json()
+      return { success: false, error: `Failed to create Firebase account: ${errorData.error}` }
     }
+
+    const { uid: firebaseUid } = await firebaseResponse.json()
 
     let normalizedPhone = data.phoneNumber || null
     if (normalizedPhone) {
