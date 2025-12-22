@@ -855,7 +855,7 @@ export default function LandingPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-medium text-gray-700">Phone:</span>
-                  <span>+234 (0) 800 123 4567</span>
+                  <span>+234 902 571 3908</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-medium text-gray-700">Email:</span>
