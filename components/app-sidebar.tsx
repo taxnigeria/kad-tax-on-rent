@@ -136,20 +136,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "Reports",
-        url: "/dashboard/reports",
+        url: "/admin/reports",
         icon: BarChart3,
         items: [
           {
             title: "Financial Reports",
-            url: "/dashboard/reports/financial",
+            url: "/admin/reports?type=financial",
           },
           {
             title: "Collection Reports",
-            url: "/dashboard/reports/collection",
+            url: "/admin/reports?type=collection",
           },
           {
             title: "Analytics",
-            url: "/dashboard/reports/analytics",
+            url: "/admin/reports?type=analytics",
           },
         ],
       },
