@@ -18,6 +18,7 @@ import { AddPropertyModal } from "./add-property-modal"
 import CalculateTaxDialog from "./calculate-tax-dialog"
 import { GenerateKadirsIdModal } from "./generate-kadirs-id-modal"
 import { useAuth } from "@/contexts/auth-context"
+import { PropertySelectionModal } from "./property-selection-modal"
 
 type TaxpayerDetailsSheetProps = {
   taxpayerId: string | null
@@ -95,6 +96,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
   const [showCalculateTaxDialog, setShowCalculateTaxDialog] = useState(false)
   const { userRole } = useAuth()
   const [generateKadirsModalOpen, setGenerateKadirsModalOpen] = useState(false)
+  const [showPropertySelectionModal, setShowPropertySelectionModal] = useState(false)
 
   useEffect(() => {
     if (open && taxpayerId) {
@@ -165,6 +167,23 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
   }
 
   function handleCreateInvoice() {
+    if (!taxpayer?.properties || taxpayer.properties.length === 0) {
+      toast.error("Please add a property before creating an invoice")
+      return
+    }
+
+    if (taxpayer.properties.length === 1) {
+      // Automatically select single property
+      handlePropertySelected(taxpayer.properties[0].id)
+    } else {
+      // Show modal to select property
+      setShowPropertySelectionModal(true)
+    }
+  }
+
+  function handlePropertySelected(propertyId: string) {
+    // Store selected property and open calculate tax dialog
+    sessionStorage.setItem("selectedPropertyForInvoice", propertyId)
     setShowCalculateTaxDialog(true)
   }
 
@@ -648,6 +667,16 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
           ) : null}
         </SheetContent>
       </Sheet>
+
+      {/* Property Selection Modal */}
+      {showPropertySelectionModal && (
+        <PropertySelectionModal
+          open={showPropertySelectionModal}
+          onOpenChange={setShowPropertySelectionModal}
+          properties={taxpayer?.properties || []}
+          onSelect={handlePropertySelected}
+        />
+      )}
 
       {/* Add PropertyDetailsSheet component */}
       <PropertyDetailsSheet
