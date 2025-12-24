@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import {
   Dialog,
@@ -19,9 +18,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, AlertCircle, Building2, MapPin, ImageIcon, Upload, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { toast } from "sonner"
-import { upload } from "@vercel/blob/client"
+import { useToast } from "@/hooks/use-toast"
 import Image from "next/image"
+import { Separator } from "@/components/ui/separator"
 
 interface Property {
   id: string
@@ -118,11 +117,19 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
     house_number: "",
     street_name: "",
     area_office_id: "",
+    street_address: "",
+    city: "",
+    lga: "",
   })
 
-  const [images, setImages] = useState<{ file_url: string; document_type: string; isNew?: boolean }[]>([])
-  const [imagesToDelete, setImagesToDelete] = useState<string[]>([])
+  const [propertyFacadeImage, setPropertyFacadeImage] = useState<{ url: string; name: string } | null>(null)
+  const [addressNumberImage, setAddressNumberImage] = useState<{ url: string; name: string } | null>(null)
+  const [otherDocuments, setOtherDocuments] = useState<Array<{ url: string; name: string; documentName: string }>>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]) // Declare the variable here
+  const [otherDocumentName, setOtherDocumentName] = useState("") // Add state for document name input
+
+  const { toast } = useToast()
 
   useEffect(() => {
     if (open) {
@@ -154,14 +161,27 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
         house_number: property.house_number || "",
         street_name: property.street_name || "",
         area_office_id: property.area_office_id || "",
+        street_address: property.addresses?.street_address || "",
+        city: property.addresses?.city || "",
+        lga: property.addresses?.lga || "",
       })
       // Load existing images
       const existingImages =
         property.documents?.filter(
           (doc) => doc.document_type === "property_facade" || doc.document_type === "address_number",
         ) || []
-      setImages(existingImages)
-      setImagesToDelete([])
+      setPropertyFacadeImage(existingImages.find((img) => img.document_type === "property_facade") || null)
+      setAddressNumberImage(existingImages.find((img) => img.document_type === "address_number") || null)
+      setOtherDocuments(
+        property.documents
+          ?.filter((doc) => doc.document_type !== "property_facade" && doc.document_type !== "address_number")
+          .map((doc) => ({
+            url: doc.file_url,
+            name: doc.file_url.split("/").pop() || "",
+            documentName: doc.document_type,
+          })) || [],
+      )
+      setImagesToDelete([]) // Initialize the variable here
       setErrors({})
       setActiveTab("details")
     }
@@ -206,52 +226,100 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
     if (!addressForm.street_name.trim()) {
       newErrors.street_name = "Street name is required"
     }
+    if (!addressForm.street_address.trim()) {
+      newErrors.street_address = "Full address is required"
+    }
+    if (!addressForm.city.trim()) {
+      newErrors.city = "City is required"
+    }
+    if (!addressForm.lga.trim()) {
+      newErrors.lga = "LGA is required"
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>, imageType: "facade" | "address" | "other") {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (imageType === "other") {
+      if (!otherDocumentName.trim()) {
+        toast({
+          title: "Document Name Required",
+          description: "Please enter a name for this document.",
+          variant: "destructive",
+        })
+        return
+      }
+    }
 
     setUploadingImages(true)
     try {
-      const newImages: { file_url: string; document_type: string; isNew: boolean }[] = []
-
-      for (const file of Array.from(files)) {
-        const blob = await upload(file.name, file, {
-          access: "public",
-          handleUploadUrl: "/api/upload",
-        })
-
-        newImages.push({
-          file_url: blob.url,
-          document_type: "property_facade",
-          isNew: true,
-        })
+      const formDataToSend = new FormData()
+      formDataToSend.append("propertyId", property.id)
+      formDataToSend.append(
+        imageType === "facade" ? "facadeImage" : imageType === "address" ? "addressNumberImage" : "otherImage",
+        file,
+      )
+      if (imageType === "other") {
+        formDataToSend.append("otherImageName", otherDocumentName)
       }
 
-      setImages([...images, ...newImages])
-      toast.success(`${newImages.length} image(s) uploaded`)
-    } catch (error) {
-      console.error("Error uploading images:", error)
-      toast.error("Failed to upload images")
+      const response = await fetch("/api/properties/upload-images", {
+        method: "POST",
+        body: formDataToSend,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Upload failed")
+      }
+
+      const data = await response.json()
+
+      const newImage = {
+        url: data.files[0]?.url || "",
+        name: imageType === "other" ? otherDocumentName : file.name,
+      }
+
+      if (imageType === "facade") {
+        setPropertyFacadeImage(newImage)
+      } else if (imageType === "address") {
+        setAddressNumberImage(newImage)
+      } else if (imageType === "other") {
+        setOtherDocuments([...otherDocuments, newImage])
+        setOtherDocumentName("") // Clear input after upload
+      }
+
+      toast({
+        title: "Success",
+        description: `${imageType === "facade" ? "Property facade" : imageType === "address" ? "Address number" : "Document"} uploaded successfully`,
+      })
+    } catch (uploadError) {
+      console.error("[v0] Upload error:", uploadError)
+      toast({
+        title: "Error",
+        description: uploadError instanceof Error ? uploadError.message : "Failed to upload image. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setUploadingImages(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
     }
   }
 
-  function handleRemoveImage(index: number) {
-    const image = images[index]
-    if (!image.isNew) {
-      // Mark for deletion from database
-      setImagesToDelete([...imagesToDelete, image.file_url])
+  function handleRemoveImage(imageType: "facade" | "address" | "other", index?: number) {
+    if (imageType === "facade") {
+      setPropertyFacadeImage(null)
+      setImagesToDelete((prev) => [...prev, propertyFacadeImage?.url || ""])
+    } else if (imageType === "address") {
+      setAddressNumberImage(null)
+      setImagesToDelete((prev) => [...prev, addressNumberImage?.url || ""])
+    } else if (imageType === "other" && index !== undefined) {
+      setOtherDocuments(otherDocuments.filter((_, i) => i !== index))
+      setImagesToDelete((prev) => [...prev, otherDocuments[index]?.url || ""])
     }
-    setImages(images.filter((_, i) => i !== index))
   }
 
   async function handleSubmit() {
@@ -291,6 +359,18 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
 
       if (propertyError) throw propertyError
 
+      // Update addresses table
+      const { error: addressError } = await supabase
+        .from("addresses")
+        .update({
+          street_address: addressForm.street_address.trim(),
+          city: addressForm.city.trim(),
+          lga: addressForm.lga.trim(),
+        })
+        .eq("entity_id", property.id)
+
+      if (addressError) console.error("Error updating addresses:", addressError)
+
       // Delete removed images from documents table
       if (imagesToDelete.length > 0) {
         const { error: deleteError } = await supabase
@@ -303,28 +383,52 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
       }
 
       // Add new images to documents table
-      const newImages = images.filter((img) => img.isNew)
+      const newImages = [
+        propertyFacadeImage && {
+          entity_id: property.id,
+          entity_type: "property",
+          document_type: "property_facade",
+          file_url: propertyFacadeImage.url,
+          document_name: "Property Facade",
+          uploaded_at: new Date().toISOString(),
+        },
+        addressNumberImage && {
+          entity_id: property.id,
+          entity_type: "property",
+          document_type: "address_number",
+          file_url: addressNumberImage.url,
+          document_name: "Address Number",
+          uploaded_at: new Date().toISOString(),
+        },
+        ...otherDocuments.map((doc) => ({
+          entity_id: property.id,
+          entity_type: "property",
+          document_type: doc.documentName,
+          file_url: doc.url,
+          document_name: doc.documentName,
+          uploaded_at: new Date().toISOString(),
+        })),
+      ].filter(Boolean)
+
       if (newImages.length > 0) {
-        const { error: insertError } = await supabase.from("documents").insert(
-          newImages.map((img) => ({
-            entity_id: property.id,
-            entity_type: "property",
-            document_type: img.document_type,
-            file_url: img.file_url,
-            document_name: `Property Image`,
-            uploaded_at: new Date().toISOString(),
-          })),
-        )
+        const { error: insertError } = await supabase.from("documents").insert(newImages)
 
         if (insertError) console.error("Error inserting images:", insertError)
       }
 
-      toast.success("Property updated successfully")
+      toast({
+        title: "Success",
+        description: "Property updated successfully",
+      })
       onUpdate()
       onOpenChange(false)
     } catch (error) {
       console.error("Error updating property:", error)
-      toast.error("Failed to update property")
+      toast({
+        title: "Upload Failed",
+        description: "Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -558,6 +662,63 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
 
           {/* Address Tab */}
           <TabsContent value="address" className="space-y-4 mt-4">
+            {/* Full Address Section */}
+            <div className="space-y-2">
+              <Label htmlFor="street_address">Full Address</Label>
+              <Input
+                id="street_address"
+                placeholder="e.g., 123 Main Street, Kaduna"
+                value={addressForm.street_address}
+                onChange={(e) => setAddressForm({ ...addressForm, street_address: e.target.value })}
+                className={errors.street_address ? "border-red-500" : ""}
+              />
+              {errors.street_address && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.street_address}
+                </p>
+              )}
+            </div>
+
+            {/* City and LGA */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  placeholder="e.g., Kaduna"
+                  value={addressForm.city}
+                  onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
+                  className={errors.city ? "border-red-500" : ""}
+                />
+                {errors.city && (
+                  <p className="text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.city}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lga">LGA</Label>
+                <Input
+                  id="lga"
+                  placeholder="e.g., Kaduna North"
+                  value={addressForm.lga}
+                  onChange={(e) => setAddressForm({ ...addressForm, lga: e.target.value })}
+                  className={errors.lga ? "border-red-500" : ""}
+                />
+                {errors.lga && (
+                  <p className="text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.lga}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+
+            {/* Property-Specific Address Fields */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="house_number">House Number *</Label>
@@ -624,69 +785,175 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
 
           {/* Images Tab */}
           <TabsContent value="images" className="space-y-4 mt-4">
+            {/* Property Facade Upload */}
             <div className="space-y-2">
-              <Label>Property Images</Label>
-              <p className="text-sm text-muted-foreground">Upload facade photos and address number images</p>
-            </div>
-
-            <div
-              className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              {uploadingImages ? (
-                <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Uploading...</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2">
-                  <Upload className="h-8 w-8 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Click to upload images</p>
-                  <p className="text-xs text-muted-foreground">PNG, JPG up to 10MB</p>
+              <Label>Property Facade Image</Label>
+              <div
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => document.getElementById("facade-input")?.click()}
+              >
+                <input
+                  id="facade-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, "facade")}
+                  disabled={uploadingImages}
+                  className="hidden"
+                />
+                {uploadingImages ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Uploading...</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Click to upload property facade</p>
+                    <p className="text-xs text-muted-foreground">PNG, JPG up to 10MB</p>
+                  </div>
+                )}
+              </div>
+              {propertyFacadeImage && (
+                <div className="relative inline-block w-full">
+                  <div className="relative w-full h-40 rounded-lg overflow-hidden border bg-muted">
+                    <Image
+                      src={propertyFacadeImage.url || "/placeholder.svg"}
+                      alt="Property Facade"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6"
+                    onClick={() => handleRemoveImage("facade")}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
               )}
             </div>
 
-            {images.length > 0 && (
-              <div className="grid grid-cols-3 gap-4">
-                {images.map((image, index) => (
-                  <div key={index} className="relative group">
-                    <div className="aspect-square rounded-lg overflow-hidden border bg-muted">
-                      <Image
-                        src={image.file_url || "/placeholder.svg"}
-                        alt={`Property image ${index + 1}`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleRemoveImage(index)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                    <p className="text-xs text-center mt-1 text-muted-foreground capitalize">
-                      {image.document_type.replace(/_/g, " ")}
-                    </p>
+            {/* Address Number Upload */}
+            <div className="space-y-2">
+              <Label>Address Number Image</Label>
+              <div
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => document.getElementById("address-input")?.click()}
+              >
+                <input
+                  id="address-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, "address")}
+                  disabled={uploadingImages}
+                  className="hidden"
+                />
+                {uploadingImages ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Uploading...</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Click to upload address number</p>
+                    <p className="text-xs text-muted-foreground">PNG, JPG up to 10MB</p>
+                  </div>
+                )}
               </div>
-            )}
+              {addressNumberImage && (
+                <div className="relative inline-block w-full">
+                  <div className="relative w-full h-40 rounded-lg overflow-hidden border bg-muted">
+                    <Image
+                      src={addressNumberImage.url || "/placeholder.svg"}
+                      alt="Address Number"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6"
+                    onClick={() => handleRemoveImage("address")}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
 
-            {images.length === 0 && (
+            {/* Other Documents Upload */}
+            <div className="space-y-3 border-t pt-4">
+              <h4 className="font-medium">Other Documents</h4>
+
+              <div className="space-y-2">
+                <Label htmlFor="doc-name">Document Name</Label>
+                <Input
+                  id="doc-name"
+                  placeholder="e.g., Invoice Copy, Deed, Tax Clearance"
+                  value={otherDocumentName}
+                  onChange={(e) => setOtherDocumentName(e.target.value)}
+                  disabled={uploadingImages}
+                />
+              </div>
+
+              <div
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => document.getElementById("other-input")?.click()}
+              >
+                <input
+                  id="other-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, "other")}
+                  disabled={uploadingImages || !otherDocumentName.trim()}
+                  className="hidden"
+                />
+                {uploadingImages ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Uploading...</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Click to upload document</p>
+                    <p className="text-xs text-muted-foreground">PNG, JPG up to 10MB</p>
+                  </div>
+                )}
+              </div>
+
+              {otherDocuments.length > 0 && (
+                <div className="space-y-2">
+                  {otherDocuments.map((doc, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 p-2 bg-muted rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{doc.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{doc.url}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 flex-shrink-0"
+                        onClick={() => {
+                          setOtherDocuments(otherDocuments.filter((_, i) => i !== idx))
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {!propertyFacadeImage && !addressNumberImage && otherDocuments.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No images uploaded yet</p>
+                <p>No documents uploaded yet</p>
               </div>
             )}
           </TabsContent>

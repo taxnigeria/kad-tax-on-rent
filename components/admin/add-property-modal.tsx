@@ -35,7 +35,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast" // re-enable useToast hook
-import { createClient } from "@/lib/supabase/client" // Fixed import - remove createClient from @supabase/ssr and import from lib/supabase/client instead
+import { put } from "@vercel/blob"
 
 type AddPropertyModalProps = {
   open: boolean
@@ -91,6 +91,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
   const [uploading, setUploading] = useState(false)
   const [propertyFacadeImage, setPropertyFacadeImage] = useState<{ url: string; name: string } | null>(null)
   const [addressNumberImage, setAddressNumberImage] = useState<{ url: string; name: string } | null>(null)
+  const [otherDocuments, setOtherDocuments] = useState<{ url: string; name: string }[]>([]) // Added state for other documents
   const [cities, setCities] = useState<City[]>([])
   const [lgas, setLgas] = useState<LGA[]>([])
   const [areaOffices, setAreaOffices] = useState<AreaOffice[]>([])
@@ -137,6 +138,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     // Images propertyFacadeImage and addressNumberImage
     propertyFacadeImage: null as { url: string; name: string } | null,
     addressNumberImage: null as { url: string; name: string } | null,
+    otherDocuments: [] as { url: string; name: string }[], // Added otherDocuments to formData
   })
 
   const [taxpayerSearch, setTaxpayerSearch] = useState("")
@@ -303,6 +305,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
       // reset image fields
       propertyFacadeImage: null,
       addressNumberImage: null,
+      otherDocuments: [],
     })
     setTaxpayerSearch("")
     setManagerSearch("")
@@ -312,6 +315,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     setSelectedManager(null)
     setPropertyFacadeImage(null) // Reset component state as well
     setAddressNumberImage(null) // Reset component state as well
+    setOtherDocuments([]) // Reset otherDocuments state
   }
 
   function handleCityChange(cityId: string) {
@@ -364,80 +368,63 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     setCurrentStep(3)
   }
 
-  // modified handleImageUpload to accept imageType
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, imageType: "facade" | "address") => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setUploading(true)
+  // Updated handleImageUpload to use Vercel Blob and accept different image types
+  async function handleImageUpload(file: File, imageType: "facade" | "address" | "other", documentName?: string) {
     try {
       const fileExt = file.name.split(".").pop()
       const fileName = `${Date.now()}-${Math.random()}.${fileExt}`
       const filePath = `property-images/${formData.areaOfficeId || "temp"}/${imageType}/${fileName}`
 
-      const supabaseClient = createClient()
+      const blob = await put(filePath, file, {
+        access: "public",
+      })
 
-      const { data, error } = await supabaseClient.storage.from("property-documents").upload(filePath, file)
-
-      if (error) {
-        console.error("[v0] Upload error details:", error)
-        throw new Error(error.message || "Upload failed")
-      }
-
-      // Get the public URL of the uploaded image
-      const { data: publicUrlData } = supabaseClient.storage.from("property-documents").getPublicUrl(filePath)
-
-      if (!publicUrlData?.publicUrl) throw new Error("Could not get public URL")
+      if (!blob.url) throw new Error("Could not get public URL")
 
       const newImage = {
-        url: publicUrlData.publicUrl,
-        name: file.name,
+        url: blob.url,
+        name: documentName || file.name,
       }
 
       if (imageType === "facade") {
         setPropertyFacadeImage(newImage)
-        setFormData((prev) => ({
-          ...prev,
-          propertyFacadeImage: newImage,
-        }))
-      } else {
+        setFormData((prev) => ({ ...prev, propertyFacadeImage: newImage }))
+      } else if (imageType === "address") {
         setAddressNumberImage(newImage)
-        setFormData((prev) => ({
-          ...prev,
-          addressNumberImage: newImage,
-        }))
+        setFormData((prev) => ({ ...prev, addressNumberImage: newImage }))
+      } else if (imageType === "other") {
+        setOtherDocuments([...otherDocuments, newImage])
+        setFormData((prev) => ({ ...prev, otherDocuments: [...prev.otherDocuments, newImage] }))
       }
 
       toast({
         title: "Success",
-        description: `${imageType === "facade" ? "Property facade" : "Address number"} image uploaded successfully`,
+        description: `${imageType === "facade" ? "Property facade" : imageType === "address" ? "Address number" : "Document"} uploaded successfully`,
       })
-    } catch (error: any) {
-      console.error("[v0] Upload error:", error)
+    } catch (uploadError) {
+      console.error("[v0] Upload error:", uploadError)
       toast({
-        title: "Upload Failed",
-        description: error.message || "Please try again.",
+        title: "Error",
+        description: "Failed to upload image. Please try again.",
         variant: "destructive",
       })
     } finally {
-      setUploading(false)
+      setUploading(false) // Ensure uploading state is reset
     }
   }
 
   // modified handleRemoveImage to accept imageType
-  const handleRemoveImage = (imageType: "facade" | "address") => {
+  const handleRemoveImage = (imageType: "facade" | "address" | "other", index?: number) => {
     if (imageType === "facade") {
       setPropertyFacadeImage(null)
-      setFormData((prev) => ({
-        ...prev,
-        propertyFacadeImage: null,
-      }))
-    } else {
+      setFormData((prev) => ({ ...prev, propertyFacadeImage: null }))
+    } else if (imageType === "address") {
       setAddressNumberImage(null)
-      setFormData((prev) => ({
-        ...prev,
-        addressNumberImage: null,
-      }))
+      setFormData((prev) => ({ ...prev, addressNumberImage: null }))
+    } else if (imageType === "other" && index !== undefined) {
+      const updatedDocuments = formData.otherDocuments.filter((_, i) => i !== index)
+      setFormData((prev) => ({ ...prev, otherDocuments: updatedDocuments }))
+      setOtherDocuments(updatedDocuments) // Also update local state
     }
   }
 
@@ -467,9 +454,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
         return !!selectedManager
       }
     }
-    if (step === 4) {
-      return validateImages()
-    }
+    // Step 4 validation is handled by validateImages() directly in handleSubmit
     return true
   }
 
@@ -548,6 +533,8 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
         property_facade_image_name: formData.propertyFacadeImage?.name || null,
         address_number_image_url: formData.addressNumberImage?.url || null,
         address_number_image_name: formData.addressNumberImage?.name || null,
+        // Include other documents in the submission
+        // other_documents: JSON.stringify(formData.otherDocuments) || null, // Assuming a JSON field in your DB for this
       }
 
       if (formData.registrationType === "owner") {
@@ -1278,24 +1265,6 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                       </p>
                     </div>
 
-                    <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                      <input
-                        id="image-input"
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        disabled={uploading}
-                        className="hidden"
-                      />
-                      <label htmlFor="image-input" className="cursor-pointer block">
-                        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm font-medium">Click to upload or drag and drop</p>
-                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF up to 10MB each</p>
-                      </label>
-                    </div>
-
-                    {/* removed old image handling, replaced with type-specific rendering */}
                     {/* Property Facade Image */}
                     <div className="space-y-2">
                       <Label htmlFor="facade-input">
@@ -1305,7 +1274,11 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => handleImageUpload(e, "facade")}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                              handleImageUpload(e.target.files[0], "facade")
+                            }
+                          }}
                           disabled={uploading}
                           className="hidden"
                           id="facade-input"
@@ -1344,7 +1317,11 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => handleImageUpload(e, "address")}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                              handleImageUpload(e.target.files[0], "address")
+                            }
+                          }}
                           disabled={uploading}
                           className="hidden"
                           id="address-input"
@@ -1373,6 +1350,55 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                         </div>
                       )}
                     </div>
+
+                    {/* Other Documents Upload */}
+                    <div className="space-y-2">
+                      <Label htmlFor="other-documents-input">Other Supporting Documents</Label>
+                      <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                        <input
+                          type="file"
+                          multiple // Allow multiple file uploads
+                          accept="/*" // Accept all file types
+                          onChange={(e) => {
+                            if (e.target.files) {
+                              for (let i = 0; i < e.target.files.length; i++) {
+                                handleImageUpload(e.target.files[i], "other", `document_${i}`)
+                              }
+                            }
+                          }}
+                          disabled={uploading}
+                          className="hidden"
+                          id="other-documents-input"
+                        />
+                        <label htmlFor="other-documents-input" className="cursor-pointer block">
+                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                          <p className="text-sm font-medium">Click to upload or drag and drop documents</p>
+                          <p className="text-xs text-muted-foreground mt-1">Any file type supported</p>
+                        </label>
+                      </div>
+                      {formData.otherDocuments.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          {formData.otherDocuments.map((doc, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 border rounded">
+                              <div className="flex items-center gap-2 truncate">
+                                <p className="text-sm truncate">{doc.name}</p>
+                                <span className="text-xs text-muted-foreground">
+                                  ({(doc.name.length / 10).toFixed(0)} KB)
+                                </span>{" "}
+                                {/* Placeholder size */}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage("other", index)}
+                                className="ml-2 text-red-500 hover:text-red-700"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </TabsContent>
               </Tabs>
@@ -1386,17 +1412,23 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
 
                   {/* Property Facade Image */}
                   <div className="mb-6">
-                    <label className="block text-sm font-medium mb-2">Property Facade Image *</label>
+                    <label className="block text-sm font-medium mb-2">
+                      Property Facade Image <span className="text-destructive">*</span>
+                    </label>
                     <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleImageUpload(e, "facade")}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            handleImageUpload(e.target.files[0], "facade")
+                          }
+                        }}
                         disabled={uploading}
                         className="hidden"
-                        id="facade-input"
+                        id="facade-input-step4"
                       />
-                      <label htmlFor="facade-input" className="cursor-pointer block">
+                      <label htmlFor="facade-input-step4" className="cursor-pointer block">
                         <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                         <p className="text-sm font-medium">Click to upload or drag and drop</p>
                         <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF up to 10MB</p>
@@ -1424,17 +1456,23 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
 
                   {/* Address Number Image */}
                   <div>
-                    <label className="block text-sm font-medium mb-2">Address Number Image *</label>
+                    <label className="block text-sm font-medium mb-2">
+                      Address Number Image <span className="text-destructive">*</span>
+                    </label>
                     <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleImageUpload(e, "address")}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            handleImageUpload(e.target.files[0], "address")
+                          }
+                        }}
                         disabled={uploading}
                         className="hidden"
-                        id="address-input"
+                        id="address-input-step4"
                       />
-                      <label htmlFor="address-input" className="cursor-pointer block">
+                      <label htmlFor="address-input-step4" className="cursor-pointer block">
                         <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                         <p className="text-sm font-medium">Click to upload or drag and drop</p>
                         <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF up to 10MB</p>

@@ -147,6 +147,15 @@ export default function CalculateTaxDialog({ open, onOpenChange, property, onSuc
   async function handleCalculateTax() {
     if (!property) return
 
+    if (!property.area_office_id) {
+      toast({
+        title: "Area Office Required",
+        description: "Please assign an area office to this property before calculating tax.",
+        variant: "destructive",
+      })
+      return
+    }
+
     const preview = calculatePreview()
 
     setLoading(true)

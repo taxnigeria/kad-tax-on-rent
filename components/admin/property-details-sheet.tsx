@@ -36,10 +36,9 @@ import {
   Home,
   UserCog,
   Trash2,
-  Download,
-  Printer,
   Pencil,
   X,
+  ChevronRight,
 } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/utils/supabase/client"
@@ -177,6 +176,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
           invoices (
             id,
             invoice_number,
+            bill_reference,
             payment_status,
             total_amount,
             balance_due,
@@ -439,8 +439,6 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
               </SheetHeader>
               {/* Content section scrolls independently */}
               <div className="space-y-6 mt-6 px-6">
-                
-
                 {/* Property Photos */}
                 {property.documents && property.documents.length > 0 && (
                   <>
@@ -468,6 +466,26 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                             </div>
                           ))}
                       </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+                {(!property.documents || property.documents.length === 0) && (
+                  <>
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Property Photos
+                      </h3>
+                      <Card>
+                        <CardContent className="flex flex-col items-center justify-center py-8">
+                          <Building2 className="h-12 w-12 text-muted-foreground/50 mb-2" />
+                          <p className="text-sm font-medium text-muted-foreground">No images uploaded</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Property facade and address number images can be added when editing the property
+                          </p>
+                        </CardContent>
+                      </Card>
                     </div>
                     <Separator />
                   </>
@@ -718,10 +736,14 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                       Tax Calculations & Invoices
                     </h3>
                     <Button
+                      variant="default"
                       size="sm"
-                      variant="outline"
-                      className="gap-2 h-8 bg-transparent"
+                      className="gap-2"
                       onClick={() => {
+                        if (!property.area_office_id) {
+                          toast.error("Please add an area office to this property before calculating tax.")
+                          return
+                        }
                         setCalculateTaxDialogOpen(true)
                       }}
                     >
@@ -739,15 +761,15 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                         <TableRow className="bg-muted hover:bg-muted">
                           <TableHead>Year</TableHead>
                           <TableHead>Tax Amount</TableHead>
-                          <TableHead>Invoice Number</TableHead>
+                          <TableHead>Bill Reference</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          <TableHead>Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {loadingTaxData ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center py-8">
+                            <TableCell colSpan={4} className="text-center py-8">
                               <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                             </TableCell>
                           </TableRow>
@@ -769,7 +791,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                                 </TableCell>
                                 <TableCell>
                                   {invoice ? (
-                                    <span className="font-mono text-sm">{invoice.invoice_number}</span>
+                                    <span className="font-mono text-sm">{invoice.bill_reference}</span>
                                   ) : (
                                     <span className="text-muted-foreground text-sm">No invoice</span>
                                   )}
@@ -795,31 +817,14 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                                   )}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={(e) => handleDownloadInvoice(e, calc)}
-                                    >
-                                      <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={(e) => handlePrintInvoice(e, calc)}
-                                    >
-                                      <Printer className="h-3.5 w-3.5 text-muted-foreground" />
-                                    </Button>
-                                  </div>
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                 </TableCell>
                               </TableRow>
                             )
                           })
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                            <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
                               No tax calculations found. Click "Calculate Tax" to create one.
                             </TableCell>
                           </TableRow>
@@ -1182,12 +1187,12 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
         }}
       />
 
-      {/* Add EditPropertyModal */}
+      {/* Update EditPropertyModal component call to match the interface */}
       <EditPropertyModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        propertyId={propertyId!}
-        onUpdate={handleEditUpdate} // Use handleEditUpdate function
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        property={property}
+        onUpdate={handleEditUpdate}
       />
     </>
   )
