@@ -439,45 +439,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
               </SheetHeader>
               {/* Content section scrolls independently */}
               <div className="space-y-6 mt-6 px-6">
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h2 className="text-2xl font-bold">{property.registered_property_name}</h2>
-                      <p className="text-sm text-muted-foreground font-mono">
-                        {property.property_reference || "No reference"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {getVerificationBadge(property.verification_status || "pending")}
-                      <Badge variant="outline" className="capitalize">
-                        {property.property_type}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* Add Edit button to open modal */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-2 h-8 bg-transparent"
-                      onClick={handleEdit} // Use handleEdit function
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-2 h-8 text-destructive hover:text-destructive bg-transparent"
-                      onClick={() => setDeleteDialogOpen(true)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-
-                <Separator />
+                
 
                 {/* Property Photos */}
                 {property.documents && property.documents.length > 0 && (
