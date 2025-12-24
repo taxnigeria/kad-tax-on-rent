@@ -13,7 +13,11 @@ interface EditPropertyModalProps {
 }
 
 export function EditPropertyModal({ open, onOpenChange, property, onUpdate, areaOffices }: EditPropertyModalProps) {
-  const [addressForm, setAddressForm] = useState({ area_office_id: property.area_office_id || "" })
+  const [addressForm, setAddressForm] = useState({ area_office_id: property?.area_office_id || "" })
+
+  if (!property) {
+    return null
+  }
 
   return (
     <div className="space-y-2">
