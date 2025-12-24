@@ -41,7 +41,12 @@ export default function RootLayout({
       <body className={`font-sans antialiased ${_sourceSerif_4.variable}`}>
         <AuthProvider>
           <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
-          <Toaster richColors position="top-right" />
+          <Toaster
+            richColors
+            position="top-right"
+            closeButton // enable close button on toasts
+            expand // enable stacking of toasts
+          />
         </AuthProvider>
       </body>
     </html>

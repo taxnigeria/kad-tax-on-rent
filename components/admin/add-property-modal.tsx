@@ -16,12 +16,26 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
-import { Loader2, ChevronLeft, ChevronRight, Search, User, Mail, Phone, Award as IdCard, Building2 } from "lucide-react"
-import { toast } from "sonner"
+import {
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  User,
+  Mail,
+  Phone,
+  Award as IdCard,
+  Building2,
+  Upload,
+  X,
+} from "lucide-react"
 import { createBrowserClient } from "@supabase/ssr"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/components/ui/use-toast" // re-enable useToast hook
+import { createClient } from "@/lib/supabase/client" // Fixed import - remove createClient from @supabase/ssr and import from lib/supabase/client instead
 
 type AddPropertyModalProps = {
   open: boolean
@@ -70,17 +84,20 @@ type AreaOffice = {
 }
 
 export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyModalProps) {
+  const { toast } = useToast() // re-enable useToast hook
+
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [searchingTaxpayers, setSearchingTaxpayers] = useState(false)
-  const [searchingManagers, setSearchingManagers] = useState(false)
-  // const { toast } = useToast() // Removed useToast hook
-
+  const [uploading, setUploading] = useState(false)
+  const [propertyFacadeImage, setPropertyFacadeImage] = useState<{ url: string; name: string } | null>(null)
+  const [addressNumberImage, setAddressNumberImage] = useState<{ url: string; name: string } | null>(null)
   const [cities, setCities] = useState<City[]>([])
   const [lgas, setLgas] = useState<LGA[]>([])
   const [areaOffices, setAreaOffices] = useState<AreaOffice[]>([])
   const [cityDialogOpen, setCityDialogOpen] = useState(false)
   const [citySearchQuery, setCitySearchQuery] = useState("")
+  const [searchingTaxpayers, setSearchingTaxpayers] = useState(false)
+  const [searchingManagers, setSearchingManagers] = useState(false)
 
   const [formData, setFormData] = useState({
     // Basic Information
@@ -116,6 +133,10 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     managerPhone: "",
     managerTaxId: "",
     managementStartDate: "",
+
+    // Images propertyFacadeImage and addressNumberImage
+    propertyFacadeImage: null as { url: string; name: string } | null,
+    addressNumberImage: null as { url: string; name: string } | null,
   })
 
   const [taxpayerSearch, setTaxpayerSearch] = useState("")
@@ -151,13 +172,12 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
   }, [open])
 
   useEffect(() => {
-    async function fetchDefaultState() {
+    const fetchDefaultState = async () => {
       const { data, error } = await supabase
         .from("system_settings")
         .select("setting_value")
         .eq("setting_key", "default_state")
-        .eq("is_active", true)
-        .single()
+        .maybeSingle() // Use maybeSingle for potentially missing data
 
       if (!error && data) {
         const state = data.setting_value as string
@@ -280,6 +300,9 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
       managerPhone: "",
       managerTaxId: "",
       managementStartDate: "",
+      // reset image fields
+      propertyFacadeImage: null,
+      addressNumberImage: null,
     })
     setTaxpayerSearch("")
     setManagerSearch("")
@@ -287,6 +310,8 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     setManagers([])
     setSelectedTaxpayer(null)
     setSelectedManager(null)
+    setPropertyFacadeImage(null) // Reset component state as well
+    setAddressNumberImage(null) // Reset component state as well
   }
 
   function handleCityChange(cityId: string) {
@@ -339,27 +364,145 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     setCurrentStep(3)
   }
 
+  // modified handleImageUpload to accept imageType
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, imageType: "facade" | "address") => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const fileExt = file.name.split(".").pop()
+      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`
+      const filePath = `property-images/${formData.areaOfficeId || "temp"}/${imageType}/${fileName}`
+
+      const supabaseClient = createClient()
+
+      const { data, error } = await supabaseClient.storage.from("property-documents").upload(filePath, file)
+
+      if (error) {
+        console.error("[v0] Upload error details:", error)
+        throw new Error(error.message || "Upload failed")
+      }
+
+      // Get the public URL of the uploaded image
+      const { data: publicUrlData } = supabaseClient.storage.from("property-documents").getPublicUrl(filePath)
+
+      if (!publicUrlData?.publicUrl) throw new Error("Could not get public URL")
+
+      const newImage = {
+        url: publicUrlData.publicUrl,
+        name: file.name,
+      }
+
+      if (imageType === "facade") {
+        setPropertyFacadeImage(newImage)
+        setFormData((prev) => ({
+          ...prev,
+          propertyFacadeImage: newImage,
+        }))
+      } else {
+        setAddressNumberImage(newImage)
+        setFormData((prev) => ({
+          ...prev,
+          addressNumberImage: newImage,
+        }))
+      }
+
+      toast({
+        title: "Success",
+        description: `${imageType === "facade" ? "Property facade" : "Address number"} image uploaded successfully`,
+      })
+    } catch (error: any) {
+      console.error("[v0] Upload error:", error)
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // modified handleRemoveImage to accept imageType
+  const handleRemoveImage = (imageType: "facade" | "address") => {
+    if (imageType === "facade") {
+      setPropertyFacadeImage(null)
+      setFormData((prev) => ({
+        ...prev,
+        propertyFacadeImage: null,
+      }))
+    } else {
+      setAddressNumberImage(null)
+      setFormData((prev) => ({
+        ...prev,
+        addressNumberImage: null,
+      }))
+    }
+  }
+
+  // validate images
+  const validateImages = (): boolean => {
+    return propertyFacadeImage !== null && addressNumberImage !== null
+  }
+
+  // validate step and include image validation
+  const validateStep = (step: number): boolean => {
+    if (step === 1) {
+      return (
+        !!formData.propertyName &&
+        !!formData.propertyType &&
+        !!formData.propertyCategory &&
+        !!formData.streetAddress &&
+        !!formData.areaOfficeId
+      )
+    }
+    if (step === 2) {
+      return !!formData.annualRent && !!formData.totalUnits
+    }
+    if (step === 3) {
+      if (formData.registrationType === "owner") {
+        return !!selectedTaxpayer
+      } else {
+        return !!selectedManager
+      }
+    }
+    if (step === 4) {
+      return validateImages()
+    }
+    return true
+  }
+
   function handleBack() {
-    setCurrentStep(currentStep - 1)
+    // step logic adjusted for new step 4
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (formData.registrationType === "owner" && !selectedTaxpayer) {
-      toast.error("No Owner Selected", {
-        description: "Please select a taxpayer as the property owner",
+    // step logic adjusted for new step 4
+    if (currentStep < 4 && !validateStep(currentStep)) {
+      toast.error("Missing Information", {
+        description: `Please fill in all required fields for the current step.`,
+      })
+      return
+    }
+    if (currentStep === 4 && !validateImages()) {
+      toast.error("Missing Images", {
+        description: "Please upload property facade and address number images.",
       })
       return
     }
 
-    if (formData.registrationType === "manager" && !selectedManager) {
-      toast.error("No Manager Selected", {
-        description: "Please select a property manager",
-      })
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1)
       return
     }
 
+    // Final submission logic (currentStep === 4)
     setLoading(true)
 
     try {
@@ -399,6 +542,12 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
         property_description: formData.propertyDescription || null,
         status: formData.propertyStatus,
         verification_status: "pending",
+        // Add images to the property creation
+        // use new image fields
+        property_facade_image_url: formData.propertyFacadeImage?.url || null,
+        property_facade_image_name: formData.propertyFacadeImage?.name || null,
+        address_number_image_url: formData.addressNumberImage?.url || null,
+        address_number_image_name: formData.addressNumberImage?.name || null,
       }
 
       if (formData.registrationType === "owner") {
@@ -449,7 +598,8 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     setFormData({ ...formData, [field]: numbers })
   }
 
-  const progress = (currentStep / 3) * 100
+  // progress calculation adjusted for new step 4
+  const progress = ((currentStep - 1) / 4) * 100
 
   const filteredCities = cities.filter((city) => city.name.toLowerCase().includes(citySearchQuery.toLowerCase()))
 
@@ -460,12 +610,15 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
           <DialogHeader>
             <DialogTitle>Add New Property</DialogTitle>
             <DialogDescription>
-              Step {currentStep} of 3:{" "}
+              Step {currentStep} of 4: {/* updated total steps */}
               {currentStep === 1
                 ? "Basic Information"
                 : currentStep === 2
                   ? "Property Details"
-                  : "Owner/Manager Assignment"}
+                  : currentStep === 3
+                    ? "Owner/Manager Assignment"
+                    : "Upload Images"}{" "}
+              {/* added step 4 description */}
             </DialogDescription>
             <Progress value={progress} className="mt-2" />
           </DialogHeader>
@@ -790,223 +943,119 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
 
             {/* Step 3: Owner/Manager Assignment */}
             {currentStep === 3 && (
-              <div className="space-y-4">
-                <div className="space-y-3">
-                  <Label>
-                    Registration Type <span className="text-destructive">*</span>
-                  </Label>
-                  <RadioGroup
-                    value={formData.registrationType}
-                    onValueChange={(value) => {
-                      setFormData({ ...formData, registrationType: value })
-                      setSelectedTaxpayer(null)
-                      setSelectedManager(null)
-                      setTaxpayerSearch("")
-                      setManagerSearch("")
-                    }}
-                    disabled={loading}
-                    className="flex gap-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="owner" id="owner" />
-                      <Label htmlFor="owner" className="font-normal cursor-pointer">
-                        Register under Owner (Taxpayer)
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="manager" id="manager" />
-                      <Label htmlFor="manager" className="font-normal cursor-pointer">
-                        Register under Manager (Agent)
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+              <Tabs defaultValue="ownerManager" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="ownerManager">Owner/Manager</TabsTrigger>
+                  <TabsTrigger value="images">Images</TabsTrigger>
+                </TabsList>
 
-                {/* Owner Search */}
-                {formData.registrationType === "owner" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="taxpayerSearch">
-                        Search Property Owner <span className="text-destructive">*</span>
-                      </Label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          id="taxpayerSearch"
-                          placeholder="Search by name, email, or KADIRS ID..."
-                          value={taxpayerSearch}
-                          onChange={(e) => setTaxpayerSearch(e.target.value)}
-                          disabled={loading}
-                          className="pl-9"
-                        />
+                <TabsContent value="ownerManager" className="space-y-4 pt-4">
+                  <div className="space-y-3">
+                    <Label>
+                      Registration Type <span className="text-destructive">*</span>
+                    </Label>
+                    <RadioGroup
+                      value={formData.registrationType}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, registrationType: value })
+                        setSelectedTaxpayer(null)
+                        setSelectedManager(null)
+                        setTaxpayerSearch("")
+                        setManagerSearch("")
+                      }}
+                      disabled={loading}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="owner" id="owner" />
+                        <Label htmlFor="owner" className="font-normal cursor-pointer">
+                          Register under Owner (Taxpayer)
+                        </Label>
                       </div>
-                    </div>
-
-                    {searchingTaxpayers && (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="manager" id="manager" />
+                        <Label htmlFor="manager" className="font-normal cursor-pointer">
+                          Register under Manager (Agent)
+                        </Label>
                       </div>
-                    )}
+                    </RadioGroup>
+                  </div>
 
-                    {!searchingTaxpayers && taxpayers.length > 0 && !selectedTaxpayer && (
-                      <div className="space-y-2 max-h-64 overflow-y-auto border rounded-md p-2">
-                        {taxpayers.map((taxpayer) => (
-                          <Card
-                            key={taxpayer.id}
-                            className="cursor-pointer hover:bg-accent transition-colors"
-                            onClick={() => setSelectedTaxpayer(taxpayer)}
-                          >
-                            <CardContent className="p-3">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium">
-                                    {taxpayer.first_name} {taxpayer.last_name}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">{taxpayer.email}</div>
-                                  {taxpayer.taxpayer_profiles?.[0]?.kadirs_id && (
-                                    <div className="text-xs font-mono text-muted-foreground mt-1">
-                                      KADIRS: {taxpayer.taxpayer_profiles[0].kadirs_id}
-                                    </div>
-                                  )}
-                                </div>
-                                <Badge variant="outline">Select</Badge>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                  {/* Owner Search */}
+                  {formData.registrationType === "owner" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="taxpayerSearch">
+                          Search Property Owner <span className="text-destructive">*</span>
+                        </Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="taxpayerSearch"
+                            placeholder="Search by name, email, or KADIRS ID..."
+                            value={taxpayerSearch}
+                            onChange={(e) => setTaxpayerSearch(e.target.value)}
+                            disabled={loading}
+                            className="pl-9"
+                          />
+                        </div>
                       </div>
-                    )}
 
-                    {!searchingTaxpayers &&
-                      taxpayerSearch.length >= 2 &&
-                      taxpayers.length === 0 &&
-                      !selectedTaxpayer && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>No taxpayers found matching your search.</p>
-                          <p className="text-sm mt-2">Try searching with a different name or email.</p>
+                      {searchingTaxpayers && (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                         </div>
                       )}
 
-                    {selectedTaxpayer && (
-                      <Card className="border-primary">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <h4 className="font-semibold">Selected Owner</h4>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setSelectedTaxpayer(null)}
-                              disabled={loading}
+                      {!searchingTaxpayers && taxpayers.length > 0 && !selectedTaxpayer && (
+                        <div className="space-y-2 max-h-64 overflow-y-auto border rounded-md p-2">
+                          {taxpayers.map((taxpayer) => (
+                            <Card
+                              key={taxpayer.id}
+                              className="cursor-pointer hover:bg-accent transition-colors"
+                              onClick={() => setSelectedTaxpayer(taxpayer)}
                             >
-                              Change
-                            </Button>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <User className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
-                                {selectedTaxpayer.first_name} {selectedTaxpayer.last_name}
-                              </span>
-                            </div>
-                            {selectedTaxpayer.taxpayer_profiles?.[0]?.kadirs_id && (
-                              <div className="flex items-center gap-2 text-sm">
-                                <IdCard className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-mono">{selectedTaxpayer.taxpayer_profiles[0].kadirs_id}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2 text-sm">
-                              <Mail className="h-4 w-4 text-muted-foreground" />
-                              <span>{selectedTaxpayer.email}</span>
-                            </div>
-                            {selectedTaxpayer.phone_number && (
-                              <div className="flex items-center gap-2 text-sm">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <span>{selectedTaxpayer.phone_number}</span>
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {taxpayerSearch.length < 2 && !selectedTaxpayer && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>Start typing to search for property owners</p>
-                        <p className="text-sm mt-2">Enter at least 2 characters to begin searching</p>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Manager Search */}
-                {formData.registrationType === "manager" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="managerSearch">
-                        Search Property Manager <span className="text-destructive">*</span>
-                      </Label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          id="managerSearch"
-                          placeholder="Search by name or email..."
-                          value={managerSearch}
-                          onChange={(e) => setManagerSearch(e.target.value)}
-                          disabled={loading}
-                          className="pl-9"
-                        />
-                      </div>
-                    </div>
-
-                    {searchingManagers && (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
-                    )}
-
-                    {!searchingManagers && managers.length > 0 && !selectedManager && (
-                      <div className="space-y-2 max-h-64 overflow-y-auto border rounded-md p-2">
-                        {managers.map((manager) => (
-                          <Card
-                            key={manager.id}
-                            className="cursor-pointer hover:bg-accent transition-colors"
-                            onClick={() => setSelectedManager(manager)}
-                          >
-                            <CardContent className="p-3">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium">
-                                    {manager.first_name} {manager.last_name}
+                              <CardContent className="p-3">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="font-medium">
+                                      {taxpayer.first_name} {taxpayer.last_name}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">{taxpayer.email}</div>
+                                    {taxpayer.taxpayer_profiles?.[0]?.kadirs_id && (
+                                      <div className="text-xs font-mono text-muted-foreground mt-1">
+                                        KADIRS: {taxpayer.taxpayer_profiles[0].kadirs_id}
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="text-xs text-muted-foreground">{manager.email}</div>
+                                  <Badge variant="outline">Select</Badge>
                                 </div>
-                                <Badge variant="outline">Select</Badge>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    )}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
 
-                    {!searchingManagers && managerSearch.length >= 2 && managers.length === 0 && !selectedManager && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>No managers found matching your search.</p>
-                        <p className="text-sm mt-2">Try searching with a different name or email.</p>
-                      </div>
-                    )}
+                      {!searchingTaxpayers &&
+                        taxpayerSearch.length >= 2 &&
+                        taxpayers.length === 0 &&
+                        !selectedTaxpayer && (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p>No taxpayers found matching your search.</p>
+                            <p className="text-sm mt-2">Try searching with a different name or email.</p>
+                          </div>
+                        )}
 
-                    {selectedManager && (
-                      <>
+                      {selectedTaxpayer && (
                         <Card className="border-primary">
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between mb-3">
-                              <h4 className="font-semibold">Selected Manager</h4>
+                              <h4 className="font-semibold">Selected Owner</h4>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setSelectedManager(null)}
+                                onClick={() => setSelectedTaxpayer(null)}
                                 disabled={loading}
                               >
                                 Change
@@ -1014,140 +1063,441 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                             </div>
                             <div className="space-y-2">
                               <div className="flex items-center gap-2 text-sm">
-                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                <User className="h-4 w-4 text-muted-foreground" />
                                 <span className="font-medium">
-                                  {selectedManager.first_name} {selectedManager.last_name}
+                                  {selectedTaxpayer.first_name} {selectedTaxpayer.last_name}
                                 </span>
                               </div>
+                              {selectedTaxpayer.taxpayer_profiles?.[0]?.kadirs_id && (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <IdCard className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-mono">{selectedTaxpayer.taxpayer_profiles[0].kadirs_id}</span>
+                                </div>
+                              )}
                               <div className="flex items-center gap-2 text-sm">
                                 <Mail className="h-4 w-4 text-muted-foreground" />
-                                <span>{selectedManager.email}</span>
+                                <span>{selectedTaxpayer.email}</span>
                               </div>
-                              {selectedManager.phone_number && (
+                              {selectedTaxpayer.phone_number && (
                                 <div className="flex items-center gap-2 text-sm">
                                   <Phone className="h-4 w-4 text-muted-foreground" />
-                                  <span>{selectedManager.phone_number}</span>
+                                  <span>{selectedTaxpayer.phone_number}</span>
                                 </div>
                               )}
                             </div>
                           </CardContent>
                         </Card>
+                      )}
 
-                        <div className="space-y-4 pt-4 border-t">
-                          <h4 className="font-semibold text-sm">Additional Manager Details (Optional)</h4>
-
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="managerFullName">Manager Full Name</Label>
-                              <Input
-                                id="managerFullName"
-                                placeholder="Override default name"
-                                value={formData.managerFullName}
-                                onChange={(e) => setFormData({ ...formData, managerFullName: e.target.value })}
-                                disabled={loading}
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="managerTaxId">Manager Tax ID</Label>
-                              <Input
-                                id="managerTaxId"
-                                placeholder="e.g., TIN123456"
-                                value={formData.managerTaxId}
-                                onChange={(e) => setFormData({ ...formData, managerTaxId: e.target.value })}
-                                disabled={loading}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="managerEmail">Manager Email</Label>
-                              <Input
-                                id="managerEmail"
-                                type="email"
-                                placeholder="Override default email"
-                                value={formData.managerEmail}
-                                onChange={(e) => setFormData({ ...formData, managerEmail: e.target.value })}
-                                disabled={loading}
-                              />
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor="managerPhone">Manager Phone</Label>
-                              <Input
-                                id="managerPhone"
-                                placeholder="Override default phone"
-                                value={formData.managerPhone}
-                                onChange={(e) => setFormData({ ...formData, managerPhone: e.target.value })}
-                                disabled={loading}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor="managementStartDate">Management Start Date</Label>
-                            <Input
-                              id="managementStartDate"
-                              type="date"
-                              value={formData.managementStartDate}
-                              onChange={(e) => setFormData({ ...formData, managementStartDate: e.target.value })}
-                              disabled={loading}
-                            />
-                          </div>
+                      {taxpayerSearch.length < 2 && !selectedTaxpayer && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>Start typing to search for property owners</p>
+                          <p className="text-sm mt-2">Enter at least 2 characters to begin searching</p>
                         </div>
-                      </>
-                    )}
+                      )}
+                    </>
+                  )}
 
-                    {managerSearch.length < 2 && !selectedManager && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p>Start typing to search for property managers</p>
-                        <p className="text-sm mt-2">Enter at least 2 characters to begin searching</p>
+                  {/* Manager Search */}
+                  {formData.registrationType === "manager" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="managerSearch">
+                          Search Property Manager <span className="text-destructive">*</span>
+                        </Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="managerSearch"
+                            placeholder="Search by name or email..."
+                            value={managerSearch}
+                            onChange={(e) => setManagerSearch(e.target.value)}
+                            disabled={loading}
+                            className="pl-9"
+                          />
+                        </div>
+                      </div>
+
+                      {searchingManagers && (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      )}
+
+                      {!searchingManagers && managers.length > 0 && !selectedManager && (
+                        <div className="space-y-2 max-h-64 overflow-y-auto border rounded-md p-2">
+                          {managers.map((manager) => (
+                            <Card
+                              key={manager.id}
+                              className="cursor-pointer hover:bg-accent transition-colors"
+                              onClick={() => setSelectedManager(manager)}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="font-medium">
+                                      {manager.first_name} {manager.last_name}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">{manager.email}</div>
+                                  </div>
+                                  <Badge variant="outline">Select</Badge>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+
+                      {!searchingManagers && managerSearch.length >= 2 && managers.length === 0 && !selectedManager && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No managers found matching your search.</p>
+                          <p className="text-sm mt-2">Try searching with a different name or email.</p>
+                        </div>
+                      )}
+
+                      {selectedManager && (
+                        <>
+                          <Card className="border-primary">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between mb-3">
+                                <h4 className="font-semibold">Selected Manager</h4>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedManager(null)}
+                                  disabled={loading}
+                                >
+                                  Change
+                                </Button>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">
+                                    {selectedManager.first_name} {selectedManager.last_name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Mail className="h-4 w-4 text-muted-foreground" />
+                                  <span>{selectedManager.email}</span>
+                                </div>
+                                {selectedManager.phone_number && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Phone className="h-4 w-4 text-muted-foreground" />
+                                    <span>{selectedManager.phone_number}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          <div className="space-y-4 pt-4 border-t">
+                            <h4 className="font-semibold text-sm">Additional Manager Details (Optional)</h4>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <Label htmlFor="managerFullName">Manager Full Name</Label>
+                                <Input
+                                  id="managerFullName"
+                                  placeholder="Override default name"
+                                  value={formData.managerFullName}
+                                  onChange={(e) => setFormData({ ...formData, managerFullName: e.target.value })}
+                                  disabled={loading}
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor="managerTaxId">Manager Tax ID</Label>
+                                <Input
+                                  id="managerTaxId"
+                                  placeholder="e.g., TIN123456"
+                                  value={formData.managerTaxId}
+                                  onChange={(e) => setFormData({ ...formData, managerTaxId: e.target.value })}
+                                  disabled={loading}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <Label htmlFor="managerEmail">Manager Email</Label>
+                                <Input
+                                  id="managerEmail"
+                                  type="email"
+                                  placeholder="Override default email"
+                                  value={formData.managerEmail}
+                                  onChange={(e) => setFormData({ ...formData, managerEmail: e.target.value })}
+                                  disabled={loading}
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor="managerPhone">Manager Phone</Label>
+                                <Input
+                                  id="managerPhone"
+                                  placeholder="Override default phone"
+                                  value={formData.managerPhone}
+                                  onChange={(e) => setFormData({ ...formData, managerPhone: e.target.value })}
+                                  disabled={loading}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="managementStartDate">Management Start Date</Label>
+                              <Input
+                                id="managementStartDate"
+                                type="date"
+                                value={formData.managementStartDate}
+                                onChange={(e) => setFormData({ ...formData, managementStartDate: e.target.value })}
+                                disabled={loading}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {managerSearch.length < 2 && !selectedManager && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>Start typing to search for property managers</p>
+                          <p className="text-sm mt-2">Enter at least 2 characters to begin searching</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </TabsContent>
+
+                {/* Images Tab */}
+                <TabsContent value="images" className="space-y-6 pt-4">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Property Images</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Upload photos of the property to help with verification
+                      </p>
+                    </div>
+
+                    <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                      <input
+                        id="image-input"
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                        className="hidden"
+                      />
+                      <label htmlFor="image-input" className="cursor-pointer block">
+                        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm font-medium">Click to upload or drag and drop</p>
+                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF up to 10MB each</p>
+                      </label>
+                    </div>
+
+                    {/* removed old image handling, replaced with type-specific rendering */}
+                    {/* Property Facade Image */}
+                    <div className="space-y-2">
+                      <Label htmlFor="facade-input">
+                        Property Facade Image <span className="text-destructive">*</span>
+                      </Label>
+                      <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageUpload(e, "facade")}
+                          disabled={uploading}
+                          className="hidden"
+                          id="facade-input"
+                        />
+                        <label htmlFor="facade-input" className="cursor-pointer block">
+                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                          <p className="text-sm font-medium">Click to upload or drag and drop</p>
+                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF up to 10MB</p>
+                        </label>
+                      </div>
+                      {propertyFacadeImage && (
+                        <div className="mt-4 relative inline-block">
+                          <img
+                            src={propertyFacadeImage.url || "/placeholder.svg"}
+                            alt="Property Facade"
+                            className="h-32 w-auto object-cover rounded-lg border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage("facade")}
+                            className="absolute top-1 right-1 bg-red-500/90 hover:bg-red-600 text-white p-1 rounded"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <p className="text-xs text-muted-foreground mt-2 truncate">{propertyFacadeImage.name}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Address Number Image */}
+                    <div className="space-y-2">
+                      <Label htmlFor="address-input">
+                        Address Number Image <span className="text-destructive">*</span>
+                      </Label>
+                      <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageUpload(e, "address")}
+                          disabled={uploading}
+                          className="hidden"
+                          id="address-input"
+                        />
+                        <label htmlFor="address-input" className="cursor-pointer block">
+                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                          <p className="text-sm font-medium">Click to upload or drag and drop</p>
+                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF up to 10MB</p>
+                        </label>
+                      </div>
+                      {addressNumberImage && (
+                        <div className="mt-4 relative inline-block">
+                          <img
+                            src={addressNumberImage.url || "/placeholder.svg"}
+                            alt="Address Number"
+                            className="h-32 w-auto object-cover rounded-lg border"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage("address")}
+                            className="absolute top-1 right-1 bg-red-500/90 hover:bg-red-600 text-white p-1 rounded"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <p className="text-xs text-muted-foreground mt-2 truncate">{addressNumberImage.name}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            )}
+
+            {/* new step for image upload */}
+            {currentStep === 4 && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Upload Property Images</h3>
+
+                  {/* Property Facade Image */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium mb-2">Property Facade Image *</label>
+                    <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageUpload(e, "facade")}
+                        disabled={uploading}
+                        className="hidden"
+                        id="facade-input"
+                      />
+                      <label htmlFor="facade-input" className="cursor-pointer block">
+                        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm font-medium">Click to upload or drag and drop</p>
+                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF up to 10MB</p>
+                      </label>
+                    </div>
+
+                    {propertyFacadeImage && (
+                      <div className="mt-4 relative inline-block">
+                        <img
+                          src={propertyFacadeImage.url || "/placeholder.svg"}
+                          alt="Property Facade"
+                          className="h-32 w-auto object-cover rounded-lg border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage("facade")}
+                          className="absolute top-1 right-1 bg-red-500/90 hover:bg-red-600 text-white p-1 rounded"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                        <p className="text-xs text-muted-foreground mt-2 truncate">{propertyFacadeImage.name}</p>
                       </div>
                     )}
-                  </>
-                )}
+                  </div>
+
+                  {/* Address Number Image */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Address Number Image *</label>
+                    <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageUpload(e, "address")}
+                        disabled={uploading}
+                        className="hidden"
+                        id="address-input"
+                      />
+                      <label htmlFor="address-input" className="cursor-pointer block">
+                        <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm font-medium">Click to upload or drag and drop</p>
+                        <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF up to 10MB</p>
+                      </label>
+                    </div>
+
+                    {addressNumberImage && (
+                      <div className="mt-4 relative inline-block">
+                        <img
+                          src={addressNumberImage.url || "/placeholder.svg"}
+                          alt="Address Number"
+                          className="h-32 w-auto object-cover rounded-lg border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage("address")}
+                          className="absolute top-1 right-1 bg-red-500/90 hover:bg-red-600 text-white p-1 rounded"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                        <p className="text-xs text-muted-foreground mt-2 truncate">{addressNumberImage.name}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
             <DialogFooter>
-              {currentStep === 1 ? (
+              {/* step logic adjusted for new step 4 */}
+              {currentStep < 4 ? (
                 <>
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-                    Cancel
-                  </Button>
-                  <Button type="button" onClick={handleNextFromStep1} disabled={loading}>
-                    Next
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </>
-              ) : currentStep === 2 ? (
-                <>
-                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading}>
-                    <ChevronLeft className="mr-2 h-4 w-4" />
-                    Back
-                  </Button>
-                  <Button type="button" onClick={handleNextFromStep2} disabled={loading}>
+                  {currentStep > 1 && (
+                    <Button type="button" variant="outline" onClick={handleBack} disabled={loading}>
+                      <ChevronLeft className="mr-2 h-4 w-4" />
+                      Back
+                    </Button>
+                  )}
+                  {currentStep === 1 && (
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                      Cancel
+                    </Button>
+                  )}
+                  <Button type="button" onClick={handleSubmit} disabled={loading || !validateStep(currentStep)}>
                     Next
                     <ChevronRight className="ml-2 h-4 w-4" />
                   </Button>
                 </>
               ) : (
+                // This is for the final step (Step 4)
                 <>
                   <Button type="button" variant="outline" onClick={handleBack} disabled={loading}>
                     <ChevronLeft className="mr-2 h-4 w-4" />
                     Back
                   </Button>
                   <Button
-                    type="submit"
+                    onClick={handleSubmit}
                     disabled={
-                      loading ||
-                      (formData.registrationType === "owner" && !selectedTaxpayer) ||
-                      (formData.registrationType === "manager" && !selectedManager)
+                      loading || uploading || !validateImages() // ensure images are validated before final submission
                     }
                   >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Property
+                    {loading ? "Creating..." : "Create Property"}
                   </Button>
                 </>
               )}

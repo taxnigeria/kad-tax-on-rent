@@ -408,8 +408,12 @@ export default function AdminPropertiesPage() {
                       </TableRow>
                     ) : (
                       paginatedProperties.map((property) => (
-                        <TableRow key={property.id}>
-                          <TableCell>
+                        <TableRow
+                          key={property.id}
+                          onClick={() => handleViewDetails(property.id)}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={selectedProperties.includes(property.id)}
                               onCheckedChange={(checked) => handleSelectProperty(property.id, checked as boolean)}
@@ -465,10 +469,7 @@ export default function AdminPropertiesPage() {
                           <TableCell className="text-sm text-muted-foreground">
                             {new Date(property.created_at).toLocaleDateString()}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" onClick={() => handleViewDetails(property.id)}>
-                              View
-                            </Button>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="sm" onClick={() => handleEditProperty(property)}>
                               <Pencil className="h-4 w-4" />
                               Edit
