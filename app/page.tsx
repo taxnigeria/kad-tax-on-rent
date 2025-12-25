@@ -828,9 +828,9 @@ export default function LandingPage() {
               <h4 className="font-bold text-gray-900 mb-6">Legal</h4>
               <ul className="space-y-4 text-gray-500">
                 <li>
-                  <a href="#" className="hover:text-emerald-700 transition-colors">
+                  <Link href="/privacy" className="hover:text-emerald-700 transition-colors">
                     Privacy Policy
-                  </a>
+                  </Link>
                 </li>
                 <li>
                   <a href="#" className="hover:text-emerald-700 transition-colors">
