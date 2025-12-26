@@ -3,272 +3,140 @@ import { ArrowLeft } from "lucide-react"
 
 export const metadata = {
   title: "Privacy Policy | Kad Tax on Rent",
-  description: "Privacy Policy for Kad Tax on Rent - KADIRS Authorized Compliance Platform",
+  description: "Privacy Policy for Kad Tax on Rent - Learn how we protect your data",
 }
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#F0FDF4] text-emerald-950 antialiased">
+    <main className="min-h-screen bg-white">
       {/* Header */}
-      <header className="fixed w-full z-50 top-0 border-b border-emerald-100 bg-[#F0FDF4]/90 backdrop-blur-md">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <ArrowLeft className="w-5 h-5 text-emerald-800" strokeWidth={1.5} />
-            <span className="text-sm font-medium text-emerald-800">Back to Home</span>
-          </Link>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="pt-24 pb-16">
+      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-200 py-12">
         <div className="max-w-4xl mx-auto px-6">
-          <div className="mb-12">
-            <h1 className="text-4xl lg:text-5xl font-medium tracking-tight text-emerald-950 mb-4">Privacy Policy</h1>
-            <p className="text-lg text-emerald-700/70">
-              Last updated: {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-            </p>
-          </div>
-
-          <article className="prose prose-emerald max-w-none space-y-8 text-emerald-900">
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">1. Introduction</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80">
-                Kad Tax on Rent ("Company", "we", "our", or "us") operates the website and application at
-                www.kadtaxonrent.com.ng (the "Service"). This Privacy Policy outlines our policies regarding the
-                collection, use, and disclosure of personal data when you use our Service and your associated legal
-                rights.
-              </p>
-              <p className="text-lg leading-relaxed text-emerald-800/80">
-                We are authorized compliance consultants for the KADIRS (Kaduna Internal Revenue Service) tax collection
-                platform. Your trust is important to us, and we are committed to protecting your privacy.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">2. Information Collection and Use</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80 mb-4">
-                We collect various types of information in connection with the services we provide, including:
-              </p>
-              <ul className="space-y-3 ml-6 text-lg text-emerald-800/80">
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>
-                    <strong>Personal Information:</strong> Name, email address, phone number, and physical address
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>
-                    <strong>Property Information:</strong> Details of properties you own or manage for tax purposes
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>
-                    <strong>Financial Information:</strong> Payment details and transaction history
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>
-                    <strong>Technical Data:</strong> IP address, browser type, pages visited, and usage patterns
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>
-                    <strong>Identity Documents:</strong> Government-issued IDs and verification documents as required by
-                    KADIRS
-                  </span>
-                </li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">3. Legal Basis for Processing</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80">We process your personal data based on:</p>
-              <ul className="space-y-3 ml-6 text-lg text-emerald-800/80">
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Your consent to process data for tax-related services</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Legal obligations under Nigerian tax law and KADIRS regulations</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Performance of the service agreement between you and the Company</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Our legitimate interests in maintaining platform security and preventing fraud</span>
-                </li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">4. Use of Information</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80 mb-4">
-                We use the information we collect for various purposes:
-              </p>
-              <ul className="space-y-3 ml-6 text-lg text-emerald-800/80">
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Processing and managing your tax payments and obligations</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Sending service-related announcements and updates</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Verifying your identity and preventing fraudulent activities</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Improving our Service and user experience</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Complying with legal and regulatory requirements</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Providing customer support and responding to inquiries</span>
-                </li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">5. Data Security</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80">
-                The security of your data is important to us, but no method of transmission over the Internet or
-                electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your
-                personal data, we cannot guarantee its absolute security. We implement industry-standard security
-                measures including encryption, secure authentication, and regular security audits.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">6. Sharing of Information</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80 mb-4">
-                We may share your information in the following circumstances:
-              </p>
-              <ul className="space-y-3 ml-6 text-lg text-emerald-800/80">
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>
-                    <strong>With KADIRS:</strong> As required for tax administration and compliance
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>
-                    <strong>With Service Providers:</strong> Third parties who assist in operating our platform and
-                    providing services
-                  </span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>
-                    <strong>Legal Requirements:</strong> When required by law or to protect our rights and safety
-                  </span>
-                </li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">7. Data Retention</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80">
-                We retain your personal data for as long as necessary to fulfill the purposes outlined in this Privacy
-                Policy or as required by applicable law. For tax-related information, we maintain records in accordance
-                with Nigerian tax regulations, which typically require retention for a minimum of seven (7) years.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">8. Your Rights</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80 mb-4">You have the right to:</p>
-              <ul className="space-y-3 ml-6 text-lg text-emerald-800/80">
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Access your personal data we hold</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Correct inaccurate data</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Request deletion of data (subject to legal obligations)</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Restrict processing of your data</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="text-emerald-600 font-bold">•</span>
-                  <span>Receive a copy of your data in a portable format</span>
-                </li>
-              </ul>
-              <p className="text-lg leading-relaxed text-emerald-800/80 mt-4">
-                To exercise these rights, please contact us using the details provided in Section 10.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">9. Cookies and Tracking Technologies</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80">
-                We use cookies and similar tracking technologies to enhance your experience on our platform. These
-                include session cookies (which expire when you close your browser) and persistent cookies (which remain
-                on your device). You can control cookie preferences through your browser settings.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">10. Contact Us</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80 mb-4">
-                If you have questions about this Privacy Policy or our privacy practices, please contact us at:
-              </p>
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-6 space-y-3 text-lg">
-                <p>
-                  <strong className="text-emerald-950">Email:</strong>{" "}
-                  <a href="mailto:privacy@kadtaxonrent.com.ng" className="text-emerald-600 hover:underline">
-                    privacy@kadtaxonrent.com.ng
-                  </a>
-                </p>
-                <p>
-                  <strong className="text-emerald-950">Phone:</strong>{" "}
-                  <a href="tel:+2348123456789" className="text-emerald-600 hover:underline">
-                    +234 (0) 812 345 6789
-                  </a>
-                </p>
-                <p>
-                  <strong className="text-emerald-950">Address:</strong> Kaduna, Nigeria
-                </p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-emerald-950 mb-4">11. Changes to This Privacy Policy</h2>
-              <p className="text-lg leading-relaxed text-emerald-800/80">
-                We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new
-                Privacy Policy on this page and updating the "Last updated" date at the top of this policy. Your
-                continued use of the Service following the posting of revised Privacy Policy means that you accept and
-                agree to the changes.
-              </p>
-            </section>
-
-            <section className="pt-8 border-t border-emerald-200">
-              <p className="text-sm text-emerald-600/80">
-                © 2025 Kad Tax on Rent. All rights reserved. This website is operated by KADIRS Authorized Compliance
-                Consultants.
-              </p>
-            </section>
-          </article>
+          <Link href="/" className="inline-flex items-center gap-2 text-emerald-700 hover:text-emerald-800 mb-6">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </Link>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Privacy Policy</h1>
+          <p className="text-gray-600">Last updated: {new Date().toLocaleDateString()}</p>
         </div>
-      </main>
-    </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-4xl mx-auto px-6 py-16">
+        <div className="prose prose-sm max-w-none space-y-8">
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Introduction</h2>
+            <p className="text-gray-700 leading-relaxed">
+              Kad Tax on Rent ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy
+              explains how we collect, use, disclose, and safeguard your information when you visit our website and use
+              our services in connection with the Kaduna State Internal Revenue Service (KADIRS).
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">2. Information We Collect</h2>
+            <p className="text-gray-700 leading-relaxed mb-4">We collect information in the following ways:</p>
+            <ul className="list-disc list-inside space-y-2 text-gray-700">
+              <li>
+                <strong>Account Information:</strong> Name, email address, phone number, and property details when you
+                create an account
+              </li>
+              <li>
+                <strong>Property Data:</strong> Information about rental properties including addresses, images, and tax
+                calculations
+              </li>
+              <li>
+                <strong>Usage Data:</strong> Pages visited, time spent, and interactions with our platform
+              </li>
+              <li>
+                <strong>Device Information:</strong> IP address, browser type, operating system, and device identifiers
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">3. How We Use Your Information</h2>
+            <p className="text-gray-700 leading-relaxed mb-4">We use the information we collect to:</p>
+            <ul className="list-disc list-inside space-y-2 text-gray-700">
+              <li>Provide and maintain our tax calculation and property management services</li>
+              <li>Process rental withholding tax submissions to KADIRS</li>
+              <li>Generate tax invoices and compliance documents</li>
+              <li>Communicate important updates and service notifications</li>
+              <li>Improve our platform and user experience</li>
+              <li>Comply with legal and regulatory requirements</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">4. Data Security</h2>
+            <p className="text-gray-700 leading-relaxed">
+              We implement industry-standard security measures including encryption, secure authentication, and regular
+              security audits to protect your personal information from unauthorized access, alteration, or disclosure.
+              Your data is stored securely and access is restricted to authorized personnel only.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">5. Data Retention</h2>
+            <p className="text-gray-700 leading-relaxed">
+              We retain your information for as long as necessary to provide our services and comply with legal
+              obligations. Tax records are maintained in accordance with Nigerian tax regulations and KADIRS
+              requirements.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">6. Your Privacy Rights</h2>
+            <p className="text-gray-700 leading-relaxed mb-4">You have the right to:</p>
+            <ul className="list-disc list-inside space-y-2 text-gray-700">
+              <li>Access your personal data</li>
+              <li>Request correction of inaccurate data</li>
+              <li>Request deletion of your data (where applicable)</li>
+              <li>Object to processing of your information</li>
+              <li>Withdraw consent at any time</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">7. Third-Party Sharing</h2>
+            <p className="text-gray-700 leading-relaxed">
+              We share your information with KADIRS as required for tax compliance and regulatory purposes. We do not
+              sell, rent, or share your personal information with unauthorized third parties. Service providers under
+              confidentiality agreements may assist us, but they are prohibited from using your data for any other
+              purpose.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">8. Cookies and Tracking</h2>
+            <p className="text-gray-700 leading-relaxed">
+              We use cookies and similar tracking technologies to enhance your experience. You can control cookie
+              settings through your browser preferences. Some features may not function properly if cookies are
+              disabled.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">9. Contact Us</h2>
+            <p className="text-gray-700 leading-relaxed">
+              If you have questions about this Privacy Policy or our privacy practices, please contact us at:
+            </p>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mt-4 text-sm">
+              <p className="font-semibold text-gray-900 mb-2">Kad Tax on Rent</p>
+              <p className="text-gray-700">Email: support@kadtaxonrent.com.ng</p>
+              <p className="text-gray-700">Address: KADIRS Head Office, Independence Way, Kaduna</p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">10. Policy Updates</h2>
+            <p className="text-gray-700 leading-relaxed">
+              We may update this Privacy Policy periodically to reflect changes in our practices or applicable laws. We
+              will notify you of significant changes by updating the date at the top of this page.
+            </p>
+          </section>
+        </div>
+      </div>
+    </main>
   )
 }
