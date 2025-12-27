@@ -4,6 +4,7 @@ import "./globals.css"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Suspense } from "react"
 import { Toaster } from "@/components/ui/sonner"
+import { ThemeProvider } from "@/components/theme-provider"
 
 import { Inter, JetBrains_Mono, Source_Serif_4 as V0_Font_Source_Serif_4 } from "next/font/google"
 
@@ -40,17 +41,19 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <body className={`font-sans antialiased ${_sourceSerif_4.variable}`}>
-        <AuthProvider>
-          <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
-          <Toaster
-            richColors
-            position="top-right"
-            closeButton // enable close button on toasts
-            expand // enable stacking of toasts
-          />
-        </AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <AuthProvider>
+            <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+            <Toaster
+              richColors
+              position="top-right"
+              closeButton // enable close button on toasts
+              expand // enable stacking of toasts
+            />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

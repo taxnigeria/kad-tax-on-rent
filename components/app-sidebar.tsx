@@ -11,14 +11,10 @@ import {
   Calculator,
   BarChart3,
   Shield,
-  Settings,
-  HelpCircle,
-  LogOut,
   MapPin,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -200,26 +196,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ],
       },
     ],
-    navSecondary: [
-      {
-        title: "Settings",
-        url: "/admin/settings",
-        icon: Settings,
-        isActive: pathname?.startsWith("/admin/settings"),
-      },
-      {
-        title: "Help & Support",
-        url: "/dashboard/help",
-        icon: HelpCircle,
-      },
-      {
-        title: "Log out",
-        url: "#",
-        icon: LogOut,
-        isActive: false,
-        onClick: "logout",
-      },
-    ],
   }
 
   return (
@@ -243,7 +219,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} pathname={pathname} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" pathname={pathname} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser
