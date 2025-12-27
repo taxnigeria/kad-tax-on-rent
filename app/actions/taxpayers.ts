@@ -17,7 +17,7 @@ export type TaxpayerWithProfile = {
   created_at: string
   updated_at: string
   last_login: string | null
-  taxpayer_profiles: Array<{
+  taxpayer_profiles: {
     id: string
     kadirs_id: string | null
     tax_id_or_nin: string | null
@@ -50,7 +50,7 @@ export type TaxpayerWithProfile = {
     business_registration_date: string | null
     management_license_number: string | null
     years_of_experience: number | null
-  }>
+  } | null
   property_count?: number
   invoice_count?: number
   total_tax_owed?: number

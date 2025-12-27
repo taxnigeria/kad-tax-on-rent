@@ -134,16 +134,16 @@ export default function AdminTaxpayersPage() {
 
   function handleEditTaxpayer(taxpayer: TaxpayerWithProfile) {
     setEditingTaxpayer({
-      id: taxpayer.taxpayer_profiles?.[0]?.id,
+      id: taxpayer.taxpayer_profiles?.id,
       user_id: taxpayer.id,
-      kadirs_id: taxpayer.taxpayer_profiles?.[0]?.kadirs_id,
+      kadirs_id: taxpayer.taxpayer_profiles?.kadirs_id,
       first_name: taxpayer.first_name,
       last_name: taxpayer.last_name,
       middle_name: taxpayer.middle_name,
       email: taxpayer.email,
       phone_number: taxpayer.phone_number,
       is_active: taxpayer.is_active,
-      ...taxpayer.taxpayer_profiles?.[0],
+      ...taxpayer.taxpayer_profiles,
     })
     setEditModalOpen(true)
   }
@@ -366,15 +366,15 @@ export default function AdminTaxpayersPage() {
                             />
                           </TableCell>
                           <TableCell className="font-mono text-sm">
-                            {taxpayer.taxpayer_profiles?.[0]?.kadirs_id || "—"}
+                            {taxpayer.taxpayer_profiles?.kadirs_id || "—"}
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">
                               {taxpayer.first_name} {taxpayer.middle_name} {taxpayer.last_name}
                             </div>
-                            {taxpayer.taxpayer_profiles?.[0]?.business_name && (
+                            {taxpayer.taxpayer_profiles?.business_name && (
                               <div className="text-xs text-muted-foreground">
-                                {taxpayer.taxpayer_profiles?.[0]?.business_name}
+                                {taxpayer.taxpayer_profiles?.business_name}
                               </div>
                             )}
                           </TableCell>
