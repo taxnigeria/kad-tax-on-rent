@@ -294,9 +294,7 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">KADIRS ID</div>
-                    <div className="font-mono">
-                      {property.users?.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}
-                    </div>
+                    <div className="font-mono">{property.users?.taxpayer_profiles?.kadirs_id || "No KADIRS ID"}</div>
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">Email</div>

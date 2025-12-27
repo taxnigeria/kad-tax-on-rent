@@ -96,7 +96,7 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
 
       setTaxpayerData(userData)
 
-      const profile = userData.taxpayer_profiles?.[0] || userData.taxpayer_profiles
+      const profile = userData.taxpayer_profiles
 
       // Load LGAs and industries
       const [lgasResult, industriesResult] = await Promise.all([
@@ -169,8 +169,7 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
         }
       }
 
-      // Update or insert taxpayer profile
-      const profile = taxpayerData.taxpayer_profiles?.[0] || taxpayerData.taxpayer_profiles
+      const profile = taxpayerData.taxpayer_profiles
 
       const profileUpdates = {
         user_id: taxpayerId,

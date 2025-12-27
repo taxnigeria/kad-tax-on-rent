@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -29,12 +30,11 @@ import {
   Upload,
   X,
 } from "lucide-react"
-import { createBrowserClient } from "@supabase/ssr"
+import { createClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useToast } from "@/components/ui/use-toast" // re-enable useToast hook
 import { put } from "@vercel/blob"
 
 type AddPropertyModalProps = {
@@ -84,7 +84,8 @@ type AreaOffice = {
 }
 
 export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyModalProps) {
-  const { toast } = useToast() // re-enable useToast hook
+  const router = useRouter()
+  const { toast } = toast // use toast from sonner
 
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -149,18 +150,14 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
   const [selectedManager, setSelectedManager] = useState<PropertyManager | null>(null)
   const [defaultState, setDefaultState] = useState("Kaduna")
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  const supabase = createClient()
 
   useEffect(() => {
     async function fetchData() {
-      const supabaseClient = supabase
       const [citiesRes, lgasRes, areaOfficesRes] = await Promise.all([
-        supabaseClient.from("cities").select("id, name, lga_id, area_office_id").order("name"),
-        supabaseClient.from("lgas").select("id, name").order("name"),
-        supabaseClient.from("area_offices").select("id, office_name, office_code, lga_id").order("office_name"),
+        supabase.from("cities").select("id, name, lga_id, area_office_id").order("name"),
+        supabase.from("lgas").select("id, name").order("name"),
+        supabase.from("area_offices").select("id, office_name, office_code, lga_id").order("office_name"),
       ])
 
       if (citiesRes.data) setCities(citiesRes.data)
@@ -179,7 +176,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
         .from("system_settings")
         .select("setting_value")
         .eq("setting_key", "default_state")
-        .maybeSingle() // Use maybeSingle for potentially missing data
+        .maybeSingle()
 
       if (!error && data) {
         const state = data.setting_value as string
@@ -237,7 +234,12 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
         console.error("Error searching taxpayers:", error)
         setTaxpayers([])
       } else {
-        setTaxpayers((data as any) || [])
+        // Ensure taxpayer_profiles is an array and handle cases where it might be null or empty
+        const processedData = (data || []).map((taxpayer: any) => ({
+          ...taxpayer,
+          taxpayer_profiles: taxpayer.taxpayer_profiles || [],
+        }))
+        setTaxpayers(processedData)
       }
     } catch (error) {
       console.error("Error in searchTaxpayers:", error)
@@ -370,10 +372,12 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
 
   // Updated handleImageUpload to use Vercel Blob and accept different image types
   async function handleImageUpload(file: File, imageType: "facade" | "address" | "other", documentName?: string) {
+    setUploading(true) // Set uploading state at the beginning
     try {
       const fileExt = file.name.split(".").pop()
       const fileName = `${Date.now()}-${Math.random()}.${fileExt}`
-      const filePath = `property-images/${formData.areaOfficeId || "temp"}/${imageType}/${fileName}`
+      // Use a more specific path for better organization
+      const filePath = `properties/${formData.areaOfficeId || "temp"}/${imageType}/${fileName}`
 
       const blob = await put(filePath, file, {
         access: "public",
@@ -383,7 +387,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
 
       const newImage = {
         url: blob.url,
-        name: documentName || file.name,
+        name: documentName || file.name, // Use provided name or original file name
       }
 
       if (imageType === "facade") {
@@ -393,20 +397,18 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
         setAddressNumberImage(newImage)
         setFormData((prev) => ({ ...prev, addressNumberImage: newImage }))
       } else if (imageType === "other") {
-        setOtherDocuments([...otherDocuments, newImage])
-        setFormData((prev) => ({ ...prev, otherDocuments: [...prev.otherDocuments, newImage] }))
+        const updatedOtherDocuments = [...otherDocuments, newImage]
+        setOtherDocuments(updatedOtherDocuments)
+        setFormData((prev) => ({ ...prev, otherDocuments: updatedOtherDocuments }))
       }
 
-      toast({
-        title: "Success",
+      toast.success("Upload Successful", {
         description: `${imageType === "facade" ? "Property facade" : imageType === "address" ? "Address number" : "Document"} uploaded successfully`,
       })
     } catch (uploadError) {
       console.error("[v0] Upload error:", uploadError)
-      toast({
-        title: "Error",
+      toast.error("Upload Failed", {
         description: "Failed to upload image. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setUploading(false) // Ensure uploading state is reset
@@ -534,7 +536,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
         address_number_image_url: formData.addressNumberImage?.url || null,
         address_number_image_name: formData.addressNumberImage?.name || null,
         // Include other documents in the submission
-        // other_documents: JSON.stringify(formData.otherDocuments) || null, // Assuming a JSON field in your DB for this
+        other_documents: formData.otherDocuments, // Assuming a JSON field in your DB for this
       }
 
       if (formData.registrationType === "owner") {
@@ -1009,6 +1011,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                                       {taxpayer.first_name} {taxpayer.last_name}
                                     </div>
                                     <div className="text-xs text-muted-foreground">{taxpayer.email}</div>
+                                    {/* Check if taxpayer_profiles exists and has elements before accessing kadirs_id */}
                                     {taxpayer.taxpayer_profiles?.[0]?.kadirs_id && (
                                       <div className="text-xs font-mono text-muted-foreground mt-1">
                                         KADIRS: {taxpayer.taxpayer_profiles[0].kadirs_id}
@@ -1055,6 +1058,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                                   {selectedTaxpayer.first_name} {selectedTaxpayer.last_name}
                                 </span>
                               </div>
+                              {/* Check if taxpayer_profiles exists and has elements before accessing kadirs_id */}
                               {selectedTaxpayer.taxpayer_profiles?.[0]?.kadirs_id && (
                                 <div className="flex items-center gap-2 text-sm">
                                   <IdCard className="h-4 w-4 text-muted-foreground" />

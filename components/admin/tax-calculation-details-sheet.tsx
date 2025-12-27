@@ -334,7 +334,7 @@ export default function TaxCalculationDetailsSheet({
                       {calculation.properties?.users?.first_name} {calculation.properties?.users?.last_name}
                     </div>
                     <div className="text-xs font-mono text-muted-foreground">
-                      {calculation.properties?.users?.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}
+                      {calculation.properties?.users?.taxpayer_profiles?.kadirs_id || "No KADIRS ID"}
                     </div>
                   </div>
                   <div className="space-y-1">

@@ -36,9 +36,9 @@ type Property = {
     first_name: string
     last_name: string
     email: string
-    taxpayer_profiles: Array<{
+    taxpayer_profiles: {
       kadirs_id: string
-    }>
+    }
   }
 }
 
@@ -138,7 +138,7 @@ export default function AdminPropertiesPage() {
           p.property_reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           p.users?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           p.users?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.users?.taxpayer_profiles?.[0]?.kadirs_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.users?.taxpayer_profiles?.kadirs_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           p.street_name?.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     }
@@ -427,7 +427,7 @@ export default function AdminPropertiesPage() {
                               {property.users?.first_name} {property.users?.last_name}
                             </div>
                             <div className="text-xs text-muted-foreground font-mono">
-                              {property.users?.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}
+                              {property.users?.taxpayer_profiles?.kadirs_id || "No KADIRS ID"}
                             </div>
                           </TableCell>
                           <TableCell>

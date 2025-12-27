@@ -365,7 +365,7 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">KADIRS ID</div>
-                    <div className="font-mono text-xs">{owner?.taxpayer_profiles?.[0]?.kadirs_id || "—"}</div>
+                    <div className="font-mono text-xs">{owner?.taxpayer_profiles?.kadirs_id || "—"}</div>
                   </div>
                 </div>
               </div>
