@@ -1,33 +1,81 @@
-import { initializeApp, getApps, cert, type App } from "firebase-admin/app"
-import { getAuth, type Auth } from "firebase-admin/auth"
-import { getFirestore, type Firestore } from "firebase-admin/firestore"
+let adminApp: any = null
+let adminAuth: any = null
+let adminFirestore: any = null
+let firebaseAdminAvailable = true
+let initializationAttempted = false
 
-let adminApp: App | null = null
-let adminAuth: Auth | null = null
-let adminFirestore: Firestore | null = null
-
-function getFirebaseAdmin() {
+async function getFirebaseAdmin() {
   if (adminApp && adminAuth && adminFirestore) {
     return { app: adminApp, auth: adminAuth, firestore: adminFirestore }
+  }
+
+  if (initializationAttempted && !firebaseAdminAvailable) {
+    return { app: null, auth: null, firestore: null }
+  }
+
+  initializationAttempted = true
+
+  if (typeof window !== "undefined") {
+    console.warn("[Firebase Admin] Cannot run in browser environment")
+    firebaseAdminAvailable = false
+    return { app: null, auth: null, firestore: null }
   }
 
   // Check if we have the required environment variables
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n")
+  const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY
 
-  if (!projectId || !clientEmail || !privateKey) {
-    console.warn("[Firebase Admin] Missing credentials - some features will be unavailable")
+  if (!projectId || typeof projectId !== "string") {
+    console.warn("[Firebase Admin] Missing or invalid NEXT_PUBLIC_FIREBASE_PROJECT_ID")
+    firebaseAdminAvailable = false
+    return { app: null, auth: null, firestore: null }
+  }
+
+  if (!clientEmail || typeof clientEmail !== "string") {
+    console.warn("[Firebase Admin] Missing or invalid FIREBASE_CLIENT_EMAIL")
+    firebaseAdminAvailable = false
+    return { app: null, auth: null, firestore: null }
+  }
+
+  if (!privateKeyRaw || typeof privateKeyRaw !== "string") {
+    console.warn("[Firebase Admin] Missing or invalid FIREBASE_PRIVATE_KEY")
+    firebaseAdminAvailable = false
+    return { app: null, auth: null, firestore: null }
+  }
+
+  let privateKey = privateKeyRaw
+  try {
+    // If it looks like JSON, try to parse it
+    if (privateKeyRaw.startsWith("{") || privateKeyRaw.startsWith('"')) {
+      privateKey = JSON.parse(privateKeyRaw)
+    }
+    // Convert escaped newlines to actual newlines
+    if (typeof privateKey === "string") {
+      privateKey = privateKey.replace(/\\n/g, "\n")
+    }
+  } catch {
+    // If JSON parsing fails, just use the raw value with newline replacement
+    privateKey = privateKeyRaw.replace(/\\n/g, "\n")
+  }
+
+  if (typeof privateKey !== "string") {
+    console.warn("[Firebase Admin] FIREBASE_PRIVATE_KEY is not a valid string")
+    firebaseAdminAvailable = false
     return { app: null, auth: null, firestore: null }
   }
 
   try {
+    const { initializeApp, getApps, cert } = await import("firebase-admin/app")
+    const { getAuth } = await import("firebase-admin/auth")
+    const { getFirestore } = await import("firebase-admin/firestore")
+
     if (getApps().length === 0) {
       adminApp = initializeApp({
         credential: cert({
-          projectId,
-          clientEmail,
-          privateKey,
+          projectId: projectId.trim(),
+          clientEmail: clientEmail.trim(),
+          privateKey: privateKey.trim(),
         }),
       })
     } else {
@@ -36,8 +84,10 @@ function getFirebaseAdmin() {
     adminAuth = getAuth(adminApp)
     adminFirestore = getFirestore(adminApp)
     return { app: adminApp, auth: adminAuth, firestore: adminFirestore }
-  } catch (error) {
-    console.error("[Firebase Admin] Initialization error:", error)
+  } catch (error: any) {
+    const errorMessage = error?.message || String(error) || "Unknown error"
+    console.error("[Firebase Admin] Failed to initialize:", errorMessage)
+    firebaseAdminAvailable = false
     return { app: null, auth: null, firestore: null }
   }
 }
@@ -50,8 +100,13 @@ export interface FirestoreUserData {
 }
 
 export async function getFirestoreUserData(): Promise<Map<string, FirestoreUserData>> {
-  const { firestore } = getFirebaseAdmin()
   const usersMap = new Map<string, FirestoreUserData>()
+
+  if (!firebaseAdminAvailable) {
+    return usersMap
+  }
+
+  const { firestore } = await getFirebaseAdmin()
 
   if (!firestore) {
     return usersMap
@@ -59,7 +114,7 @@ export async function getFirestoreUserData(): Promise<Map<string, FirestoreUserD
 
   try {
     const usersSnapshot = await firestore.collection("users").get()
-    usersSnapshot.forEach((doc) => {
+    usersSnapshot.forEach((doc: any) => {
       const data = doc.data()
 
       // Display name: display_name OR firstname + lastname
@@ -100,7 +155,11 @@ export async function getFirestoreUserRoles(): Promise<Map<string, string | null
 }
 
 export async function listFirebaseUsers(maxResults = 1000) {
-  const { auth } = getFirebaseAdmin()
+  if (!firebaseAdminAvailable) {
+    return { users: [], error: "Firebase Admin not available in this environment" }
+  }
+
+  const { auth } = await getFirebaseAdmin()
 
   if (!auth) {
     return { users: [], error: "Firebase Admin not configured" }
@@ -109,7 +168,7 @@ export async function listFirebaseUsers(maxResults = 1000) {
   try {
     const listResult = await auth.listUsers(maxResults)
     return {
-      users: listResult.users.map((user) => ({
+      users: listResult.users.map((user: any) => ({
         uid: user.uid,
         email: user.email || null,
         emailVerified: user.emailVerified,
@@ -130,7 +189,11 @@ export async function listFirebaseUsers(maxResults = 1000) {
 }
 
 export async function getFirebaseUser(uid: string) {
-  const { auth } = getFirebaseAdmin()
+  if (!firebaseAdminAvailable) {
+    return { user: null, error: "Firebase Admin not available in this environment" }
+  }
+
+  const { auth } = await getFirebaseAdmin()
 
   if (!auth) {
     return { user: null, error: "Firebase Admin not configured" }
@@ -160,7 +223,11 @@ export async function getFirebaseUser(uid: string) {
 }
 
 export async function deleteFirebaseUser(uid: string) {
-  const { auth } = getFirebaseAdmin()
+  if (!firebaseAdminAvailable) {
+    return { success: false, error: "Firebase Admin not available in this environment" }
+  }
+
+  const { auth } = await getFirebaseAdmin()
 
   if (!auth) {
     return { success: false, error: "Firebase Admin not configured" }
@@ -176,7 +243,11 @@ export async function deleteFirebaseUser(uid: string) {
 }
 
 export async function createFirebaseUser(email: string, password: string, displayName: string) {
-  const { auth } = getFirebaseAdmin()
+  if (!firebaseAdminAvailable) {
+    return { success: false, error: "Firebase Admin not available in this environment" }
+  }
+
+  const { auth } = await getFirebaseAdmin()
 
   if (!auth) {
     return { success: false, error: "Firebase Admin not configured" }
