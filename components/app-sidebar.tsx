@@ -41,12 +41,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Dashboard",
         url: "/admin",
         icon: LayoutDashboard,
-        isActive: true,
+        isActive: pathname === "/admin",
       },
       {
         title: "Taxpayers",
         url: "/admin/taxpayers",
         icon: Users,
+        isActive: pathname?.startsWith("/admin/taxpayers"),
         items: [
           {
             title: "All Taxpayers",
@@ -62,6 +63,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Properties",
         url: "/admin/properties",
         icon: Building2,
+        isActive: pathname?.startsWith("/admin/properties"),
         items: [
           {
             title: "All Properties",
@@ -81,6 +83,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Invoices",
         url: "/admin/invoices",
         icon: FileText,
+        isActive: pathname?.startsWith("/admin/invoices"),
         items: [
           {
             title: "All Invoices",
@@ -100,6 +103,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Payments",
         url: "/admin/payments",
         icon: CreditCard,
+        isActive: pathname?.startsWith("/admin/payments"),
         items: [
           {
             title: "All Payments",
@@ -119,6 +123,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Tax Calculations",
         url: "/admin/tax-calculations",
         icon: Calculator,
+        isActive: pathname?.startsWith("/admin/tax-calculations"),
         items: [
           {
             title: "All Calculations",
@@ -138,6 +143,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Reports",
         url: "/admin/reports",
         icon: BarChart3,
+        isActive: pathname?.startsWith("/admin/reports"),
         items: [
           {
             title: "Financial Reports",
@@ -157,6 +163,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Users & Roles",
         url: "/admin/users",
         icon: Shield,
+        isActive: pathname?.startsWith("/admin/users"),
         items: [
           {
             title: "Staff Users",
@@ -176,6 +183,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Locations",
         url: "/admin/locations",
         icon: MapPin,
+        isActive: pathname?.startsWith("/admin/locations"),
         items: [
           {
             title: "Area Offices",
@@ -197,6 +205,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Settings",
         url: "/admin/settings",
         icon: Settings,
+        isActive: pathname?.startsWith("/admin/settings"),
       },
       {
         title: "Help & Support",
