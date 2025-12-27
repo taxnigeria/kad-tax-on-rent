@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
+import { getAuthToken } from "@/app/actions/get-auth-token"
 
 interface GenerateKadirsIdModalProps {
   open: boolean
@@ -243,7 +244,8 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
       }
 
       const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
-      const authToken = process.env.NEXT_PUBLIC_N8N_WEBHOOK_AUTH_TOKEN
+
+      const authToken = await getAuthToken()
 
       if (!authToken) {
         throw new Error("KADIRS API authentication not configured")
@@ -253,7 +255,7 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: authToken,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(kadirsRequestBody),
       })
