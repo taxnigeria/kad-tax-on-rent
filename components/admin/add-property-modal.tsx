@@ -30,6 +30,7 @@ import {
   Upload,
   X,
 } from "lucide-react"
+import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -85,7 +86,6 @@ type AreaOffice = {
 
 export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyModalProps) {
   const router = useRouter()
-  const { toast } = toast // use toast from sonner
 
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
