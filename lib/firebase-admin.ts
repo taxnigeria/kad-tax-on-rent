@@ -26,6 +26,15 @@ async function getFirebaseAdmin() {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
   const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY
 
+  console.log("[Firebase Admin] Environment check:", {
+    hasProjectId: !!projectId,
+    hasClientEmail: !!clientEmail,
+    hasPrivateKey: !!privateKeyRaw,
+    projectIdType: typeof projectId,
+    clientEmailType: typeof clientEmail,
+    privateKeyType: typeof privateKeyRaw,
+  })
+
   if (!projectId || typeof projectId !== "string") {
     console.warn("[Firebase Admin] Missing or invalid NEXT_PUBLIC_FIREBASE_PROJECT_ID")
     firebaseAdminAvailable = false
@@ -244,13 +253,15 @@ export async function deleteFirebaseUser(uid: string) {
 
 export async function createFirebaseUser(email: string, password: string, displayName: string) {
   if (!firebaseAdminAvailable) {
-    return { success: false, error: "Firebase Admin not available in this environment" }
+    console.error("[Firebase Admin] Not available - check environment variables")
+    return { success: false, error: "Firebase Admin not available - check server logs", uid: null }
   }
 
   const { auth } = await getFirebaseAdmin()
 
   if (!auth) {
-    return { success: false, error: "Firebase Admin not configured" }
+    console.error("[Firebase Admin] Not configured - environment variables may be missing")
+    return { success: false, error: "Firebase Admin not configured - check environment variables", uid: null }
   }
 
   try {

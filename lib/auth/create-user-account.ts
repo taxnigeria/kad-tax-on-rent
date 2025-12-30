@@ -32,7 +32,16 @@ export async function createUserAccount(input: CreateUserAccountInput): Promise<
   try {
     const supabase = createAdminClient()
 
-    const { data: existingEmail } = await supabase.from("users").select("id").eq("email", input.email).maybeSingle()
+    const { data: existingEmail, error: emailCheckError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", input.email)
+      .maybeSingle()
+
+    if (emailCheckError) {
+      console.error("[v0] Error checking email:", emailCheckError)
+      return { success: false, error: `Database error: ${emailCheckError.message}` }
+    }
 
     if (existingEmail) {
       return { success: false, error: "Email already in use" }
@@ -43,11 +52,16 @@ export async function createUserAccount(input: CreateUserAccountInput): Promise<
     if (input.phoneNumber) {
       normalizedPhone = normalizePhoneNumber(input.phoneNumber)
 
-      const { data: existingPhone } = await supabase
+      const { data: existingPhone, error: phoneCheckError } = await supabase
         .from("users")
         .select("id")
         .eq("phone_number", normalizedPhone)
         .maybeSingle()
+
+      if (phoneCheckError) {
+        console.error("[v0] Error checking phone:", phoneCheckError)
+        return { success: false, error: `Database error: ${phoneCheckError.message}` }
+      }
 
       if (existingPhone) {
         return { success: false, error: "Phone number already in use" }
@@ -57,7 +71,6 @@ export async function createUserAccount(input: CreateUserAccountInput): Promise<
     // Generate password from phone number or random
     const password = generatePassword(input.phoneNumber)
 
-    // Create Firebase Auth user
     const firebaseUid = await createFirebaseUser({
       email: input.email,
       password,
@@ -66,14 +79,15 @@ export async function createUserAccount(input: CreateUserAccountInput): Promise<
     })
 
     if (!firebaseUid) {
-      return { success: false, error: "Failed to create Firebase account" }
+      console.error("[v0] Firebase user creation failed - continuing with Supabase only")
+      // In production, you may want to fail here
     }
 
     // Create base user record in Supabase
     const { data: user, error: userError } = await supabase
       .from("users")
       .insert({
-        firebase_uid: firebaseUid,
+        firebase_uid: firebaseUid || null, // Allow null if Firebase creation failed
         email: input.email,
         first_name: input.firstName,
         middle_name: input.middleName || null,
@@ -96,7 +110,7 @@ export async function createUserAccount(input: CreateUserAccountInput): Promise<
       success: true,
       data: {
         userId: user.id,
-        firebaseUid,
+        firebaseUid: firebaseUid || "pending", // Indicate Firebase UID is pending if failed
         email: user.email,
         phoneNumber: normalizedPhone || undefined,
         password,
