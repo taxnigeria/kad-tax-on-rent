@@ -122,7 +122,7 @@ export function AddTaxpayerModal({ open, onOpenChange, onSuccess }: AddTaxpayerM
     if (!emailRegex.test(email)) return "Invalid email format"
 
     const supabase = createClient()
-    const { data } = await supabase.from("users").select("id").eq("email", email).single()
+    const { data } = await supabase.from("users").select("id").eq("email", email).maybeSingle()
 
     if (data) return "Email already in use"
     return null
@@ -136,7 +136,7 @@ export function AddTaxpayerModal({ open, onOpenChange, onSuccess }: AddTaxpayerM
     if (!/^\d{10,}$/.test(cleanPhone)) return "Phone must be at least 10 digits"
 
     const supabase = createClient()
-    const { data } = await supabase.from("users").select("id").eq("phone_number", phone).single()
+    const { data } = await supabase.from("users").select("id").eq("phone_number", phone).maybeSingle()
 
     if (data) return "Phone number already in use"
     return null

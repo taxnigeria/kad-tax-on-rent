@@ -46,7 +46,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if phone already exists
-    const { data: existingUser } = await supabase.from("users").select("id").eq("phone_number", phoneNumber).single()
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("id")
+      .eq("phone_number", phoneNumber)
+      .maybeSingle()
 
     if (existingUser) {
       return NextResponse.json(
