@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createUserAccount } from "@/lib/auth/create-user-account"
+import { createUserProfile } from "@/lib/auth/create-user-profile"
 
 export type TaxpayerWithProfile = {
   id: string
@@ -205,192 +207,128 @@ export async function createTaxpayer(data: {
   yearsOfExperience?: string
 }) {
   try {
-    const supabase = createAdminClient()
-
-    const { data: existingEmail } = await supabase.from("users").select("id").eq("email", data.email).single()
-
-    if (existingEmail) {
-      return { success: false, error: "Email already in use" }
-    }
-
-    if (data.phoneNumber) {
-      let normalizedPhone = data.phoneNumber.trim()
-      if (!normalizedPhone.startsWith("+")) {
-        normalizedPhone = normalizedPhone.startsWith("0") ? `+234${normalizedPhone.slice(1)}` : `+234${normalizedPhone}`
-      }
-
-      const { data: existingPhone } = await supabase
-        .from("users")
-        .select("id")
-        .eq("phone_number", normalizedPhone)
-        .single()
-
-      if (existingPhone) {
-        return { success: false, error: "Phone number already in use" }
-      }
-    }
-
-    let password = ""
-    if (data.phoneNumber) {
-      let phoneDigits = data.phoneNumber.replace(/\D/g, "")
-      // Remove +234 prefix if present
-      if (phoneDigits.startsWith("234")) {
-        phoneDigits = "0" + phoneDigits.slice(3)
-      }
-      // Add leading 0 if not present
-      if (!phoneDigits.startsWith("0") && phoneDigits.length === 10) {
-        phoneDigits = "0" + phoneDigits
-      }
-      password = phoneDigits.slice(0, 11)
-    } else {
-      password = Math.random().toString(36).slice(-10)
-    }
-
-    const displayName = `${data.firstName} ${data.lastName}`
-
-    const firebaseResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/admin/create-firebase-user`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: data.email,
-        password,
-        displayName,
-        phoneNumber: data.phoneNumber,
-      }),
+    const accountResult = await createUserAccount({
+      firstName: data.firstName,
+      middleName: data.middleName,
+      lastName: data.lastName,
+      email: data.email,
+      phoneNumber: data.phoneNumber,
+      role: data.role,
     })
 
-    if (!firebaseResponse.ok) {
-      const errorData = await firebaseResponse.json()
-      return { success: false, error: `Failed to create Firebase account: ${errorData.error}` }
+    if (!accountResult.success) {
+      return { success: false, error: accountResult.error }
     }
 
-    const { uid: firebaseUid } = await firebaseResponse.json()
+    const { userId, password } = accountResult.data!
 
-    let normalizedPhone = data.phoneNumber || null
-    if (normalizedPhone) {
-      normalizedPhone = normalizedPhone.trim()
-      if (!normalizedPhone.startsWith("+")) {
-        normalizedPhone = normalizedPhone.startsWith("0") ? `+234${normalizedPhone.slice(1)}` : `+234${normalizedPhone}`
-      }
+    const profileResult = await createUserProfile("taxpayer", {
+      userId,
+      taxIdOrNin: data.taxIdOrNin,
+      tin: data.tin,
+      meansOfIdentification: data.meansOfIdentification,
+      identificationNumber: data.identificationNumber,
+      userType: data.userType,
+      gender: data.gender,
+      nationality: data.nationality,
+      dateOfBirth: data.dateOfBirth,
+      residentialAddress: data.residentialAddress,
+      isBusiness: data.isBusiness,
+      businessName: data.businessName,
+      businessType: data.businessType,
+      businessAddress: data.businessAddress,
+      profilePhotoUrl: data.profilePhotoUrl,
+      lgaId: data.lgaId,
+      areaOfficeId: data.areaOfficeId,
+      addressLine1: data.addressLine1,
+      rcNumber: data.rcNumber,
+      industryId: data.industryId,
+      businessRegistrationDate: data.businessRegistrationDate,
+      managementLicenseNumber: data.managementLicenseNumber,
+      yearsOfExperience: data.yearsOfExperience,
+    })
+
+    if (!profileResult.success) {
+      console.error("Error creating taxpayer profile:", profileResult.error)
+      return { success: false, error: profileResult.error }
     }
 
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .insert({
-        firebase_uid: firebaseUid,
-        email: data.email,
-        first_name: data.firstName,
-        middle_name: data.middleName || null,
-        last_name: data.lastName,
-        phone_number: normalizedPhone,
-        role: data.role,
-        is_active: true,
-        email_verified: false,
-      })
-      .select()
-      .single()
+    await triggerN8nPostCreationActions({
+      userId,
+      email: data.email,
+      phoneNumber: accountResult.data!.phoneNumber,
+      password,
+      name: `${data.firstName} ${data.lastName}`,
+      userType: "taxpayer",
+    })
 
-    if (userError) {
-      console.error("Error creating user:", userError)
-      return { success: false, error: userError.message }
+    return {
+      success: true,
+      data: {
+        user: { id: userId, email: data.email, role: data.role },
+        profile: profileResult.data,
+      },
     }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("taxpayer_profiles")
-      .insert({
-        user_id: user.id,
-        tax_id_or_nin: data.taxIdOrNin || null,
-        tin: data.tin || null,
-        means_of_identification: data.meansOfIdentification || null,
-        identification_number: data.identificationNumber || null,
-        user_type: data.userType || "Individual",
-        gender: data.gender || null,
-        nationality: data.nationality || null,
-        date_of_birth: data.dateOfBirth || null,
-        residential_address: data.residentialAddress || null,
-        is_business: data.isBusiness,
-        business_name: data.businessName || null,
-        business_type: data.businessType || null,
-        business_address: data.businessAddress || null,
-        profile_photo_url: data.profilePhotoUrl || null,
-        lga_id: data.lgaId || null,
-        area_office_id: data.areaOfficeId || null,
-        address_line1: data.addressLine1 || null,
-        rc_number: data.rcNumber || null,
-        industry_id: data.industryId ? Number.parseInt(data.industryId) : null,
-        business_registration_date: data.businessRegistrationDate || null,
-        management_license_number: data.managementLicenseNumber || null,
-        years_of_experience: data.yearsOfExperience ? Number.parseInt(data.yearsOfExperience) : null,
-      })
-      .select()
-      .single()
-
-    if (profileError) {
-      console.error("Error creating taxpayer profile:", profileError)
-      await supabase.from("users").delete().eq("id", user.id)
-      return { success: false, error: profileError.message }
-    }
-
-    if (normalizedPhone) {
-      await sendWhatsAppRegistrationAlert({
-        phoneNumber: normalizedPhone,
-        name: displayName,
-        email: data.email,
-        password,
-      })
-    }
-
-    return { success: true, data: { user, profile } }
   } catch (error: any) {
     console.error("Error in createTaxpayer:", error)
     return { success: false, error: error.message || "Failed to create taxpayer" }
   }
 }
 
-async function sendWhatsAppRegistrationAlert(data: {
-  phoneNumber: string
-  name: string
+/**
+ * Triggers n8n webhook for post-creation notifications and actions
+ * Handles WhatsApp alerts, emails, and other integrations
+ * Non-blocking - failures don't break the main creation flow
+ */
+async function triggerN8nPostCreationActions(data: {
+  userId: string
   email: string
+  phoneNumber?: string
   password: string
+  name: string
+  userType: string
 }) {
   try {
     const webhookUrl = process.env.N8N_WEBHOOK_URL
     const authToken = process.env.N8N_WEBHOOK_AUTH_TOKEN
 
-    if (!webhookUrl || !authToken) {
-      console.error("[v0] WhatsApp webhook not configured")
-      return { success: false, error: "WhatsApp webhook not configured" }
+    if (!webhookUrl) {
+      console.warn("[v0] N8N_WEBHOOK_URL not configured, skipping post-creation actions")
+      return
+    }
+
+    // Build headers - only include auth if token is configured
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    }
+
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`
     }
 
     const response = await fetch(webhookUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
-        action: "send_reg_info",
-        channel: "whatsapp",
-        phone_number: data.phoneNumber,
-        user_name: data.name,
+        action: "user_created",
+        userType: data.userType,
+        userId: data.userId,
         email: data.email,
+        phoneNumber: data.phoneNumber,
+        name: data.name,
         password: data.password,
-        message_template: `Welcome to KADIRS!\n\nYour account has been created.\n\nLogin Details:\nEmail: ${data.email}\nPassword: ${data.password}\n\nPlease login and change your password.`,
+        timestamp: new Date().toISOString(),
       }),
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error("[v0] WhatsApp webhook error:", errorText)
-      return { success: false, error: "Failed to send WhatsApp alert" }
+      console.warn("[v0] N8N webhook warning:", `Status ${response.status} - ${errorText}`)
+      // Don't throw - this is a non-blocking operation
     }
-
-    return { success: true }
   } catch (error: any) {
-    console.error("[v0] Error sending WhatsApp alert:", error)
-    return { success: false, error: error.message }
+    console.warn("[v0] Warning triggering n8n webhook:", error.message)
+    // Non-blocking - log but don't fail the main operation
   }
 }
 

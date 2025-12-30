@@ -1,27 +1,11 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createFirebaseUser } from "@/lib/firebase-admin"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   try {
-    // Check if user is authenticated and is admin
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get user role
-    const { data: userData } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-    if (!userData || !["super_admin", "admin"].includes(userData.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
     const { email, password, displayName, phoneNumber } = await request.json()
 
     if (!email || !password) {
@@ -29,12 +13,7 @@ export async function POST(request: Request) {
     }
 
     // Create Firebase user
-    const { uid, error } = await createFirebaseUser({
-      email,
-      password,
-      displayName,
-      phoneNumber,
-    })
+    const { uid, error } = await createFirebaseUser(email, password, displayName, phoneNumber)
 
     if (error) {
       console.error("[API] Error creating Firebase user:", error)

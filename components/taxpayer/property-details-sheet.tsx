@@ -93,6 +93,10 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
           ),
           area_offices (
             office_name
+          ),
+          documents!documents_property_id_fkey (
+            file_url,
+            document_type
           )
         `,
         )
@@ -405,6 +409,56 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
 
               <Separator />
 
+              {/* Property Photos */}
+              {property.documents && property.documents.length > 0 && (
+                <>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Property Photos
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {property.documents
+                        .filter(
+                          (doc: any) =>
+                            doc.document_type === "property_facade" || doc.document_type === "address_number",
+                        )
+                        .map((doc: any, index: number) => (
+                          <div key={index} className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground capitalize">
+                              {doc.document_type.replace("_", " ")}
+                            </p>
+                            <img
+                              src={doc.file_url || "/placeholder.svg"}
+                              alt={doc.document_type}
+                              className="w-full h-48 object-cover rounded-lg border"
+                            />
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                  <Separator />
+                </>
+              )}
+              {(!property.documents || property.documents.length === 0) && (
+                <>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Property Photos
+                    </h3>
+                    <Card>
+                      <CardContent className="flex flex-col items-center justify-center py-8">
+                        <Building2 className="h-12 w-12 text-muted-foreground/50 mb-2" />
+                        <p className="text-sm font-medium text-muted-foreground">No images available</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
+              {/* Description */}
               {property.property_description && (
                 <>
                   <div className="space-y-3">
