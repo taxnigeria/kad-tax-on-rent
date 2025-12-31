@@ -252,6 +252,8 @@ export async function deleteFirebaseUser(uid: string) {
 }
 
 export async function createFirebaseUser(email: string, password: string, displayName: string) {
+  console.log("[v0] createFirebaseUser called with:", { email, displayName })
+
   if (!firebaseAdminAvailable) {
     console.error("[Firebase Admin] Not available - check environment variables")
     return { success: false, error: "Firebase Admin not available - check server logs", uid: null }
@@ -265,6 +267,7 @@ export async function createFirebaseUser(email: string, password: string, displa
   }
 
   try {
+    console.log("[v0] Attempting to create Firebase user...")
     const userRecord = await auth.createUser({
       email,
       password,
@@ -272,6 +275,7 @@ export async function createFirebaseUser(email: string, password: string, displa
       emailVerified: false,
     })
 
+    console.log("[v0] Firebase user created successfully:", userRecord.uid)
     return { success: true, uid: userRecord.uid, error: null }
   } catch (error: any) {
     console.error("[Firebase Admin] Error creating user:", error)

@@ -188,6 +188,8 @@ async function createFirebaseUser(data: {
   phoneNumber?: string
 }): Promise<string | null> {
   try {
+    console.log("[v0] Calling Firebase creation API...")
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/admin/create-firebase-user`, {
       method: "POST",
       headers: {
@@ -201,13 +203,18 @@ async function createFirebaseUser(data: {
       }),
     })
 
+    console.log("[v0] Firebase API response status:", response.status)
+
     if (!response.ok) {
       const errorData = await response.json()
       console.error("[v0] Firebase creation error:", errorData)
       return null
     }
 
-    const { uid } = await response.json()
+    const responseData = await response.json()
+    console.log("[v0] Firebase creation success:", responseData)
+
+    const { uid } = responseData
     return uid
   } catch (error: any) {
     console.error("[v0] Error calling Firebase creation API:", error)
