@@ -30,8 +30,10 @@ export interface CreateUserAccountOutput {
  */
 export async function createUserAccount(input: CreateUserAccountInput): Promise<CreateUserAccountOutput> {
   try {
+    console.log("[v0] Starting user account creation for:", input.email)
     const supabase = createAdminClient()
 
+    // Check for duplicate email
     const { data: existingEmail, error: emailCheckError } = await supabase
       .from("users")
       .select("id")
@@ -40,17 +42,19 @@ export async function createUserAccount(input: CreateUserAccountInput): Promise<
 
     if (emailCheckError) {
       console.error("[v0] Error checking email:", emailCheckError)
-      return { success: false, error: `Database error: ${emailCheckError.message}` }
+      return { success: false, error: `Database error while checking email: ${emailCheckError.message}` }
     }
 
     if (existingEmail) {
-      return { success: false, error: "Email already in use" }
+      console.log("[v0] Email already exists:", input.email)
+      return { success: false, error: "A user with this email already exists" }
     }
 
     // Normalize and check phone number if provided
     let normalizedPhone: string | null = null
     if (input.phoneNumber) {
       normalizedPhone = normalizePhoneNumber(input.phoneNumber)
+      console.log("[v0] Normalized phone:", normalizedPhone)
 
       const { data: existingPhone, error: phoneCheckError } = await supabase
         .from("users")
@@ -60,34 +64,40 @@ export async function createUserAccount(input: CreateUserAccountInput): Promise<
 
       if (phoneCheckError) {
         console.error("[v0] Error checking phone:", phoneCheckError)
-        return { success: false, error: `Database error: ${phoneCheckError.message}` }
+        return { success: false, error: `Database error while checking phone: ${phoneCheckError.message}` }
       }
 
       if (existingPhone) {
-        return { success: false, error: "Phone number already in use" }
+        console.log("[v0] Phone already exists:", normalizedPhone)
+        return { success: false, error: "A user with this phone number already exists" }
       }
     }
 
     // Generate password from phone number or random
     const password = generatePassword(input.phoneNumber)
+    console.log("[v0] Generated password from phone")
 
-    const firebaseUid = await createFirebaseUser({
+    console.log("[v0] Attempting Firebase user creation...")
+    const firebaseResult = await createFirebaseUser({
       email: input.email,
       password,
       displayName: `${input.firstName} ${input.lastName}`,
       phoneNumber: input.phoneNumber,
     })
 
-    if (!firebaseUid) {
-      console.error("[v0] Firebase user creation failed - continuing with Supabase only")
-      // In production, you may want to fail here
+    if (!firebaseResult.success) {
+      console.error("[v0] Firebase user creation failed:", firebaseResult.error)
+      // Don't fail completely, continue with Supabase
+    } else {
+      console.log("[v0] Firebase user created successfully:", firebaseResult.uid)
     }
 
     // Create base user record in Supabase
+    console.log("[v0] Creating Supabase user record...")
     const { data: user, error: userError } = await supabase
       .from("users")
       .insert({
-        firebase_uid: firebaseUid || null, // Allow null if Firebase creation failed
+        firebase_uid: firebaseResult.uid || null,
         email: input.email,
         first_name: input.firstName,
         middle_name: input.middleName || null,
@@ -106,11 +116,12 @@ export async function createUserAccount(input: CreateUserAccountInput): Promise<
       return { success: false, error: `Failed to create user: ${userError.message}` }
     }
 
+    console.log("[v0] User account created successfully:", user.id)
     return {
       success: true,
       data: {
         userId: user.id,
-        firebaseUid: firebaseUid || "pending", // Indicate Firebase UID is pending if failed
+        firebaseUid: firebaseResult.uid || "pending",
         email: user.email,
         phoneNumber: normalizedPhone || undefined,
         password,
@@ -179,16 +190,16 @@ function generatePassword(phoneNumber?: string): string {
 
 /**
  * Creates Firebase Auth user via API route
- * Returns Firebase UID on success, null on failure
+ * Returns result object with success status, UID, and error
  */
 async function createFirebaseUser(data: {
   email: string
   password: string
   displayName: string
   phoneNumber?: string
-}): Promise<string | null> {
+}): Promise<{ success: boolean; uid?: string; error?: string }> {
   try {
-    console.log("[v0] Calling Firebase creation API...")
+    console.log("[v0] Calling Firebase creation API for:", data.email)
 
     const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/admin/create-firebase-user`, {
       method: "POST",
@@ -206,18 +217,27 @@ async function createFirebaseUser(data: {
     console.log("[v0] Firebase API response status:", response.status)
 
     if (!response.ok) {
-      const errorData = await response.json()
-      console.error("[v0] Firebase creation error:", errorData)
-      return null
+      const errorText = await response.text()
+      console.error("[v0] Firebase API error response:", errorText)
+      let errorData
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {
+        errorData = { error: errorText }
+      }
+      return { success: false, error: errorData.error || `HTTP ${response.status}` }
     }
 
     const responseData = await response.json()
-    console.log("[v0] Firebase creation success:", responseData)
+    console.log("[v0] Firebase creation success response:", responseData)
 
-    const { uid } = responseData
-    return uid
+    if (!responseData.uid) {
+      return { success: false, error: "No UID returned from Firebase" }
+    }
+
+    return { success: true, uid: responseData.uid }
   } catch (error: any) {
-    console.error("[v0] Error calling Firebase creation API:", error)
-    return null
+    console.error("[v0] Exception in createFirebaseUser:", error)
+    return { success: false, error: error.message || "Network error calling Firebase API" }
   }
 }

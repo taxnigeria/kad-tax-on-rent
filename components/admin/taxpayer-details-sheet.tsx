@@ -19,6 +19,7 @@ import CalculateTaxDialog from "./calculate-tax-dialog"
 import { GenerateKadirsIdModal } from "./generate-kadirs-id-modal"
 import { useAuth } from "@/contexts/auth-context"
 import { PropertySelectionModal } from "./property-selection-modal"
+import { CreateFirebaseAccountModal } from "./create-firebase-account-modal"
 
 type TaxpayerDetailsSheetProps = {
   taxpayerId: string | null
@@ -97,6 +98,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
   const { userRole } = useAuth()
   const [generateKadirsModalOpen, setGenerateKadirsModalOpen] = useState(false)
   const [showPropertySelectionModal, setShowPropertySelectionModal] = useState(false)
+  const [showFirebaseCreateModal, setShowFirebaseCreateModal] = useState(false)
 
   useEffect(() => {
     if (open && taxpayerId) {
@@ -238,6 +240,13 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
     }
   }
 
+  const handleFirebaseAccountCreated = async () => {
+    await fetchTaxpayerDetails()
+    if (onUpdate) {
+      onUpdate()
+    }
+  }
+
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -270,7 +279,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                         {taxpayer.taxpayer_profiles?.user_type?.replace("_", " ") || "No User Type"}
                       </Badge>
                     </div>
-                    <SheetDescription className="flex items-center gap-2">
+                    <SheetDescription className="flex items-center gap-2 flex-wrap">
                       {taxpayer.taxpayer_profiles?.kadirs_id ? (
                         <div className="flex items-center gap-2">
                           <div className="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center">
@@ -293,6 +302,16 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                             Generate KADIRS ID
                           </Button>
                         )}
+                      {userRole && ["admin", "super_admin"].includes(userRole) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-2 h-6 text-xs bg-transparent"
+                          onClick={() => setShowFirebaseCreateModal(true)}
+                        >
+                          Create Firebase Account
+                        </Button>
+                      )}
                     </SheetDescription>
                   </div>
                   <div className="flex gap-2">
@@ -736,6 +755,16 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
           onOpenChange={setGenerateKadirsModalOpen}
           taxpayerId={taxpayer.id}
           onSuccess={handleKadirsIdGenerated}
+        />
+      )}
+
+      {/* Create Firebase Account Modal */}
+      {taxpayer && (
+        <CreateFirebaseAccountModal
+          open={showFirebaseCreateModal}
+          onOpenChange={setShowFirebaseCreateModal}
+          taxpayerId={taxpayer.id}
+          onSuccess={handleFirebaseAccountCreated}
         />
       )}
     </>
