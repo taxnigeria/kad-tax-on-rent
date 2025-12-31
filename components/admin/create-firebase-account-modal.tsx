@@ -20,11 +20,13 @@ import { Loader2 } from "lucide-react"
 type CreateFirebaseAccountModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  userData: {
+  taxpayer: {
+    id: string
     email: string
-    firstName: string
-    lastName: string
-    phoneNumber?: string
+    first_name: string
+    middle_name?: string | null
+    last_name: string
+    phone_number?: string | null
   }
   onSuccess: () => void
 }
@@ -32,11 +34,13 @@ type CreateFirebaseAccountModalProps = {
 export function CreateFirebaseAccountModal({
   open,
   onOpenChange,
-  userData,
+  taxpayer,
   onSuccess,
 }: CreateFirebaseAccountModalProps) {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+
+  const displayName = [taxpayer.first_name, taxpayer.middle_name, taxpayer.last_name].filter(Boolean).join(" ")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,10 +57,11 @@ export function CreateFirebaseAccountModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: userData.email,
+          email: taxpayer.email,
           password,
-          displayName: `${userData.firstName} ${userData.lastName}`,
-          phoneNumber: userData.phoneNumber,
+          displayName,
+          phoneNumber: taxpayer.phone_number,
+          taxpayerId: taxpayer.id,
         }),
       })
 
@@ -90,18 +95,18 @@ export function CreateFirebaseAccountModal({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input value={userData.email} disabled className="bg-muted" />
+              <Input value={taxpayer.email} disabled className="bg-muted" />
             </div>
 
             <div className="space-y-2">
               <Label>Full Name</Label>
-              <Input value={`${userData.firstName} ${userData.lastName}`} disabled className="bg-muted" />
+              <Input value={displayName} disabled className="bg-muted" />
             </div>
 
-            {userData.phoneNumber && (
+            {taxpayer.phone_number && (
               <div className="space-y-2">
                 <Label>Phone Number</Label>
-                <Input value={userData.phoneNumber} disabled className="bg-muted" />
+                <Input value={taxpayer.phone_number} disabled className="bg-muted" />
               </div>
             )}
 
@@ -117,7 +122,7 @@ export function CreateFirebaseAccountModal({
                 minLength={6}
               />
               <p className="text-xs text-muted-foreground">
-                Suggested: Use phone number ({userData.phoneNumber || "N/A"})
+                Suggested: Use phone number ({taxpayer.phone_number || "N/A"})
               </p>
             </div>
           </div>

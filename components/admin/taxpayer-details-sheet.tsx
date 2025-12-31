@@ -763,7 +763,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
         <CreateFirebaseAccountModal
           open={showFirebaseCreateModal}
           onOpenChange={setShowFirebaseCreateModal}
-          taxpayerId={taxpayer.id}
+          taxpayer={taxpayer}
           onSuccess={handleFirebaseAccountCreated}
         />
       )}
