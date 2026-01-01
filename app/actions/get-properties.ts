@@ -48,15 +48,10 @@ export async function getPropertiesByFirebaseUid(firebaseUid: string) {
           city,
           state,
           lga
-        ),
-        property_managers!inner (
-          manager_id,
-          is_active
         )
       `,
       )
-      .eq("property_managers.manager_id", userData.id)
-      .eq("property_managers.is_active", true)
+      .eq("property_manager_id", userData.id)
       .order("created_at", { ascending: false })
 
     if (ownedError) {
