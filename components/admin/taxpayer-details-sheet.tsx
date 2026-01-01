@@ -10,7 +10,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
-import { Building2, DollarSign, CheckCircle, Loader2, Mail, Pencil, User, ShieldCheck, ShieldX, X } from "lucide-react"
+import {
+  Building2,
+  DollarSign,
+  CheckCircle,
+  Loader2,
+  Mail,
+  Pencil,
+  User,
+  ShieldCheck,
+  ShieldX,
+  X,
+  CheckCircle2,
+  KeyRound,
+} from "lucide-react"
 import { EditTaxpayerModal } from "./edit-taxpayer-modal"
 import { PropertyDetailsSheet } from "./property-details-sheet"
 import { InvoiceDetailsSheet } from "./invoice-details-sheet"
@@ -73,6 +86,7 @@ type TaxpayerDetails = {
   }
   properties: any[]
   invoices: any[]
+  firebase_uid: string | null
 }
 
 type Property = {
@@ -225,6 +239,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
       management_license_number: profile?.management_license_number,
       paykaduna_customer_code: profile?.paykaduna_customer_code,
       paykaduna_customer_id: profile?.paykaduna_customer_id,
+      firebase_uid: taxpayer.firebase_uid,
     }
   }
 
@@ -279,30 +294,28 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                         {taxpayer.taxpayer_profiles?.user_type?.replace("_", " ") || "No User Type"}
                       </Badge>
                     </div>
-                    <SheetDescription className="flex items-center gap-2 flex-wrap">
-                      {taxpayer.taxpayer_profiles?.kadirs_id ? (
-                        <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center">
-                            <span className="text-xs font-semibold text-blue-600">KD</span>
-                          </div>
-                          <span className="font-mono text-sm">{taxpayer.taxpayer_profiles.kadirs_id}</span>
-                        </div>
-                      ) : (
-                        <span>No KADIRS ID</span>
-                      )}
-                      {!taxpayer.taxpayer_profiles?.kadirs_id &&
-                        userRole &&
-                        ["admin", "super_admin"].includes(userRole) && (
+                    <SheetDescription className="flex items-center gap-2">
+                      {taxpayer.email}
+                      {taxpayer.firebase_uid ? (
+                        <>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-500 border border-green-500/20">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Login Account Active
+                          </span>
                           <Button
                             size="sm"
                             variant="outline"
                             className="ml-2 h-6 text-xs bg-transparent"
-                            onClick={handleGenerateKadirsId}
+                            onClick={() => {
+                              // TODO: Implement password reset
+                              toast.info("Password reset email will be sent to " + taxpayer.email)
+                            }}
                           >
-                            Generate KADIRS ID
+                            <KeyRound className="h-3 w-3 mr-1" />
+                            Reset Password
                           </Button>
-                        )}
-                      {userRole && ["admin", "super_admin"].includes(userRole) && (
+                        </>
+                      ) : (
                         <Button
                           size="sm"
                           variant="outline"
