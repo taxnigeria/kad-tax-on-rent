@@ -15,11 +15,14 @@ export async function getPropertiesByFirebaseUid(firebaseUid: string) {
 
     if (userError || !userData) {
       console.error("[v0] Error fetching user:", userError)
-      return { properties: [], error: "User not found" }
+      return {
+        ownedProperties: [],
+        managedProperties: [],
+        error: "User not found",
+      }
     }
 
-    // Then fetch properties using the database user ID
-    const { data: properties, error: propertiesError } = await supabase
+    const { data: ownedProperties, error: ownedError } = await supabase
       .from("properties")
       .select(
         `
@@ -35,14 +38,46 @@ export async function getPropertiesByFirebaseUid(firebaseUid: string) {
       .eq("owner_id", userData.id)
       .order("created_at", { ascending: false })
 
-    if (propertiesError) {
-      console.error("[v0] Error fetching properties:", propertiesError)
-      return { properties: [], error: propertiesError.message }
+    const { data: managedProperties, error: managedError } = await supabase
+      .from("properties")
+      .select(
+        `
+        *,
+        addresses (
+          street_address,
+          city,
+          state,
+          lga
+        ),
+        property_managers!inner (
+          manager_id,
+          is_active
+        )
+      `,
+      )
+      .eq("property_managers.manager_id", userData.id)
+      .eq("property_managers.is_active", true)
+      .order("created_at", { ascending: false })
+
+    if (ownedError) {
+      console.error("[v0] Error fetching owned properties:", ownedError)
     }
 
-    return { properties: properties || [], error: null }
+    if (managedError) {
+      console.error("[v0] Error fetching managed properties:", managedError)
+    }
+
+    return {
+      ownedProperties: ownedProperties || [],
+      managedProperties: managedProperties || [],
+      error: null,
+    }
   } catch (error: any) {
     console.error("[v0] Error in getPropertiesByFirebaseUid:", error)
-    return { properties: [], error: error.message }
+    return {
+      ownedProperties: [],
+      managedProperties: [],
+      error: error.message,
+    }
   }
 }
