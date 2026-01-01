@@ -268,7 +268,7 @@ export default function PropertiesPage() {
                       <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
                       <Building2 className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="py-2">
                       <div className="text-2xl font-bold">{stats.total}</div>
                       <p className="text-xs text-muted-foreground mt-1">{stats.verified} verified</p>
                     </CardContent>
@@ -279,7 +279,7 @@ export default function PropertiesPage() {
                       <CardTitle className="text-sm font-medium">Verified</CardTitle>
                       <Home className="h-4 w-4 text-green-500" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="py-2">
                       <div className="text-2xl font-bold">{stats.verified}</div>
                       <p className="text-xs text-muted-foreground mt-1">Active properties</p>
                     </CardContent>
@@ -290,7 +290,7 @@ export default function PropertiesPage() {
                       <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
                       <Calendar className="h-4 w-4 text-yellow-500" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="py-2">
                       <div className="text-2xl font-bold">{stats.pending}</div>
                       <p className="text-xs text-muted-foreground mt-1">Awaiting verification</p>
                     </CardContent>
@@ -301,7 +301,7 @@ export default function PropertiesPage() {
                       <CardTitle className="text-sm font-medium">Total Annual Rent</CardTitle>
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="py-2">
                       <div className="text-2xl font-bold">₦{stats.totalRent.toLocaleString()}</div>
                       <p className="text-xs text-muted-foreground mt-1">Across all properties</p>
                     </CardContent>
@@ -309,49 +309,45 @@ export default function PropertiesPage() {
                 </div>
 
                 {/* Filters */}
-                <Card className="border-border/50">
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          placeholder="Search by name, reference, or address..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-9"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Select value={typeFilter} onValueChange={setTypeFilter}>
-                          <SelectTrigger className="w-[160px]">
-                            <Filter className="h-4 w-4 mr-2" />
-                            <SelectValue placeholder="Property Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
-                            <SelectItem value="residential">Residential</SelectItem>
-                            <SelectItem value="commercial">Commercial</SelectItem>
-                            <SelectItem value="industrial">Industrial</SelectItem>
-                            <SelectItem value="mixed">Mixed</SelectItem>
-                          </SelectContent>
-                        </Select>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, reference, or address..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Property Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="residential">Residential</SelectItem>
+                        <SelectItem value="commercial">Commercial</SelectItem>
+                        <SelectItem value="industrial">Industrial</SelectItem>
+                        <SelectItem value="mixed">Mixed</SelectItem>
+                      </SelectContent>
+                    </Select>
 
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                          <SelectTrigger className="w-[160px]">
-                            <SelectValue placeholder="Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Status</SelectItem>
-                            <SelectItem value="approved">Verified</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="rejected">Rejected</SelectItem>
-                            <SelectItem value="needs_info">Needs Info</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="approved">Verified</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                        <SelectItem value="needs_info">Needs Info</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
                 {/* Properties List */}
                 {filteredProperties.length === 0 ? (

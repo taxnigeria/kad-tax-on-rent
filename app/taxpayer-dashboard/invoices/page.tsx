@@ -488,7 +488,7 @@ export default function InvoicesPage() {
                       <CardTitle className="text-sm font-medium">Total Outstanding</CardTitle>
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="py-2">
                       <div className="text-2xl font-bold">{formatCurrency(stats.totalOutstanding)}</div>
                       <p className="text-xs text-muted-foreground mt-1">Amount due across all bills</p>
                     </CardContent>
@@ -501,7 +501,7 @@ export default function InvoicesPage() {
                         className={`h-4 w-4 ${stats.overdueCount > 0 ? "text-red-500" : "text-muted-foreground"}`}
                       />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="py-2">
                       <div className="text-2xl font-bold">{stats.overdueCount}</div>
                       <p className="text-xs text-muted-foreground mt-1">
                         {stats.overdueCount > 0 ? "Requires attention" : "All up to date"}
@@ -514,7 +514,7 @@ export default function InvoicesPage() {
                       <CardTitle className="text-sm font-medium">Paid This Year</CardTitle>
                       <CreditCard className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="py-2">
                       <div className="text-2xl font-bold">{formatCurrency(stats.totalPaidThisYear)}</div>
                       <p className="text-xs text-muted-foreground mt-1">Total in {new Date().getFullYear()}</p>
                     </CardContent>
@@ -525,7 +525,7 @@ export default function InvoicesPage() {
                       <CardTitle className="text-sm font-medium">Next Due Date</CardTitle>
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="py-2">
                       <div className="text-2xl font-bold">
                         {stats.nextDueDate ? format(new Date(stats.nextDueDate), "MMM dd") : "None"}
                       </div>
@@ -537,46 +537,43 @@ export default function InvoicesPage() {
                 </div>
               )}
 
-              <Card className="border-border/50">
-                <CardContent className="pt-6">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Search by invoice, property, or tax period..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Select value={typeFilter} onValueChange={setTypeFilter}>
-                        <SelectTrigger className="w-[160px]">
-                          <Filter className="h-4 w-4 mr-2" />
-                          <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Bills</SelectItem>
-                          <SelectItem value="backlog">Backlog</SelectItem>
-                          <SelectItem value="current">Current Year</SelectItem>
-                        </SelectContent>
-                      </Select>
+              {/* Search and Filters */}
+              <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by invoice, property, or tax period..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-[160px]">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Bills</SelectItem>
+                      <SelectItem value="backlog">Backlog</SelectItem>
+                      <SelectItem value="current">Current Year</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-[160px]">
-                          <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="unpaid">Unpaid</SelectItem>
-                          <SelectItem value="partial">Partial</SelectItem>
-                          <SelectItem value="paid">Paid</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="unpaid">Unpaid</SelectItem>
+                      <SelectItem value="partial">Partial</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
               {loadingData ? (
                 <Card className="border-border/50">

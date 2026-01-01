@@ -282,3 +282,32 @@ export async function createFirebaseUser(email: string, password: string, displa
     return { success: false, uid: null, error: error.message || "Failed to create Firebase user" }
   }
 }
+
+export async function sendPasswordResetEmail(email: string) {
+  console.log("[v0] sendPasswordResetEmail called for:", email)
+
+  if (!firebaseAdminAvailable) {
+    console.error("[Firebase Admin] Not available - check environment variables")
+    return { success: false, error: "Firebase Admin not available" }
+  }
+
+  const { auth } = await getFirebaseAdmin()
+
+  if (!auth) {
+    console.error("[Firebase Admin] Not configured")
+    return { success: false, error: "Firebase Admin not configured" }
+  }
+
+  try {
+    console.log("[v0] Generating password reset link...")
+    const link = await auth.generatePasswordResetLink(email)
+    console.log("[v0] Password reset link generated successfully")
+
+    // TODO: Send this link via your email service (n8n webhook, Nodemailer, etc.)
+    // For now, we'll return the link so it can be sent via n8n
+    return { success: true, resetLink: link, error: null }
+  } catch (error: any) {
+    console.error("[Firebase Admin] Error generating password reset link:", error)
+    return { success: false, error: error.message || "Failed to generate password reset link", resetLink: null }
+  }
+}

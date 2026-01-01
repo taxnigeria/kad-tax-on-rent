@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { getTaxpayerById } from "@/app/actions/taxpayers"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -294,8 +294,25 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                         {taxpayer.taxpayer_profiles?.user_type?.replace("_", " ") || "No User Type"}
                       </Badge>
                     </div>
-                    <SheetDescription className="flex items-center gap-2">
-                      {taxpayer.email}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {taxpayer.taxpayer_profiles?.kadirs_id ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">KADIRS:</span>
+                          <span className="font-mono text-sm font-semibold">
+                            {taxpayer.taxpayer_profiles.kadirs_id}
+                          </span>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-xs bg-transparent"
+                          onClick={handleGenerateKadirsId}
+                        >
+                          Generate KADIRS ID
+                        </Button>
+                      )}
+
                       {taxpayer.firebase_uid ? (
                         <>
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-500 border border-green-500/20">
@@ -305,10 +322,20 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                           <Button
                             size="sm"
                             variant="outline"
-                            className="ml-2 h-6 text-xs bg-transparent"
-                            onClick={() => {
-                              // TODO: Implement password reset
-                              toast.info("Password reset email will be sent to " + taxpayer.email)
+                            className="h-6 text-xs bg-transparent"
+                            onClick={async () => {
+                              try {
+                                toast.loading("Sending password reset email...")
+                                const { resetUserPassword } = await import("@/app/actions/auth")
+                                const result = await resetUserPassword(taxpayer.email)
+                                if (result.success) {
+                                  toast.success("Password reset email sent to " + taxpayer.email)
+                                } else {
+                                  toast.error(result.error || "Failed to send password reset email")
+                                }
+                              } catch (error: any) {
+                                toast.error("Error sending password reset email")
+                              }
                             }}
                           >
                             <KeyRound className="h-3 w-3 mr-1" />
@@ -319,13 +346,13 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                         <Button
                           size="sm"
                           variant="outline"
-                          className="ml-2 h-6 text-xs bg-transparent"
+                          className="h-6 text-xs bg-transparent"
                           onClick={() => setShowFirebaseCreateModal(true)}
                         >
                           Create Firebase Account
                         </Button>
                       )}
-                    </SheetDescription>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button
