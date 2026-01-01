@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { ChevronsUpDown, LogOut, User, HelpCircle, Moon, Sun } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
+import { getUserProfilePhoto } from "@/services/user-service"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -48,10 +49,19 @@ export function NavUser() {
   const { theme, setTheme } = useTheme()
   const [isMounted, setIsMounted] = useState(false)
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (user?.uid) {
+      getUserProfilePhoto(user.uid).then((photoUrl) => {
+        setProfilePhotoUrl(photoUrl)
+      })
+    }
+  }, [user?.uid])
 
   const handleLogout = async () => {
     try {
@@ -68,7 +78,7 @@ export function NavUser() {
 
   const displayName = user.displayName || user.email?.split("@")[0] || "User"
   const userEmail = user.email || ""
-  const userAvatar = user.photo_url || user.photoUrl || "https://cdn-icons-png.flaticon.com/512/2960/2960006.png"
+  const userAvatar = profilePhotoUrl || user.photoUrl || "https://cdn-icons-png.flaticon.com/512/2960/2960006.png"
   const userInitials = getUserInitials(user.email, user.displayName)
 
   return (

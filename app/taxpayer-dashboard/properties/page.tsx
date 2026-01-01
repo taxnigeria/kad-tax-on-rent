@@ -16,8 +16,8 @@ import { Building2, Search, Plus, MapPin, Calendar, DollarSign, Home, Filter, Lo
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RegisterPropertyModal } from "@/components/register-property-modal"
-import { getPropertiesByFirebaseUid } from "@/app/actions/get-properties"
 import { TaxpayerPropertyDetailsSheet } from "@/components/taxpayer/property-details-sheet"
+import { getPropertiesByFirebaseUid } from "@/app/actions/get-properties"
 import { getProfileCompletionStatus } from "@/app/actions/verification"
 import { toast } from "@/components/ui/use-toast"
 
@@ -56,13 +56,13 @@ export default function PropertiesPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
-  const [isPropertySheetOpen, setIsPropertySheetOpen] = useState(false)
   const [profileCompletion, setProfileCompletion] = useState<{
     emailVerified: boolean
     phoneVerified: boolean
     kadirsIdGenerated: boolean
   } | null>(null)
   const [activeTab, setActiveTab] = useState("owned")
+  const [isPropertySheetOpen, setIsPropertySheetOpen] = useState(false) // Declare isPropertySheetOpen
 
   useEffect(() => {
     if (!authLoading) {
@@ -182,6 +182,8 @@ export default function PropertiesPage() {
   }, [user?.uid])
 
   const handleRegisterPropertyClick = () => {
+    console.log("[v0] Register button clicked. profileCompletion:", profileCompletion)
+
     if (!profileCompletion) {
       toast({
         title: "Loading profile...",
@@ -204,6 +206,7 @@ export default function PropertiesPage() {
       return
     }
 
+    console.log("[v0] Opening register property modal")
     setIsRegisterModalOpen(true)
   }
 
