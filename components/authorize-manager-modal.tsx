@@ -12,9 +12,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, Search } from "lucide-react"
+import { useMemo } from "react"
 
 interface AuthorizeManagerModalProps {
   isOpen: boolean
@@ -33,12 +34,12 @@ export function AuthorizeManagerModal({ isOpen, onClose, onAuthorizeSuccess }: A
   const { user } = useAuth()
   const [managers, setManagers] = useState<Manager[]>([])
   const [selectedManagerId, setSelectedManagerId] = useState<string>("")
+  const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!isOpen || !user?.uid) return
-
     loadManagers()
   }, [isOpen, user?.uid])
 
@@ -62,6 +63,17 @@ export function AuthorizeManagerModal({ isOpen, onClose, onAuthorizeSuccess }: A
     }
   }
 
+  const filteredManagers = useMemo(() => {
+    if (!searchQuery.trim()) return []
+
+    const query = searchQuery.toLowerCase()
+    return managers.filter((m) => {
+      const fullName = `${m.first_name} ${m.last_name}`.toLowerCase()
+      const email = m.email.toLowerCase()
+      return fullName.includes(query) || email.includes(query)
+    })
+  }, [managers, searchQuery])
+
   const handleAuthorize = async () => {
     if (!selectedManagerId) {
       toast.error("Please select a manager")
@@ -79,6 +91,7 @@ export function AuthorizeManagerModal({ isOpen, onClose, onAuthorizeSuccess }: A
       const selectedManager = managers.find((m) => m.id === selectedManagerId)
       toast.success(`${selectedManager?.first_name} ${selectedManager?.last_name} has been authorized`)
       setSelectedManagerId("")
+      setSearchQuery("")
       onAuthorizeSuccess()
       onClose()
     } catch (error) {
@@ -94,36 +107,59 @@ export function AuthorizeManagerModal({ isOpen, onClose, onAuthorizeSuccess }: A
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Authorize Property Manager</DialogTitle>
-          <DialogDescription>Select a property manager to authorize for your properties</DialogDescription>
+          <DialogDescription>Search and authorize a property manager to manage your properties</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">Loading available managers...</p>
-            </div>
-          ) : managers.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">No available managers to authorize</p>
+              <p className="text-muted-foreground">Loading managers...</p>
             </div>
           ) : (
-            <Select value={selectedManagerId} onValueChange={setSelectedManagerId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a manager" />
-              </SelectTrigger>
-              <SelectContent>
-                {managers.map((manager) => (
-                  <SelectItem key={manager.id} value={manager.id}>
-                    <div className="flex flex-col gap-1">
-                      <span>
-                        {manager.first_name} {manager.last_name}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{manager.email}</span>
+            <>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, email, or phone..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {searchQuery.trim() && (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {filteredManagers.length > 0 ? (
+                    filteredManagers.map((manager) => (
+                      <button
+                        key={manager.id}
+                        onClick={() => setSelectedManagerId(manager.id)}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${
+                          selectedManagerId === manager.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-muted-foreground/50"
+                        }`}
+                      >
+                        <p className="font-medium text-sm">
+                          {manager.first_name} {manager.last_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{manager.email}</p>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground text-sm">No managers found matching your search</p>
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  )}
+                </div>
+              )}
+
+              {!searchQuery.trim() && (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground text-sm">Start typing to search for managers</p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -131,7 +167,7 @@ export function AuthorizeManagerModal({ isOpen, onClose, onAuthorizeSuccess }: A
           <Button variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={handleAuthorize} disabled={submitting || !selectedManagerId || managers.length === 0}>
+          <Button onClick={handleAuthorize} disabled={submitting || !selectedManagerId}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Authorize
           </Button>

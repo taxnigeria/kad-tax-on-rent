@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { getManagerAuthorizationsForOwner, revokeManagerAuthorization } from "@/app/actions/manager-authorizations"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { getManagerAuthorizationsForOwner } from "@/app/actions/manager-authorizations"
+import { getPropertiesByFirebaseUid } from "@/app/actions/get-properties"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { Trash2, UserCheck, Calendar, Plus } from "lucide-react"
+import { UserCheck, Plus } from "lucide-react"
 import { AuthorizeManagerModal } from "./authorize-manager-modal"
+import { ManagerDetailSidepanel } from "./manager-detail-sidepanel"
+import { ManagerCard } from "./manager-card"
 
 interface Authorization {
   id: string
@@ -24,48 +27,59 @@ interface Authorization {
   }
 }
 
+interface Property {
+  id: string
+  registered_property_name: string
+}
+
 export function AuthorizationsTab() {
   const { user } = useAuth()
   const [authorizations, setAuthorizations] = useState<Authorization[]>([])
+  const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedManager, setSelectedManager] = useState<{
+    id: string
+    authId: string
+  } | null>(null)
+  const [isSidepanelOpen, setIsSidepanelOpen] = useState(false)
 
   useEffect(() => {
     if (!user?.uid) return
-
-    loadAuthorizations()
+    loadData()
   }, [user?.uid])
 
-  const loadAuthorizations = async () => {
+  const loadData = async () => {
     setLoading(true)
     try {
-      const result = await getManagerAuthorizationsForOwner(user!.uid)
-      if (result.error) {
-        toast.error(result.error)
-        return
+      // Load authorizations
+      const authResult = await getManagerAuthorizationsForOwner(user!.uid)
+      if (authResult.error) {
+        toast.error(authResult.error)
+      } else {
+        setAuthorizations(authResult.authorizations || [])
       }
-      setAuthorizations(result.authorizations || [])
+
+      // Load properties to show available ones for assignment
+      const propResult = await getPropertiesByFirebaseUid(user!.uid)
+      if (!propResult.error && propResult.ownedProperties) {
+        setProperties(propResult.ownedProperties)
+      }
     } catch (error) {
-      console.error("[v0] Error loading authorizations:", error)
+      console.error("[v0] Error loading data:", error)
       toast.error("Failed to load authorizations")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleRevoke = async (authorizationId: string, managerName: string) => {
-    try {
-      const result = await revokeManagerAuthorization(authorizationId)
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      toast.success(`Authorization for ${managerName} has been revoked`)
-      setAuthorizations(authorizations.filter((a) => a.id !== authorizationId))
-    } catch (error) {
-      console.error("[v0] Error revoking authorization:", error)
-      toast.error("Failed to revoke authorization")
-    }
+  const handleOpenManager = (managerId: string, authId: string) => {
+    setSelectedManager({ id: managerId, authId })
+    setIsSidepanelOpen(true)
+  }
+
+  const handleRevoked = () => {
+    loadData()
   }
 
   if (loading) {
@@ -97,10 +111,18 @@ export function AuthorizationsTab() {
         <AuthorizeManagerModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onAuthorizeSuccess={loadAuthorizations}
+          onAuthorizeSuccess={loadData}
         />
       </>
     )
+  }
+
+  const availablePropertiesForManager = (managerId: string) => {
+    const managedPropIds = properties
+      .filter((p) => authorizations.some((a) => a.manager_id === managerId))
+      .map((p) => p.id)
+
+    return properties.filter((p) => !managedPropIds.includes(p.id))
   }
 
   return (
@@ -114,46 +136,37 @@ export function AuthorizationsTab() {
           </Button>
         </div>
 
-        <div className="grid gap-4">
+        <div className="space-y-2">
           {authorizations.map((auth) => (
-            <Card key={auth.id} className="border-border/50">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-base">
-                      {auth.users.first_name} {auth.users.last_name}
-                    </CardTitle>
-                    <CardDescription className="text-xs mt-1">{auth.users.email}</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>Authorized on {new Date(auth.authorization_date || auth.created_at).toLocaleDateString()}</span>
-                </div>
-                <div className="pt-4 border-t border-border/50">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={() => handleRevoke(auth.id, `${auth.users.first_name} ${auth.users.last_name}`)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Revoke Access
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <ManagerCard
+              key={auth.id}
+              name={`${auth.users.first_name} ${auth.users.last_name}`}
+              email={auth.users.email}
+              authorizationDate={auth.authorization_date || auth.created_at}
+              propertyCount={properties.filter((p) => auth.manager_id === auth.manager_id).length}
+              onClick={() => handleOpenManager(auth.manager_id, auth.id)}
+            />
           ))}
         </div>
       </div>
 
-      <AuthorizeManagerModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onAuthorizeSuccess={loadAuthorizations}
-      />
+      <AuthorizeManagerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAuthorizeSuccess={loadData} />
+
+      {selectedManager && (
+        <ManagerDetailSidepanel
+          isOpen={isSidepanelOpen}
+          onClose={() => {
+            setIsSidepanelOpen(false)
+            setSelectedManager(null)
+          }}
+          managerId={selectedManager.id}
+          authorizationId={selectedManager.authId}
+          ownerId={user!.uid}
+          onRevoked={handleRevoked}
+          onPropertyAdded={loadData}
+          availableProperties={selectedManager ? availablePropertiesForManager(selectedManager.id) : []}
+        />
+      )}
     </>
   )
 }

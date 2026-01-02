@@ -135,13 +135,18 @@ export async function authorizePropertyManager(firebaseUid: string, managerId: s
       return { data: null, error: "User not found" }
     }
 
-    // Check if authorization already exists
-    const { data: existingAuth } = await supabase
+    const { data: existingAuth, error: existingAuthError } = await supabase
       .from("manager_authorizations")
       .select("id, is_active")
       .eq("manager_id", managerId)
       .eq("owner_id", userData.id)
-      .single()
+      .maybeSingle()
+
+    // Only error if it's not a "no rows" situation
+    if (existingAuthError) {
+      console.error("[v0] Error checking existing auth:", existingAuthError)
+      return { data: null, error: existingAuthError.message }
+    }
 
     if (existingAuth) {
       if (existingAuth.is_active) {
@@ -181,6 +186,95 @@ export async function authorizePropertyManager(firebaseUid: string, managerId: s
     return { data, error: null }
   } catch (error: any) {
     console.error("[v0] Error in authorizePropertyManager:", error)
+    return { data: null, error: error.message }
+  }
+}
+
+export async function getManagerDetailsWithProperties(managerId: string, ownerId: string) {
+  try {
+    const supabase = createAdminClient()
+
+    // Get manager details
+    const { data: manager, error: managerError } = await supabase
+      .from("users")
+      .select("id, first_name, last_name, email, phone_number")
+      .eq("id", managerId)
+      .single()
+
+    if (managerError || !manager) {
+      console.error("[v0] Error fetching manager:", managerError)
+      return { data: null, error: "Manager not found" }
+    }
+
+    // Get properties managed by this manager for this owner
+    const { data: properties, error: propertiesError } = await supabase
+      .from("properties")
+      .select("id, registered_property_name, total_annual_rent, status")
+      .eq("property_manager_id", managerId)
+      .eq("owner_id", ownerId)
+
+    if (propertiesError) {
+      console.error("[v0] Error fetching properties:", propertiesError)
+      return { data: null, error: propertiesError.message }
+    }
+
+    // Get manager performance stats for properties under this owner
+    const { data: taxData, error: taxError } = await supabase
+      .from("tax_calculations")
+      .select("total_tax_due")
+      .in("property_id", properties?.map((p) => p.id) || [])
+
+    const { data: invoiceData, error: invoiceError } = await supabase
+      .from("invoices")
+      .select("total_amount, discount, amount_paid")
+      .in("property_id", properties?.map((p) => p.id) || [])
+
+    if (taxError || invoiceError) {
+      console.error("[v0] Error fetching stats:", taxError || invoiceError)
+    }
+
+    const totalTaxDue = taxData?.reduce((sum, t) => sum + (t.total_tax_due || 0), 0) || 0
+    const totalDiscounts = invoiceData?.reduce((sum, i) => sum + (i.discount || 0), 0) || 0
+    const totalPaid = invoiceData?.reduce((sum, i) => sum + (i.amount_paid || 0), 0) || 0
+
+    return {
+      data: {
+        manager,
+        properties: properties || [],
+        stats: {
+          totalTaxDue,
+          totalDiscounts,
+          totalPaid,
+          totalProperties: properties?.length || 0,
+        },
+      },
+      error: null,
+    }
+  } catch (error: any) {
+    console.error("[v0] Error in getManagerDetailsWithProperties:", error)
+    return { data: null, error: error.message }
+  }
+}
+
+export async function addPropertyToManagerAuthorization(managerId: string, ownerId: string, propertyId: string) {
+  try {
+    const supabase = createAdminClient()
+
+    const { data, error } = await supabase
+      .from("properties")
+      .update({ property_manager_id: managerId })
+      .eq("id", propertyId)
+      .eq("owner_id", ownerId)
+      .select()
+
+    if (error) {
+      console.error("[v0] Error adding property to manager:", error)
+      return { data: null, error: error.message }
+    }
+
+    return { data, error: null }
+  } catch (error: any) {
+    console.error("[v0] Error in addPropertyToManagerAuthorization:", error)
     return { data: null, error: error.message }
   }
 }
