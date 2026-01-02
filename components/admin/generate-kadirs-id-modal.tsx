@@ -17,6 +17,8 @@ import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { getAuthToken } from "@/app/actions/get-auth-token"
+import { ExistingUserConfirmationModal } from "./existing-user-confirmation-modal"
+import { KadirsErrorModal } from "./kadirs-error-modal"
 
 interface GenerateKadirsIdModalProps {
   open: boolean
@@ -29,6 +31,10 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
   const [loading, setLoading] = useState(false)
   const [generatingId, setGeneratingId] = useState(false)
   const [taxpayerData, setTaxpayerData] = useState<any>(null)
+  const [existingUserData, setExistingUserData] = useState<any>(null)
+  const [showExistingUserModal, setShowExistingUserModal] = useState(false)
+  const [errorData, setErrorData] = useState<any>(null)
+  const [showErrorModal, setShowErrorModal] = useState(false)
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -98,10 +104,9 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
 
       const profile = userData.taxpayer_profiles
 
-      // Load LGAs and industries
       const [lgasResult, industriesResult] = await Promise.all([
-        supabase.from("lgas").select("id, name, lga_id").order("name"),
-        supabase.from("industries").select("id, name, industry_id").order("name"),
+        supabase.from("lgas").select("id, name").order("name"),
+        supabase.from("industries").select("id, name").order("name"),
       ])
 
       if (lgasResult.data) setLgas(lgasResult.data)
@@ -116,7 +121,7 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
         phoneNumber: userData.phone_number || "",
         gender: profile?.gender || "",
         addressLine1: profile?.address_line1 || "",
-        lgaId: profile?.lga_id || "",
+        lgaId: profile?.lga_id?.toString() || "",
         industryId: profile?.industry_id?.toString() || "",
         userType: profile?.user_type || "Individual",
         tin: profile?.tin || "",
@@ -266,25 +271,40 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
       }
 
       const responseData = await response.json()
-      const kadirsId = responseData?.userRegistration?.tpui
 
-      if (!kadirsId) {
-        throw new Error("KADIRS ID not found in API response")
+      if (responseData.success === true) {
+        // Success: KADIRS ID generated
+        const kadirsId = responseData?.userRegistration?.tpui
+
+        if (!kadirsId) {
+          throw new Error("KADIRS ID not found in API response")
+        }
+
+        // Update taxpayer profile with KADIRS ID
+        const { error: updateKadirsError } = await supabase
+          .from("taxpayer_profiles")
+          .update({ kadirs_id: kadirsId })
+          .eq("user_id", taxpayerId)
+
+        if (updateKadirsError) {
+          throw new Error("Failed to save KADIRS ID")
+        }
+
+        toast.success(`KADIRS ID generated successfully: ${kadirsId}`)
+        onSuccess()
+        onOpenChange(false)
+      } else if (responseData.success === false && responseData.search_result) {
+        // Existing user found - show confirmation modal
+        setExistingUserData(responseData.search_result)
+        setShowExistingUserModal(true)
+      } else if (responseData.success === false && responseData.error) {
+        // Error occurred - show error modal
+        setErrorData(responseData.error)
+        setShowErrorModal(true)
+      } else {
+        // Unexpected response format
+        throw new Error("Unexpected API response format")
       }
-
-      // Update taxpayer profile with KADIRS ID
-      const { error: updateKadirsError } = await supabase
-        .from("taxpayer_profiles")
-        .update({ kadirs_id: kadirsId })
-        .eq("user_id", taxpayerId)
-
-      if (updateKadirsError) {
-        throw new Error("Failed to save KADIRS ID")
-      }
-
-      toast.success(`KADIRS ID generated successfully: ${kadirsId}`)
-      onSuccess()
-      onOpenChange(false)
     } catch (error: any) {
       console.error("[v0] Generate KADIRS ID error:", error)
       toast.error(error.message || "Failed to generate KADIRS ID")
@@ -293,232 +313,269 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
     }
   }
 
+  const handleExistingUserConfirm = async () => {
+    // User confirmed to use existing account
+    if (existingUserData?.tpui) {
+      const supabase = createClient()
+      const { error: updateKadirsError } = await supabase
+        .from("taxpayer_profiles")
+        .update({ kadirs_id: existingUserData.tpui })
+        .eq("user_id", taxpayerId)
+
+      if (updateKadirsError) {
+        toast.error("Failed to save KADIRS ID")
+        return
+      }
+
+      toast.success(`KADIRS ID linked successfully: ${existingUserData.tpui}`)
+      setShowExistingUserModal(false)
+      onSuccess()
+      onOpenChange(false)
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Generate KADIRS ID</DialogTitle>
-          <DialogDescription>
-            Review and edit taxpayer information before generating KADIRS ID. All fields can be updated as needed.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Generate KADIRS ID</DialogTitle>
+            <DialogDescription>
+              Review and edit taxpayer information before generating KADIRS ID. All fields can be updated as needed.
+            </DialogDescription>
+          </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="space-y-4 py-4">
-            {/* Verification Status */}
-            <div className="rounded-lg border p-4 space-y-3">
-              <h4 className="font-semibold text-sm">Verification Status</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2">
-                  {formData.emailVerified ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                  )}
-                  <span className="text-sm">Email {formData.emailVerified ? "Verified" : "Not Verified"}</span>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              {/* Verification Status */}
+              <div className="rounded-lg border p-4 space-y-3">
+                <h4 className="font-semibold text-sm">Verification Status</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2">
+                    {formData.emailVerified ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                    )}
+                    <span className="text-sm">Email {formData.emailVerified ? "Verified" : "Not Verified"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {formData.phoneVerified ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                    )}
+                    <span className="text-sm">Phone {formData.phoneVerified ? "Verified" : "Not Verified"}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {formData.phoneVerified ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                  )}
-                  <span className="text-sm">Phone {formData.phoneVerified ? "Verified" : "Not Verified"}</span>
+              </div>
+
+              {/* Personal Information */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">
+                    First Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="firstName"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="middleName">Middle Name</Label>
+                  <Input
+                    id="middleName"
+                    value={formData.middleName}
+                    onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">
+                    Last Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="lastName"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">
+                    Email <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber">
+                    Phone Number <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gender">
+                    Gender <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.gender}
+                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="userType">
+                    User Type <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.userType}
+                    onValueChange={(value) => setFormData({ ...formData, userType: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Individual">Individual</SelectItem>
+                      <SelectItem value="Corporate">Corporate</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="address">
+                  Address <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="address"
+                  placeholder="Enter full address"
+                  value={formData.addressLine1}
+                  onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="lga">
+                    LGA <span className="text-red-500">*</span>
+                  </Label>
+                  <Select value={formData.lgaId} onValueChange={(value) => setFormData({ ...formData, lgaId: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select LGA" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {lgas.map((lga) => (
+                        <SelectItem key={lga.id} value={lga.id}>
+                          {lga.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="industry">
+                    Industry <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.industryId}
+                    onValueChange={(value) => setFormData({ ...formData, industryId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {industries.map((industry) => (
+                        <SelectItem key={industry.id} value={industry.id}>
+                          {industry.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tin">TIN (Optional)</Label>
+                  <Input
+                    id="tin"
+                    placeholder="Tax Identification Number"
+                    value={formData.tin}
+                    onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="rcNumber">RC Number (Optional)</Label>
+                  <Input
+                    id="rcNumber"
+                    placeholder="Registration Certificate Number"
+                    value={formData.rcNumber}
+                    onChange={(e) => setFormData({ ...formData, rcNumber: e.target.value })}
+                  />
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Personal Information */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">
-                  First Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                />
-              </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={generatingId}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={loading || generatingId}>
+              {generatingId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Generate KADIRS ID"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-              <div className="space-y-2">
-                <Label htmlFor="middleName">Middle Name</Label>
-                <Input
-                  id="middleName"
-                  value={formData.middleName}
-                  onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
-                />
-              </div>
+      {/* Modals for existing user and error handling */}
+      <ExistingUserConfirmationModal
+        open={showExistingUserModal}
+        onOpenChange={setShowExistingUserModal}
+        userData={existingUserData}
+        onConfirm={handleExistingUserConfirm}
+        isLoading={generatingId}
+      />
 
-              <div className="space-y-2">
-                <Label htmlFor="lastName">
-                  Last Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">
-                  Email <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phoneNumber">
-                  Phone Number <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="gender">
-                  Gender <span className="text-red-500">*</span>
-                </Label>
-                <Select value={formData.gender} onValueChange={(value) => setFormData({ ...formData, gender: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="userType">
-                  User Type <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.userType}
-                  onValueChange={(value) => setFormData({ ...formData, userType: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Individual">Individual</SelectItem>
-                    <SelectItem value="Corporate">Corporate</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="address">
-                Address <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="address"
-                placeholder="Enter full address"
-                value={formData.addressLine1}
-                onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="lga">
-                  LGA <span className="text-red-500">*</span>
-                </Label>
-                <Select value={formData.lgaId} onValueChange={(value) => setFormData({ ...formData, lgaId: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select LGA" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lgas.map((lga) => (
-                      <SelectItem key={lga.id} value={lga.id}>
-                        {lga.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="industry">
-                  Industry <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.industryId}
-                  onValueChange={(value) => setFormData({ ...formData, industryId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select industry" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {industries.map((industry) => (
-                      <SelectItem key={industry.id} value={industry.industry_id?.toString() || ""}>
-                        {industry.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="tin">TIN (Optional)</Label>
-                <Input
-                  id="tin"
-                  placeholder="Tax Identification Number"
-                  value={formData.tin}
-                  onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="rcNumber">RC Number (Optional)</Label>
-                <Input
-                  id="rcNumber"
-                  placeholder="Registration Certificate Number"
-                  value={formData.rcNumber}
-                  onChange={(e) => setFormData({ ...formData, rcNumber: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={generatingId}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={loading || generatingId}>
-            {generatingId ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              "Generate KADIRS ID"
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <KadirsErrorModal open={showErrorModal} onOpenChange={setShowErrorModal} error={errorData} />
+    </>
   )
 }
