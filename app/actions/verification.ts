@@ -372,7 +372,7 @@ export async function generateKadirsID(firebaseUid: string) {
     const responseData = await response.json()
     console.log("[v0] KADIRS API response:", responseData)
 
-    const kadirsId = responseData?.userRegistration?.tpui
+    const kadirsId = responseData?.userRegistration?.tpui || responseData?.tpui
 
     if (!kadirsId) {
       console.error("[v0] KADIRS ID not found in response:", responseData)

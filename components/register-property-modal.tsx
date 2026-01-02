@@ -33,6 +33,7 @@ import { createProperty } from "@/app/actions/create-property"
 import { createClient } from "@/utils/supabase/client"
 import { Progress } from "@/components/ui/progress"
 import { getProfileCompletionStatus } from "@/app/actions/verification"
+import { getUserRole } from "@/app/actions/get-user-role"
 
 interface RegisterPropertyModalProps {
   open: boolean
@@ -49,6 +50,7 @@ interface PropertyFormData {
   businessType: string
   commencementYear: string
   registeringForSomeoneElse: boolean
+  ownerIdForManager: string
   houseNumber: string
   streetName: string
   cityId: string
@@ -83,6 +85,9 @@ export function RegisterPropertyModal({
   const { user } = useAuth()
   const supabase = createClient()
 
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [authorizedOwners, setAuthorizedOwners] = useState<any[]>([])
+
   const [showValidationDialog, setShowValidationDialog] = useState(false)
   const [validationMessage, setValidationMessage] = useState("")
   const [checkingValidation, setCheckingValidation] = useState(false)
@@ -101,6 +106,7 @@ export function RegisterPropertyModal({
     businessType: "",
     commencementYear: "",
     registeringForSomeoneElse: false,
+    ownerIdForManager: "",
     houseNumber: "",
     streetName: "",
     cityId: "",
@@ -124,8 +130,44 @@ export function RegisterPropertyModal({
       fetchLocationData()
       fetchSystemSettings()
       checkUserValidation()
+      fetchUserRole()
     }
   }, [open])
+
+  async function fetchUserRole() {
+    if (!user?.uid) return
+    try {
+      const role = await getUserRole(user.uid)
+      setUserRole(role)
+      if (role === "property_manager") {
+        fetchAuthorizedOwners()
+      }
+    } catch (error) {
+      console.error("Error fetching user role:", error)
+    }
+  }
+
+  async function fetchAuthorizedOwners() {
+    if (!user?.uid) return
+    try {
+      const { data, error } = await supabase
+        .from("manager_authorizations")
+        .select("owner_id, users!manager_authorizations_owner_id_fkey(first_name, last_name, email)")
+        .eq("manager_id", user.uid)
+        .eq("is_active", true)
+
+      if (error) {
+        console.error("[v0] Error fetching authorized owners:", error)
+        return
+      }
+
+      if (data) {
+        setAuthorizedOwners(data)
+      }
+    } catch (error) {
+      console.error("[v0] Error in fetchAuthorizedOwners:", error)
+    }
+  }
 
   async function checkUserValidation() {
     if (!user?.uid || taxpayerId) {
@@ -320,10 +362,11 @@ export function RegisterPropertyModal({
           formData.streetName &&
           formData.cityId &&
           formData.lgaId &&
-          formData.areaOfficeId
+          formData.areaOfficeId &&
+          formData.commencementYear
         )
       case 2:
-        return !!(formData.totalUnits && formData.totalAnnualRent && formData.businessType && formData.commencementYear)
+        return !!(formData.totalUnits && formData.totalAnnualRent && formData.businessType)
       case 3:
         return true
       default:
@@ -335,9 +378,27 @@ export function RegisterPropertyModal({
     if (validateStep(currentStep)) {
       setCurrentStep((prev) => Math.min(prev + 1, 3))
     } else {
+      const missingFields: string[] = []
+
+      if (currentStep === 1) {
+        if (!formData.propertyName) missingFields.push("Property Name")
+        if (!formData.propertyType) missingFields.push("Property Type")
+        if (!formData.propertyCategory) missingFields.push("Property Category")
+        if (!formData.houseNumber) missingFields.push("House Number")
+        if (!formData.streetName) missingFields.push("Street Name")
+        if (!formData.cityId) missingFields.push("City")
+        if (!formData.lgaId) missingFields.push("LGA")
+        if (!formData.areaOfficeId) missingFields.push("Area Office")
+        if (!formData.commencementYear) missingFields.push("Commencement Year")
+      } else if (currentStep === 2) {
+        if (!formData.totalUnits) missingFields.push("Total Units")
+        if (!formData.totalAnnualRent) missingFields.push("Total Annual Rent")
+        if (!formData.businessType) missingFields.push("Business Type")
+      }
+
       toast({
         title: "Incomplete Information",
-        description: "Please fill in all required fields before proceeding",
+        description: `Please fill in: ${missingFields.join(", ")}`,
         variant: "destructive",
       })
     }
@@ -356,7 +417,16 @@ export function RegisterPropertyModal({
     if (!validateStep(3)) {
       toast({
         title: "Incomplete Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields before registering",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (formData.registeringForSomeoneElse && !formData.ownerIdForManager) {
+      toast({
+        title: "Owner Required",
+        description: "Please select a property owner you are registering for",
         variant: "destructive",
       })
       return
@@ -420,6 +490,7 @@ export function RegisterPropertyModal({
         businessType: formData.businessType,
         commencementYear: formData.commencementYear ? Number.parseInt(formData.commencementYear) : undefined,
         registeringForSomeoneElse: formData.registeringForSomeoneElse,
+        ownerId: formData.ownerIdForManager || undefined, // Pass ownerIdForManager
         houseNumber: formData.houseNumber,
         streetName: formData.streetName,
         city: formData.cityName,
@@ -457,6 +528,7 @@ export function RegisterPropertyModal({
         businessType: "",
         commencementYear: "",
         registeringForSomeoneElse: false,
+        ownerIdForManager: "", // Reset ownerIdForManager
         houseNumber: "",
         streetName: "",
         cityId: "",
@@ -490,6 +562,9 @@ export function RegisterPropertyModal({
       setLoading(false)
     }
   }
+
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => 1900 + i).reverse()
 
   const filteredCities = cities.filter((city) => city.name.toLowerCase().includes(citySearchQuery.toLowerCase()))
 
@@ -644,19 +719,74 @@ export function RegisterPropertyModal({
                     </Label>
                     <Input id="state" value={formData.state || "Kaduna"} readOnly className="text-primary bg-muted" />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="commencementYear">
+                      Commencement Year <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={formData.commencementYear}
+                      onValueChange={(value) => setFormData({ ...formData, commencementYear: value })}
+                    >
+                      <SelectTrigger id="commencementYear">
+                        <SelectValue placeholder="Select year" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[200px]">
+                        {years.map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="registeringForSomeoneElse"
-                    checked={formData.registeringForSomeoneElse}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, registeringForSomeoneElse: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="registeringForSomeoneElse" className="text-sm font-normal cursor-pointer">
-                    I am registering this property on behalf of someone else
-                  </Label>
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="registeringForSomeoneElse"
+                      checked={formData.registeringForSomeoneElse}
+                      onCheckedChange={(checked) => {
+                        setFormData({
+                          ...formData,
+                          registeringForSomeoneElse: checked as boolean,
+                          ownerIdForManager: "",
+                        })
+                      }}
+                      disabled={userRole !== "property_manager"}
+                    />
+                    <Label htmlFor="registeringForSomeoneElse" className="text-sm font-normal cursor-pointer">
+                      I am registering this property on behalf of someone else
+                    </Label>
+                  </div>
+
+                  {formData.registeringForSomeoneElse && userRole === "property_manager" && (
+                    <div className="space-y-2 pl-6">
+                      <Label htmlFor="ownerIdForManager">
+                        Property Owner <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.ownerIdForManager}
+                        onValueChange={(value) => setFormData({ ...formData, ownerIdForManager: value })}
+                      >
+                        <SelectTrigger id="ownerIdForManager">
+                          <SelectValue placeholder="Select property owner" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {authorizedOwners.length === 0 ? (
+                            <div className="p-2 text-sm text-muted-foreground">No authorized owners found</div>
+                          ) : (
+                            authorizedOwners.map((auth) => (
+                              <SelectItem key={auth.owner_id} value={auth.owner_id}>
+                                {auth.users?.first_name} {auth.users?.last_name} ({auth.users?.email})
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -824,7 +954,9 @@ export function RegisterPropertyModal({
                   </div>
                   {formData.registeringForSomeoneElse && (
                     <div className="text-amber-600">
-                      <strong>Note:</strong> Registering on behalf of someone else
+                      <strong>Note:</strong> Registering on behalf of{" "}
+                      {authorizedOwners.find((a) => a.owner_id === formData.ownerIdForManager)?.users?.first_name}{" "}
+                      {authorizedOwners.find((a) => a.owner_id === formData.ownerIdForManager)?.users?.last_name}
                     </div>
                   )}
                 </div>

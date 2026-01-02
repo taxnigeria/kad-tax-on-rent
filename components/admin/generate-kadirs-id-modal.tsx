@@ -277,6 +277,7 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
         const kadirsId = responseData?.userRegistration?.tpui
 
         if (!kadirsId) {
+          console.error("[v0] KADIRS ID not found in response:", responseData)
           throw new Error("KADIRS ID not found in API response")
         }
 
@@ -295,12 +296,24 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
         onOpenChange(false)
       } else if (responseData.success === false && responseData.search_result) {
         // Existing user found - show confirmation modal
-        setExistingUserData(responseData.search_result)
+        const searchResult = {
+          ...responseData.search_result,
+          // Use tpui as kadirs_id since that's what n8n returns for search results
+          kadirs_id: responseData.search_result.tpui,
+        }
+        setExistingUserData(searchResult)
         setShowExistingUserModal(true)
       } else if (responseData.success === false && responseData.error) {
         // Error occurred - show error modal
         setErrorData(responseData.error)
         setShowErrorModal(true)
+      } else if (responseData.tpui) {
+        const searchResult = {
+          ...responseData,
+          kadirs_id: responseData.tpui,
+        }
+        setExistingUserData(searchResult)
+        setShowExistingUserModal(true)
       } else {
         // Unexpected response format
         throw new Error("Unexpected API response format")

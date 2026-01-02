@@ -16,7 +16,8 @@ interface ExistingUserConfirmationModalProps {
   onOpenChange: (open: boolean) => void
   userData: {
     fullName: string
-    tpui: string
+    kadirs_id?: string
+    tpui?: string
     tin: string
     nin: string
     phone: string
@@ -57,8 +58,8 @@ export function ExistingUserConfirmationModal({
                   <p className="text-gray-900">{userData.fullName}</p>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-600">TPUI:</span>
-                  <p className="text-gray-900 font-mono">{userData.tpui}</p>
+                  <span className="font-medium text-gray-600">KADIRS ID:</span>
+                  <p className="text-gray-900 font-mono">{userData.kadirs_id || userData.tpui}</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-600">TIN:</span>

@@ -21,6 +21,7 @@ import { ProfileCompletionModal } from "@/components/profile-completion-modal"
 import { getPropertiesByFirebaseUid } from "@/app/actions/get-properties"
 import { getProfileCompletionStatus } from "@/app/actions/verification"
 import { toast } from "@/components/ui/use-toast"
+import { AuthorizationsTab } from "@/components/authorizations-tab"
 
 type Property = {
   id: string
@@ -284,6 +285,7 @@ export default function PropertiesPage() {
                         </span>
                       </TabsTrigger>
                     )}
+                    {userRole === "taxpayer" && <TabsTrigger value="authorizations">Authorizations</TabsTrigger>}
                   </TabsList>
 
                   <TabsContent value="owned" className="space-y-6">
@@ -651,6 +653,12 @@ export default function PropertiesPage() {
                           ))}
                         </div>
                       )}
+                    </TabsContent>
+                  )}
+
+                  {userRole === "taxpayer" && (
+                    <TabsContent value="authorizations" className="space-y-6">
+                      <AuthorizationsTab />
                     </TabsContent>
                   )}
                 </Tabs>
