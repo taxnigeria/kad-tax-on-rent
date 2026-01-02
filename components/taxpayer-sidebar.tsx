@@ -91,7 +91,7 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">Tax Portal</span>
-                  <span className="truncate text-xs">Taxpayer</span>
+                  <span className="truncate text-xs">{user?.role || "Taxpayer"}</span>
                 </div>
               </a>
             </SidebarMenuButton>

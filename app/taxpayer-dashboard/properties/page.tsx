@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RegisterPropertyModal } from "@/components/register-property-modal"
 import { TaxpayerPropertyDetailsSheet } from "@/components/taxpayer/property-details-sheet"
+import { ProfileCompletionModal } from "@/components/profile-completion-modal"
 import { getPropertiesByFirebaseUid } from "@/app/actions/get-properties"
 import { getProfileCompletionStatus } from "@/app/actions/verification"
 import { toast } from "@/components/ui/use-toast"
@@ -63,6 +64,7 @@ export default function PropertiesPage() {
   } | null>(null)
   const [activeTab, setActiveTab] = useState("owned")
   const [isPropertySheetOpen, setIsPropertySheetOpen] = useState(false) // Declare isPropertySheetOpen
+  const [isProfileCompletionModalOpen, setIsProfileCompletionModalOpen] = useState(false)
 
   useEffect(() => {
     if (!authLoading) {
@@ -198,11 +200,7 @@ export default function PropertiesPage() {
     if (!profileCompletion.kadirsIdGenerated) missingItems.push("KADIRS ID")
 
     if (missingItems.length > 0) {
-      toast({
-        title: "Complete Your Profile First",
-        description: `Please complete the following: ${missingItems.join(", ")}`,
-        variant: "destructive",
-      })
+      setIsProfileCompletionModalOpen(true)
       return
     }
 
@@ -662,15 +660,19 @@ export default function PropertiesPage() {
         )}
       </SidebarInset>
       <AIAssistantSidebar userRole={userRole as "taxpayer" | "property_manager"} />
+      <ProfileCompletionModal open={isProfileCompletionModalOpen} onOpenChange={setIsProfileCompletionModalOpen} />
       <RegisterPropertyModal
         open={isRegisterModalOpen}
         onOpenChange={setIsRegisterModalOpen}
-        onSuccess={fetchProperties}
+        onSuccess={() => {
+          fetchProperties()
+          setIsRegisterModalOpen(false)
+        }}
       />
       <TaxpayerPropertyDetailsSheet
+        propertyId={selectedPropertyId}
         open={isPropertySheetOpen}
         onOpenChange={setIsPropertySheetOpen}
-        propertyId={selectedPropertyId}
       />
     </SidebarProvider>
   )
