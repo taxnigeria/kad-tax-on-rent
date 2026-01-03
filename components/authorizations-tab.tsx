@@ -74,6 +74,7 @@ export function AuthorizationsTab() {
   }
 
   const handleOpenManager = (managerId: string, authId: string) => {
+    console.log("[v0] Opening manager details:", { managerId, authId })
     setSelectedManager({ id: managerId, authId })
     setIsSidepanelOpen(true)
   }
@@ -162,6 +163,7 @@ export function AuthorizationsTab() {
           managerId={selectedManager.id}
           authorizationId={selectedManager.authId}
           ownerId={user!.uid}
+          firebaseUid={user!.uid}
           onRevoked={handleRevoked}
           onPropertyAdded={loadData}
           availableProperties={selectedManager ? availablePropertiesForManager(selectedManager.id) : []}
