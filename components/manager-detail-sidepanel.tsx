@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useEffect, useState, useMemo } from "react"
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { toast } from "sonner"
-import { Trash2, Plus, Mail, Phone } from "lucide-react"
+import { Trash2, Plus, Mail, Phone, UserPlus } from "lucide-react"
 import {
   getManagerDetailsWithProperties,
   revokeManagerAuthorization,
@@ -20,6 +20,7 @@ interface ManagerDetailSidepanelProps {
   managerId: string
   authorizationId: string
   ownerId: string
+  firebaseUid: string
   onRevoked: () => void
   onPropertyAdded: () => void
   availableProperties: Array<{ id: string; registered_property_name: string }>
@@ -31,6 +32,7 @@ export function ManagerDetailSidepanel({
   managerId,
   authorizationId,
   ownerId,
+  firebaseUid,
   onRevoked,
   onPropertyAdded,
   availableProperties,
@@ -39,6 +41,7 @@ export function ManagerDetailSidepanel({
   const [data, setData] = useState<any>(null)
   const [selectedProperty, setSelectedProperty] = useState("")
   const [isAddingProperty, setIsAddingProperty] = useState(false)
+  const [showAddPropertyForm, setShowAddPropertyForm] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -48,7 +51,7 @@ export function ManagerDetailSidepanel({
   const loadManagerDetails = async () => {
     setLoading(true)
     try {
-      const result = await getManagerDetailsWithProperties(managerId, ownerId)
+      const result = await getManagerDetailsWithProperties(managerId, firebaseUid)
       if (result.error) {
         toast.error(result.error)
         return
@@ -86,13 +89,14 @@ export function ManagerDetailSidepanel({
 
     setIsAddingProperty(true)
     try {
-      const result = await addPropertyToManagerAuthorization(managerId, ownerId, selectedProperty)
+      const result = await addPropertyToManagerAuthorization(managerId, firebaseUid, selectedProperty)
       if (result.error) {
         toast.error(result.error)
         return
       }
       toast.success("Property added to manager")
       setSelectedProperty("")
+      setShowAddPropertyForm(false)
       onPropertyAdded()
       loadManagerDetails()
     } catch (error) {
@@ -103,154 +107,188 @@ export function ManagerDetailSidepanel({
     }
   }
 
+  const managerInitials = useMemo(() => {
+    if (!data?.manager) return "?"
+    const first = data.manager.first_name?.[0] || ""
+    const last = data.manager.last_name?.[0] || ""
+    return `${first}${last}`.toUpperCase() || "?"
+  }, [data?.manager])
+
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:w-[500px] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Manager Details</SheetTitle>
-          <SheetDescription>View and manage this property manager</SheetDescription>
-        </SheetHeader>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground">Loading details...</p>
+      <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col overflow-hidden">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <SheetTitle className="text-lg">Manager Details</SheetTitle>
+              <SheetDescription>View and manage this property manager</SheetDescription>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 bg-transparent"
+              onClick={() => setShowAddPropertyForm(!showAddPropertyForm)}
+            >
+              <UserPlus className="h-4 w-4" />
+              Assign Property
+            </Button>
           </div>
-        ) : data ? (
-          <div className="space-y-6 py-6">
-            {/* Manager Info */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Manager Information</h3>
-              <Card>
-                <CardContent className="pt-6 space-y-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Name</p>
-                    <p className="font-medium">
-                      {data.manager.first_name} {data.manager.last_name}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-sm">{data.manager.email}</p>
-                  </div>
-                  {data.manager.phone_number && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm">{data.manager.phone_number}</p>
+        </div>
+
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">Loading details...</p>
+            </div>
+          ) : data ? (
+            <div className="space-y-6 p-6">
+              {/* Manager Info with Avatar */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase text-muted-foreground">Manager Information</h3>
+                <div className="flex items-start gap-4">
+                  <Avatar className="h-12 w-12 flex-shrink-0">
+                    <AvatarImage src={data.manager.profile_photo_url || "/placeholder.svg"} />
+                    <AvatarFallback>{managerInitials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Name</p>
+                      <p className="text-sm font-medium">
+                        {data.manager.first_name} {data.manager.last_name}
+                      </p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Performance Stats */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold">Performance Statistics</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription className="text-xs">Total Tax Due</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg font-semibold">
-                      ₦{(data.stats.totalTaxDue || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 })}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription className="text-xs">Discounts Saved</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg font-semibold text-green-600">
-                      ₦{(data.stats.totalDiscounts || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 })}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription className="text-xs">Amount Paid</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg font-semibold">
-                      ₦{(data.stats.totalPaid || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 })}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription className="text-xs">Properties</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg font-semibold">{data.stats.totalProperties}</p>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* Managed Properties */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Managed Properties</h3>
-                <Badge variant="secondary">{data.properties.length}</Badge>
-              </div>
-              {data.properties.length > 0 ? (
-                <div className="space-y-2">
-                  {data.properties.map((prop: any) => (
-                    <Card key={prop.id}>
-                      <CardContent className="pt-4">
-                        <p className="text-sm font-medium">{prop.registered_property_name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Annual Rent: ₦
-                          {(prop.total_annual_rent || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 })}
-                        </p>
-                        <Badge variant="outline" className="mt-2 text-xs">
-                          {prop.status}
-                        </Badge>
-                      </CardContent>
-                    </Card>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="text-xs">{data.manager.email}</p>
+                    </div>
+                    {data.manager.phone_number && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                        <p className="text-xs">{data.manager.phone_number}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No properties managed yet</p>
+              </div>
+
+              {/* Performance Statistics */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold uppercase text-muted-foreground">Performance Statistics</h3>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="bg-muted p-2 rounded-md">
+                    <p className="text-xs text-muted-foreground">Tax Due</p>
+                    <p className="text-xs font-semibold mt-1">
+                      ₦{((data.stats.totalTaxDue || 0) / 1000000).toFixed(1)}M
+                    </p>
+                  </div>
+                  <div className="bg-green-50 p-2 rounded-md">
+                    <p className="text-xs text-muted-foreground">Discounts</p>
+                    <p className="text-xs font-semibold text-green-600 mt-1">
+                      ₦{((data.stats.totalDiscounts || 0) / 1000000).toFixed(1)}M
+                    </p>
+                  </div>
+                  <div className="bg-blue-50 p-2 rounded-md">
+                    <p className="text-xs text-muted-foreground">Paid</p>
+                    <p className="text-xs font-semibold text-blue-600 mt-1">
+                      ₦{((data.stats.totalPaid || 0) / 1000000).toFixed(1)}M
+                    </p>
+                  </div>
+                  <div className="bg-muted p-2 rounded-md">
+                    <p className="text-xs text-muted-foreground">Properties</p>
+                    <p className="text-xs font-semibold mt-1">{data.stats.totalProperties}</p>
+                  </div>
+                </div>
+              </div>
+
+              {showAddPropertyForm && availableProperties.length > 0 && (
+                <div className="space-y-3 bg-blue-50 p-4 rounded-md border border-blue-200">
+                  <h3 className="text-sm font-semibold">Assign Property to Manager</h3>
+                  <p className="text-xs text-muted-foreground">Select a property to place under this manager's care</p>
+                  <div className="flex gap-2">
+                    <Select value={selectedProperty} onValueChange={setSelectedProperty}>
+                      <SelectTrigger className="flex-1 h-9 text-sm bg-white">
+                        <SelectValue placeholder="Select property" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableProperties.map((prop) => (
+                          <SelectItem key={prop.id} value={prop.id} className="text-sm">
+                            {prop.registered_property_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      onClick={handleAddProperty}
+                      disabled={isAddingProperty || !selectedProperty}
+                      className="h-9 gap-1.5"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setShowAddPropertyForm(false)
+                        setSelectedProperty("")
+                      }}
+                      className="h-9"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               )}
-            </div>
 
-            {/* Add Property */}
-            {availableProperties.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold">Add Property</h3>
-                <div className="flex gap-2">
-                  <Select value={selectedProperty} onValueChange={setSelectedProperty}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select property" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableProperties.map((prop) => (
-                        <SelectItem key={prop.id} value={prop.id}>
-                          {prop.registered_property_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button size="sm" onClick={handleAddProperty} disabled={isAddingProperty} className="gap-1">
-                    <Plus className="h-4 w-4" />
-                    Add
-                  </Button>
+              {/* Managed Properties */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground">Managed Properties</h3>
+                  <Badge variant="secondary" className="text-xs">
+                    {data.properties.length}
+                  </Badge>
                 </div>
+                {data.properties.length > 0 ? (
+                  <div className="space-y-2">
+                    {data.properties.map((prop: any) => (
+                      <div key={prop.id} className="bg-muted p-3 rounded-md">
+                        <p className="text-sm font-medium">{prop.registered_property_name}</p>
+                        <div className="flex items-center justify-between mt-1.5">
+                          <p className="text-xs text-muted-foreground">
+                            ₦{(prop.total_annual_rent || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 })}
+                          </p>
+                          <Badge variant="outline" className="text-xs">
+                            {prop.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-muted/50 rounded-md p-4 text-center">
+                    <p className="text-sm text-muted-foreground">No properties managed yet</p>
+                    {availableProperties.length > 0 && (
+                      <Button size="sm" variant="link" className="mt-1" onClick={() => setShowAddPropertyForm(true)}>
+                        Assign a property
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Revoke Button */}
-            <div className="pt-4 border-t">
-              <Button variant="destructive" className="w-full gap-2" onClick={handleRevoke}>
-                <Trash2 className="h-4 w-4" />
-                Revoke Authorization
-              </Button>
+              {/* Revoke Button */}
+              <div className="pt-4 border-t">
+                <Button variant="destructive" className="w-full gap-2" onClick={handleRevoke}>
+                  <Trash2 className="h-4 w-4" />
+                  Revoke Authorization
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </SheetContent>
     </Sheet>
   )

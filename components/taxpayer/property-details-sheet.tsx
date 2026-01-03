@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -39,21 +39,21 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
   const [property, setProperty] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [taxCalculations, setTaxCalculations] = useState<any[]>([])
   const [loadingTaxData, setLoadingTaxData] = useState(false)
   const [taxBillSheetOpen, setTaxBillSheetOpen] = useState(false)
   const [selectedTaxCalcId, setSelectedTaxCalcId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open && propertyId) {
+    if (open && propertyId && propertyId.length > 0) {
       fetchPropertyDetails()
       fetchTaxCalculationsAndInvoices()
     }
   }, [open, propertyId])
 
   async function fetchPropertyDetails() {
-    if (!propertyId) return
+    if (!propertyId || propertyId.length === 0) return
 
     setLoading(true)
     try {
@@ -73,6 +73,14 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
               kadirs_id,
               tax_id_or_nin
             )
+          ),
+          property_manager:users!properties_property_manager_id_fkey (
+            id,
+            first_name,
+            middle_name,
+            last_name,
+            email,
+            phone_number
           ),
           addresses (
             street_address,
@@ -115,13 +123,18 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
       }
     } catch (error) {
       console.error("Error in fetchPropertyDetails:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load property details. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
   async function fetchTaxCalculationsAndInvoices() {
-    if (!propertyId) return
+    if (!propertyId || propertyId.length === 0) return
 
     setLoadingTaxData(true)
     try {
@@ -318,6 +331,43 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
                   )}
                 </div>
               </div>
+
+              <Separator />
+
+              {/* Property Manager Information */}
+              {property.property_manager && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Property Manager
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Name</div>
+                      <div className="font-medium">
+                        {property.property_manager.first_name} {property.property_manager.middle_name}{" "}
+                        {property.property_manager.last_name}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Email</div>
+                      <div className="flex items-center gap-1.5">
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="truncate">{property.property_manager.email}</span>
+                      </div>
+                    </div>
+                    {property.property_manager.phone_number && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium text-muted-foreground">Phone</div>
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span>{property.property_manager.phone_number}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <Separator />
 

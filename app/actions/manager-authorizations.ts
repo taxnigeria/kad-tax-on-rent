@@ -78,7 +78,6 @@ export async function getAvailablePropertyManagers(firebaseUid: string) {
   try {
     const supabase = createAdminClient()
 
-    // Get the database user ID from Firebase UID
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id")
@@ -123,7 +122,6 @@ export async function authorizePropertyManager(firebaseUid: string, managerId: s
   try {
     const supabase = createAdminClient()
 
-    // Get the database user ID from Firebase UID
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id")
@@ -190,9 +188,22 @@ export async function authorizePropertyManager(firebaseUid: string, managerId: s
   }
 }
 
-export async function getManagerDetailsWithProperties(managerId: string, ownerId: string) {
+export async function getManagerDetailsWithProperties(managerId: string, firebaseUid: string) {
   try {
     const supabase = createAdminClient()
+
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (userError || !userData) {
+      console.error("[v0] Error fetching user:", userError)
+      return { data: null, error: "User not found" }
+    }
+
+    const ownerId = userData.id
 
     // Get manager details
     const { data: manager, error: managerError } = await supabase
@@ -219,23 +230,31 @@ export async function getManagerDetailsWithProperties(managerId: string, ownerId
     }
 
     // Get manager performance stats for properties under this owner
-    const { data: taxData, error: taxError } = await supabase
-      .from("tax_calculations")
-      .select("total_tax_due")
-      .in("property_id", properties?.map((p) => p.id) || [])
+    const propertyIds = properties?.map((p) => p.id) || []
 
-    const { data: invoiceData, error: invoiceError } = await supabase
-      .from("invoices")
-      .select("total_amount, discount, amount_paid")
-      .in("property_id", properties?.map((p) => p.id) || [])
+    let totalTaxDue = 0
+    let totalDiscounts = 0
+    let totalPaid = 0
 
-    if (taxError || invoiceError) {
-      console.error("[v0] Error fetching stats:", taxError || invoiceError)
+    if (propertyIds.length > 0) {
+      const { data: taxData, error: taxError } = await supabase
+        .from("tax_calculations")
+        .select("total_tax_due")
+        .in("property_id", propertyIds)
+
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from("invoices")
+        .select("total_amount, discount, amount_paid")
+        .in("property_id", propertyIds)
+
+      if (taxError || invoiceError) {
+        console.error("[v0] Error fetching stats:", taxError || invoiceError)
+      }
+
+      totalTaxDue = taxData?.reduce((sum, t) => sum + (t.total_tax_due || 0), 0) || 0
+      totalDiscounts = invoiceData?.reduce((sum, i) => sum + (i.discount || 0), 0) || 0
+      totalPaid = invoiceData?.reduce((sum, i) => sum + (i.amount_paid || 0), 0) || 0
     }
-
-    const totalTaxDue = taxData?.reduce((sum, t) => sum + (t.total_tax_due || 0), 0) || 0
-    const totalDiscounts = invoiceData?.reduce((sum, i) => sum + (i.discount || 0), 0) || 0
-    const totalPaid = invoiceData?.reduce((sum, i) => sum + (i.amount_paid || 0), 0) || 0
 
     return {
       data: {
@@ -256,15 +275,26 @@ export async function getManagerDetailsWithProperties(managerId: string, ownerId
   }
 }
 
-export async function addPropertyToManagerAuthorization(managerId: string, ownerId: string, propertyId: string) {
+export async function addPropertyToManagerAuthorization(managerId: string, firebaseUid: string, propertyId: string) {
   try {
     const supabase = createAdminClient()
+
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (userError || !userData) {
+      console.error("[v0] Error fetching user:", userError)
+      return { data: null, error: "User not found" }
+    }
 
     const { data, error } = await supabase
       .from("properties")
       .update({ property_manager_id: managerId })
       .eq("id", propertyId)
-      .eq("owner_id", ownerId)
+      .eq("owner_id", userData.id)
       .select()
 
     if (error) {
