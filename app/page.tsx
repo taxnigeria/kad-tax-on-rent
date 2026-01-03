@@ -188,7 +188,7 @@ export default function LandingPage() {
               Login & Pay.
             </h1>
             <p className="text-lg text-emerald-700/80 mb-10 max-w-lg leading-relaxed font-light">
-              The official digital platform for the collection and administration of Tax on Rent in Kaduna State. Access
+              The official digital platform for the collection and administration of Witholding Tax on Rent in Kaduna State. Access
               your dashboard to manage properties and payments.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -524,7 +524,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="max-w-3xl mb-16">
             <h2 className="text-3xl lg:text-4xl font-medium tracking-tighter text-emerald-950 mb-6">
-              Why Choose Our KADIRS-Approved Platform?
+              How We Simplify Withholding Tax on Rent 
             </h2>
             <p className="text-lg text-emerald-600/80 font-light leading-relaxed">
               Experience a modern, transparent, and secure way to manage your rental property tax obligations with tools
