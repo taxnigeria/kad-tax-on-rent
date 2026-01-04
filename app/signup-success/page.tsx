@@ -1,6 +1,6 @@
 import { CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 
 export default function SignupSuccessPage() {
@@ -13,17 +13,8 @@ export default function SignupSuccessPage() {
               <CheckCircle2 className="size-8 text-green-600" />
             </div>
             <CardTitle className="text-2xl">Account Created Successfully!</CardTitle>
-            <CardDescription>Please check your email to verify your account before logging in.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="rounded-lg bg-muted p-4 text-sm">
-              <p className="font-medium mb-2">Next Steps:</p>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Check your email inbox</li>
-                <li>Click the verification link</li>
-                <li>Return to login page</li>
-              </ol>
-            </div>
             <Button asChild className="w-full">
               <Link href="/login">Go to Login</Link>
             </Button>
