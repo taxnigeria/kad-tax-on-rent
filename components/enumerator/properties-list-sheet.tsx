@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   User,
   DollarSign,
+  MapPinIcon,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
@@ -45,6 +46,8 @@ interface Property {
     city: string
     lga: string
     state: string
+    latitude?: number
+    longitude?: number
   } | null
   users: {
     first_name: string
@@ -185,6 +188,8 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
 
     const city = selectedProperty.addresses?.city || "N/A"
     const lga = selectedProperty.addresses?.lga || selectedProperty.area_offices?.lgas?.name || "N/A"
+    const latitude = selectedProperty.addresses?.latitude
+    const longitude = selectedProperty.addresses?.longitude
 
     const facadePhoto = selectedProperty.documents?.find((doc) => doc.document_type === "property_facade")?.file_url
 
@@ -204,6 +209,31 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
           </SheetHeader>
 
           <div className="mt-6 space-y-6">
+            {latitude && longitude && (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium mb-3">Location</p>
+                  <div className="w-full h-48 rounded-lg overflow-hidden bg-muted">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      loading="lazy"
+                      allowFullScreen=""
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDDwW6wgSZfPlWvJnHJKfqhNvRkXKKLowU&q=${latitude},${longitude}`}
+                      className="border-0"
+                    ></iframe>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+                    <MapPinIcon className="h-4 w-4" />
+                    <span>
+                      {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {facadePhoto && (
               <Card>
                 <CardContent className="pt-6">

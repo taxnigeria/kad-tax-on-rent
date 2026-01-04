@@ -27,6 +27,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import { compressImage } from "@/utils/image-compression"
 
 interface Taxpayer {
   id: string
@@ -334,14 +335,20 @@ export default function EnumeratePage() {
     }
   }
 
-  const handlePhotoUpload = (file: File, type: "facade" | "address") => {
+  const handlePhotoUpload = async (file: File, type: "facade" | "address") => {
+    const compressedFile = await compressImage(file, 0.5) // Compress to max 500KB
+
     if (type === "facade") {
-      setFacadePhoto(file)
-      setFacadePreview(URL.createObjectURL(file))
+      setFacadePhoto(compressedFile)
+      setFacadePreview(URL.createObjectURL(compressedFile))
     } else {
-      setAddressNumberPhoto(file)
-      setAddressPreview(URL.createObjectURL(file))
+      setAddressNumberPhoto(compressedFile)
+      setAddressPreview(URL.createObjectURL(compressedFile))
     }
+
+    // Show file size to user
+    const sizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2)
+    console.log(`[v0] Image compressed: ${sizeMB}MB`)
   }
 
   const submitProperty = async () => {
