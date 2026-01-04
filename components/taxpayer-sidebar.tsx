@@ -5,6 +5,7 @@ import { Home, Building2, FileText, CreditCard, Bell } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { getUserProfilePhoto } from "@/services/user-service"
+import { getUserRole } from "@/app/actions/get-user-role"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -23,6 +24,7 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
   const { user } = useAuth()
   const pathname = usePathname()
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null)
+  const [supabaseRole, setSupabaseRole] = useState<string | null>(null)
 
   const getRoleLabel = (role?: string): string => {
     switch (role) {
@@ -46,6 +48,16 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
     }
     fetchProfilePhoto()
   }, [user])
+
+  useEffect(() => {
+    const fetchRole = async () => {
+      if (user?.uid) {
+        const role = await getUserRole(user.uid)
+        setSupabaseRole(role)
+      }
+    }
+    fetchRole()
+  }, [user?.uid])
 
   const data = {
     navMain: [
@@ -104,7 +116,7 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">Tax Portal</span>
-                  <span className="truncate text-xs">{getRoleLabel(user?.role)}</span>
+                  <span className="truncate text-xs">{getRoleLabel(supabaseRole || undefined)}</span>
                 </div>
               </a>
             </SidebarMenuButton>

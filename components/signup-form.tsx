@@ -318,19 +318,28 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
                   )}
                 </Button>
 
+                {/* Improved link styling */}
                 <div className="text-center text-sm">
                   Already have an account?{" "}
-                  <Link href="/login" className="underline underline-offset-4 hover:text-primary">
+                  <Link href="/login" className="font-medium text-primary hover:underline underline-offset-4">
                     Login
                   </Link>
                 </div>
+                <div className="text-center text-sm text-muted-foreground">Powered by Greendrops Energy</div>
               </div>
             </form>
           )}
         </CardContent>
       </Card>
       <div className="text-center text-xs text-balance text-muted-foreground">
-        By creating an account, you agree to our Terms of Service and Privacy Policy
+        By creating an account, you agree to our{" "}
+        <Link href="/terms" className="text-primary hover:underline underline-offset-2">
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="text-primary hover:underline underline-offset-2">
+          Privacy Policy
+        </Link>
       </div>
     </div>
   )
