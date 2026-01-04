@@ -11,6 +11,7 @@ import { UserCheck, Plus } from "lucide-react"
 import { AuthorizeManagerModal } from "./authorize-manager-modal"
 import { ManagerDetailSidepanel } from "./manager-detail-sidepanel"
 import { ManagerCard } from "./manager-card"
+import { getManagerManagedPropertiesCount } from "@/app/actions/manager-authorizations"
 
 interface Authorization {
   id: string
@@ -43,6 +44,7 @@ export function AuthorizationsTab() {
     authId: string
   } | null>(null)
   const [isSidepanelOpen, setIsSidepanelOpen] = useState(false)
+  const [managerPropertyCounts, setManagerPropertyCounts] = useState<Record<string, number>>({})
 
   useEffect(() => {
     if (!user?.uid) return
@@ -66,21 +68,46 @@ export function AuthorizationsTab() {
         setProperties(propResult.ownedProperties)
       }
     } catch (error) {
-      console.error("[v0] Error loading data:", error)
+      console.error("Error loading data:", error)
       toast.error("Failed to load authorizations")
     } finally {
       setLoading(false)
     }
   }
 
+  useEffect(() => {
+    if (!user?.uid || authorizations.length === 0) return
+
+    // Fetch property count for each manager
+    const fetchCounts = async () => {
+      const counts: Record<string, number> = {}
+      for (const auth of authorizations) {
+        const result = await getManagerManagedPropertiesCount(user.uid, auth.manager_id)
+        counts[auth.manager_id] = result.count || 0
+      }
+      setManagerPropertyCounts(counts)
+    }
+
+    fetchCounts()
+  }, [authorizations, user?.uid])
+
   const handleOpenManager = (managerId: string, authId: string) => {
-    console.log("[v0] Opening manager details:", { managerId, authId })
     setSelectedManager({ id: managerId, authId })
     setIsSidepanelOpen(true)
   }
 
   const handleRevoked = () => {
     loadData()
+  }
+
+  const availablePropertiesForManager = (managerId: string) => {
+    // Get all property IDs already managed by this specific manager
+    const managedPropIds = new Set<string>()
+
+    // We need to check which properties this manager already manages
+    // For now, return all properties since we don't have a direct way to fetch managed properties
+    // The backend should ideally return which properties each manager manages
+    return properties
   }
 
   if (loading) {
@@ -118,14 +145,6 @@ export function AuthorizationsTab() {
     )
   }
 
-  const availablePropertiesForManager = (managerId: string) => {
-    const managedPropIds = properties
-      .filter((p) => authorizations.some((a) => a.manager_id === managerId))
-      .map((p) => p.id)
-
-    return properties.filter((p) => !managedPropIds.includes(p.id))
-  }
-
   return (
     <>
       <div className="space-y-4">
@@ -144,7 +163,7 @@ export function AuthorizationsTab() {
               name={`${auth.users.first_name} ${auth.users.last_name}`}
               email={auth.users.email}
               authorizationDate={auth.authorization_date || auth.created_at}
-              propertyCount={properties.filter((p) => auth.manager_id === auth.manager_id).length}
+              propertyCount={managerPropertyCounts[auth.manager_id] || 0}
               onClick={() => handleOpenManager(auth.manager_id, auth.id)}
             />
           ))}

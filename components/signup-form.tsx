@@ -33,18 +33,18 @@ const roleOptions: RoleOption[] = [
     color: "text-green-600",
   },
   {
+    value: "property_manager",
+    label: "Property Manager / Agent",
+    description: "I manage properties on behalf of owners",
+    icon: <IconBriefcase className="size-8" />,
+    color: "text-purple-600",
+  },
+  {
     value: "tenant",
     label: "Tenant",
     description: "I rent a property and want to pay my portion of tax",
     icon: <IconKey className="size-8" />,
     color: "text-blue-600",
-  },
-  {
-    value: "property_manager",
-    label: "Property Manager",
-    description: "I manage properties on behalf of owners",
-    icon: <IconBriefcase className="size-8" />,
-    color: "text-purple-600",
   },
 ]
 

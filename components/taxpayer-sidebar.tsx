@@ -24,6 +24,19 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
   const pathname = usePathname()
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null)
 
+  const getRoleLabel = (role?: string): string => {
+    switch (role) {
+      case "taxpayer":
+        return "Property Owner"
+      case "property_manager":
+        return "Property Manager"
+      case "tenant":
+        return "Tenant"
+      default:
+        return "User"
+    }
+  }
+
   useEffect(() => {
     const fetchProfilePhoto = async () => {
       if (user?.uid) {
@@ -91,7 +104,7 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">Tax Portal</span>
-                  <span className="truncate text-xs">{user?.role || "Taxpayer"}</span>
+                  <span className="truncate text-xs">{getRoleLabel(user?.role)}</span>
                 </div>
               </a>
             </SidebarMenuButton>

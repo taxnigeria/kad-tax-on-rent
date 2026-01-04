@@ -11,14 +11,9 @@ interface ManagerCardProps {
 }
 
 export function ManagerCard({ name, email, authorizationDate, propertyCount, onClick }: ManagerCardProps) {
-  const handleClick = () => {
-    console.log("[v0] Manager card clicked:", name)
-    onClick()
-  }
-
   return (
     <button
-      onClick={handleClick}
+      onClick={onClick}
       className="w-full border border-border rounded-lg p-4 hover:bg-accent transition-colors text-left group"
     >
       <div className="flex items-center justify-between gap-4">

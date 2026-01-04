@@ -46,7 +46,7 @@ export function ManagerDetailSidepanel({
   useEffect(() => {
     if (!isOpen) return
     loadManagerDetails()
-  }, [isOpen])
+  }, [isOpen, managerId])
 
   const loadManagerDetails = async () => {
     setLoading(true)
@@ -58,7 +58,7 @@ export function ManagerDetailSidepanel({
       }
       setData(result.data)
     } catch (error) {
-      console.error("[v0] Error loading manager details:", error)
+      console.error("Error loading manager details:", error)
       toast.error("Failed to load manager details")
     } finally {
       setLoading(false)
@@ -76,7 +76,7 @@ export function ManagerDetailSidepanel({
       onRevoked()
       onClose()
     } catch (error) {
-      console.error("[v0] Error revoking authorization:", error)
+      console.error("Error revoking authorization:", error)
       toast.error("Failed to revoke authorization")
     }
   }
@@ -100,7 +100,7 @@ export function ManagerDetailSidepanel({
       onPropertyAdded()
       loadManagerDetails()
     } catch (error) {
-      console.error("[v0] Error adding property:", error)
+      console.error("Error adding property:", error)
       toast.error("Failed to add property")
     } finally {
       setIsAddingProperty(false)
@@ -114,9 +114,15 @@ export function ManagerDetailSidepanel({
     return `${first}${last}`.toUpperCase() || "?"
   }, [data?.manager])
 
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose()
+    }
+  }
+
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col overflow-hidden">
+    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
+      <SheetContent side="right" className="w-full !sm:max-w-2xl !max-w-2xl p-0 flex flex-col overflow-hidden">
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
           <div className="flex items-center justify-between">

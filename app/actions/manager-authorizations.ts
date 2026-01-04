@@ -308,3 +308,36 @@ export async function addPropertyToManagerAuthorization(managerId: string, fireb
     return { data: null, error: error.message }
   }
 }
+
+export async function getManagerManagedPropertiesCount(firebaseUid: string, managerId: string) {
+  try {
+    const supabase = createAdminClient()
+
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (userError || !userData) {
+      console.error("[v0] Error fetching user:", userError)
+      return { count: 0, error: "User not found" }
+    }
+
+    const { data, error, count } = await supabase
+      .from("properties")
+      .select("*", { count: "exact", head: true })
+      .eq("property_manager_id", managerId)
+      .eq("owner_id", userData.id)
+
+    if (error) {
+      console.error("[v0] Error fetching managed properties count:", error)
+      return { count: 0, error: error.message }
+    }
+
+    return { count: count || 0, error: null }
+  } catch (error: any) {
+    console.error("[v0] Error in getManagerManagedPropertiesCount:", error)
+    return { count: 0, error: error.message }
+  }
+}
