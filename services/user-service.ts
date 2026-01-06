@@ -14,10 +14,9 @@ export async function getUserProfilePhoto(firebaseUid: string): Promise<string |
       .from("users")
       .select("id")
       .eq("firebase_uid", firebaseUid)
-      .single()
+      .maybeSingle()
 
     if (userError || !userData) {
-      console.error("Error fetching user:", userError)
       return null
     }
 
@@ -26,10 +25,9 @@ export async function getUserProfilePhoto(firebaseUid: string): Promise<string |
       .from("taxpayer_profiles")
       .select("profile_photo_url")
       .eq("user_id", userData.id)
-      .single()
+      .maybeSingle()
 
     if (profileError || !profileData) {
-      console.error("Error fetching profile:", profileError)
       return null
     }
 

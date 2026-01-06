@@ -39,6 +39,8 @@ type TaxCalculationDetailsSheetProps = {
   onOpenChange: (open: boolean) => void
   calculationId: string | null
   onUpdate: () => void
+  setDetailsSheetOpen: (open: boolean) => void
+  onOpenTaxpayerDetails?: (taxpayerId: string | null) => void
 }
 
 export default function TaxCalculationDetailsSheet({
@@ -46,6 +48,8 @@ export default function TaxCalculationDetailsSheet({
   onOpenChange,
   calculationId,
   onUpdate,
+  setDetailsSheetOpen,
+  onOpenTaxpayerDetails,
 }: TaxCalculationDetailsSheetProps) {
   const [calculation, setCalculation] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -293,27 +297,31 @@ export default function TaxCalculationDetailsSheet({
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Button size="sm" variant="default" className="gap-2 h-8" onClick={handleGenerateInvoice}>
-                    <FilePlus className="h-3.5 w-3.5" />
-                    Generate Invoice
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2 h-8 bg-transparent text-destructive border-destructive/30 hover:bg-destructive/10"
-                    onClick={() => setShowDeleteDialog(true)}
-                    disabled={deleting}
-                  >
-                    {deleting ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
-                        Deleting...
-                      </>
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                    Delete
-                  </Button>
+                  {!invoice && (
+                    <Button size="sm" variant="default" className="gap-2 h-8" onClick={handleGenerateInvoice}>
+                      <FilePlus className="h-3.5 w-3.5" />
+                      Generate Invoice
+                    </Button>
+                  )}
+                  {!invoice && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2 h-8 bg-transparent text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => setShowDeleteDialog(true)}
+                      disabled={deleting}
+                    >
+                      {deleting ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      Delete
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" className="gap-2 h-8 bg-transparent" onClick={handleDownload}>
                     <Download className="h-3.5 w-3.5" />
                     Download
@@ -333,8 +341,8 @@ export default function TaxCalculationDetailsSheet({
                     <div className="font-medium">
                       {calculation.properties?.users?.first_name} {calculation.properties?.users?.last_name}
                     </div>
-                    <div className="text-xs font-mono text-muted-foreground">
-                      {calculation.properties?.users?.taxpayer_profiles?.kadirs_id || "No KADIRS ID"}
+                    <div className="text-xs text-muted-foreground font-mono">
+                      {calculation.properties?.users?.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -520,32 +528,57 @@ export default function TaxCalculationDetailsSheet({
 
                     <div className="p-4 border-2 rounded-lg bg-card">
                       <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-medium text-muted-foreground">Base Tax</div>
+                        <div className="text-xl font-bold">
+                          ₦{Number(calculation.base_tax_amount || 0).toLocaleString()}
+                        </div>
+                      </div>
+                      <Separator className="my-3" />
+                      <div className="space-y-2 text-sm">
+                        {calculation.backlog_tax_amount > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Backlog Tax</span>
+                            <span className="font-medium">
+                              +₦{Number(calculation.backlog_tax_amount || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {calculation.penalty_amount > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Penalties (10%)</span>
+                            <span className="font-medium">
+                              +₦{Number(calculation.penalty_amount || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {calculation.interest_amount > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Interest (27%)</span>
+                            <span className="font-medium">
+                              +₦{Number(calculation.interest_amount || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {invoice?.stamp_duty > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Stamp Duty</span>
+                            <span className="font-medium">+₦{Number(invoice.stamp_duty || 0).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {invoice?.discount > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Discount Applied</span>
+                            <span className="font-medium text-green-600">
+                              -₦{Number(invoice.discount || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <Separator className="my-3" />
+                      <div className="flex items-center justify-between">
                         <div className="text-sm font-medium text-muted-foreground">Invoice Total</div>
                         <div className="text-2xl font-bold">₦{Number(invoice.total_amount || 0).toLocaleString()}</div>
                       </div>
-                      {(invoice.discount > 0 || invoice.stamp_duty > 0) && (
-                        <>
-                          <Separator className="my-3" />
-                          <div className="space-y-2 text-sm">
-                            {invoice.stamp_duty > 0 && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground">Stamp Duty</span>
-                                <span className="font-medium">
-                                  +₦{Number(invoice.stamp_duty || 0).toLocaleString()}
-                                </span>
-                              </div>
-                            )}
-                            {invoice.discount > 0 && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground">Discount Applied</span>
-                                <span className="font-medium text-green-600">
-                                  -₦{Number(invoice.discount || 0).toLocaleString()}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, AlertCircle, Building2, MapPin, ImageIcon, Upload, X } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import Image from "next/image"
 import { Separator } from "@/components/ui/separator"
 
@@ -43,6 +43,7 @@ interface Property {
   rejection_reason?: string
   area_office_id?: string
   property_manager_id?: string
+  address_id?: string // Added address_id
   // Nested data
   area_offices?: { id: string; office_name: string }
   addresses?: { street_address: string; city: string; lga: string; state: string }
@@ -128,8 +129,6 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]) // Declare the variable here
   const [otherDocumentName, setOtherDocumentName] = useState("") // Add state for document name input
-
-  const { toast } = useToast()
 
   useEffect(() => {
     if (open) {
@@ -246,10 +245,8 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
 
     if (imageType === "other") {
       if (!otherDocumentName.trim()) {
-        toast({
-          title: "Document Name Required",
+        toast.error("Document Name Required", {
           description: "Please enter a name for this document.",
-          variant: "destructive",
         })
         return
       }
@@ -293,16 +290,13 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
         setOtherDocumentName("") // Clear input after upload
       }
 
-      toast({
-        title: "Success",
-        description: `${imageType === "facade" ? "Property facade" : imageType === "address" ? "Address number" : "Document"} uploaded successfully`,
-      })
+      toast.success(
+        `${imageType === "facade" ? "Property facade" : imageType === "address" ? "Address number" : "Document"} uploaded successfully`,
+      )
     } catch (uploadError) {
       console.error("[v0] Upload error:", uploadError)
-      toast({
-        title: "Error",
+      toast.error("Failed to upload image. Please try again.", {
         description: uploadError instanceof Error ? uploadError.message : "Failed to upload image. Please try again.",
-        variant: "destructive",
       })
     } finally {
       setUploadingImages(false)
@@ -359,17 +353,18 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
 
       if (propertyError) throw propertyError
 
-      // Update addresses table
-      const { error: addressError } = await supabase
-        .from("addresses")
-        .update({
-          street_address: addressForm.street_address.trim(),
-          city: addressForm.city.trim(),
-          lga: addressForm.lga.trim(),
-        })
-        .eq("entity_id", property.id)
+      if (property.address_id) {
+        const { error: addressError } = await supabase
+          .from("addresses")
+          .update({
+            street_address: addressForm.street_address.trim(),
+            city: addressForm.city.trim(),
+            lga: addressForm.lga.trim(),
+          })
+          .eq("id", property.address_id)
 
-      if (addressError) console.error("Error updating addresses:", addressError)
+        if (addressError) console.error("Error updating addresses:", addressError.message)
+      }
 
       // Delete removed images from documents table
       if (imagesToDelete.length > 0) {
@@ -416,18 +411,13 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
         if (insertError) console.error("Error inserting images:", insertError)
       }
 
-      toast({
-        title: "Success",
-        description: "Property updated successfully",
-      })
+      toast.success("Property updated successfully")
       onUpdate()
       onOpenChange(false)
     } catch (error) {
       console.error("Error updating property:", error)
-      toast({
-        title: "Upload Failed",
+      toast.error("Upload Failed", {
         description: "Please try again.",
-        variant: "destructive",
       })
     } finally {
       setLoading(false)

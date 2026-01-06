@@ -22,6 +22,7 @@ import type { users } from "@/types/users"
 type Invoice = {
   id: string
   invoice_number: string
+  bill_reference: string // Added bill_reference
   tax_calculation_id: string
   property_id: string
   taxpayer_id: string
@@ -361,7 +362,7 @@ export default function AdminInvoicesPage() {
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
-                      <TableHead>Invoice Number</TableHead>
+                      <TableHead>Bill Reference</TableHead>
                       <TableHead>Property</TableHead>
                       <TableHead>Owner</TableHead>
                       <TableHead>Tax Period</TableHead>
@@ -370,7 +371,6 @@ export default function AdminInvoicesPage() {
                       <TableHead>Total Amount</TableHead>
                       <TableHead>Amount Paid</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -407,17 +407,11 @@ export default function AdminInvoicesPage() {
                           <TableCell>
                             <Skeleton className="h-4 w-24" />
                           </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-20" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-16" />
-                          </TableCell>
                         </TableRow>
                       ))
                     ) : paginatedInvoices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={12} className="text-center py-12">
+                        <TableCell colSpan={9} className="text-center py-12">
                           <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                           <p className="text-muted-foreground">
                             {invoices.length === 0 ? "No invoices found." : "No invoices match your search criteria."}
@@ -426,7 +420,11 @@ export default function AdminInvoicesPage() {
                       </TableRow>
                     ) : (
                       paginatedInvoices.map((invoice) => (
-                        <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
+                        <TableRow
+                          key={invoice.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleViewInvoice(invoice)}
+                        >
                           <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox
                               checked={selectedInvoices.includes(invoice.id)}
@@ -434,7 +432,9 @@ export default function AdminInvoicesPage() {
                             />
                           </TableCell>
                           <TableCell>
-                            <div className="font-mono font-medium">{invoice.invoice_number}</div>
+                            <div className="font-mono font-medium">
+                              {invoice.bill_reference || invoice.invoice_number}
+                            </div>
                             {invoice.tax_calculations?.backlog_years && (
                               <Badge variant="outline" className="mt-1 text-xs">
                                 Backlog
@@ -498,11 +498,6 @@ export default function AdminInvoicesPage() {
                             >
                               {invoice.payment_status.replace("_", " ")}
                             </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice)}>
-                              View
-                            </Button>
                           </TableCell>
                         </TableRow>
                       ))

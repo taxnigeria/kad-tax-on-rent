@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { compressImage } from "@/utils/image-compression"
+import { toast as sonnerToast } from "sonner"
 
 interface Taxpayer {
   id: string
@@ -189,11 +190,7 @@ export default function EnumeratePage() {
 
   const captureGPS = () => {
     if (!navigator.geolocation) {
-      toast({
-        title: "GPS Not Available",
-        description: "Your device does not support GPS",
-        variant: "destructive",
-      })
+      sonnerToast.error("Your device does not support GPS")
       return
     }
 
@@ -203,40 +200,25 @@ export default function EnumeratePage() {
         setLatitude(position.coords.latitude.toString())
         setLongitude(position.coords.longitude.toString())
         setGpsLoading(false)
-        toast({
-          title: "Location Captured",
-          description: "GPS coordinates saved successfully",
-        })
+        sonnerToast.success("Location captured successfully")
         setValidationErrors({ ...validationErrors, gps: "" })
       },
       (error) => {
         console.error("[v0] GPS error:", error)
         setGpsLoading(false)
-        toast({
-          title: "GPS Error",
-          description: "Could not capture location. Please enable location services.",
-          variant: "destructive",
-        })
+        sonnerToast.error("Could not capture location. Please enable location services.")
       },
     )
   }
 
   const searchTaxpayers = async () => {
     if (!searchTerm.trim()) {
-      toast({
-        title: "Search Required",
-        description: "Please enter a search term",
-        variant: "destructive",
-      })
+      sonnerToast.error("Please enter a search term")
       return
     }
 
     if (!user?.uid) {
-      toast({
-        title: "Authentication Error",
-        description: "Please log in again",
-        variant: "destructive",
-      })
+      sonnerToast.error("Please log in again")
       return
     }
 
@@ -256,11 +238,7 @@ export default function EnumeratePage() {
         throw new Error(error.error || "Search failed")
       }
     } catch (error: any) {
-      toast({
-        title: "Search Failed",
-        description: error.message,
-        variant: "destructive",
-      })
+      sonnerToast.error(error.message)
     } finally {
       setLoading(false)
     }
@@ -268,20 +246,12 @@ export default function EnumeratePage() {
 
   const createNewTaxpayer = async () => {
     if (!newTaxpayer.firstName || !newTaxpayer.lastName || !newTaxpayer.phoneNumber) {
-      toast({
-        title: "Missing Fields",
-        description: "Name and phone number are required",
-        variant: "destructive",
-      })
+      sonnerToast.error("Name and phone number are required")
       return
     }
 
     if (!user?.uid) {
-      toast({
-        title: "Authentication Error",
-        description: "Please log in again",
-        variant: "destructive",
-      })
+      sonnerToast.error("Please log in again")
       return
     }
 
@@ -301,10 +271,7 @@ export default function EnumeratePage() {
 
       if (res.ok) {
         const data = await res.json()
-        toast({
-          title: "Taxpayer Created",
-          description: `${newTaxpayer.firstName} ${newTaxpayer.lastName} has been registered`,
-        })
+        sonnerToast.success(`${newTaxpayer.firstName} ${newTaxpayer.lastName} has been registered`)
 
         setSelectedTaxpayer({
           id: data.taxpayer.id,
@@ -325,11 +292,7 @@ export default function EnumeratePage() {
         throw new Error(error.error || "Failed to create taxpayer")
       }
     } catch (error: any) {
-      toast({
-        title: "Creation Failed",
-        description: error.message,
-        variant: "destructive",
-      })
+      sonnerToast.error(error.message)
     } finally {
       setLoading(false)
     }
@@ -353,29 +316,17 @@ export default function EnumeratePage() {
 
   const submitProperty = async () => {
     if (!selectedTaxpayer) {
-      toast({
-        title: "Error",
-        description: "No taxpayer selected",
-        variant: "destructive",
-      })
+      sonnerToast.error("No taxpayer selected")
       return
     }
 
     if (!facadePhoto || !addressNumberPhoto) {
-      toast({
-        title: "Photos Required",
-        description: "Please upload facade and address number photos",
-        variant: "destructive",
-      })
+      sonnerToast.error("Please upload facade and address number photos")
       return
     }
 
     if (!propertyData.propertyName || !propertyData.houseNumber || !propertyData.streetName) {
-      toast({
-        title: "Missing Fields",
-        description: "Property name, house number, and street name are required",
-        variant: "destructive",
-      })
+      sonnerToast.error("Property name, house number, and street name are required")
       return
     }
 
@@ -407,11 +358,7 @@ export default function EnumeratePage() {
       })
 
       if (res.ok) {
-        toast({
-          title: "Property Registered!",
-          description: "The property has been successfully enumerated",
-        })
-        // Reset and go back to step 1
+        sonnerToast.success("Property registered successfully!")
         setStep(1)
         setSelectedTaxpayer(null)
         setSearchResults([])
@@ -442,11 +389,7 @@ export default function EnumeratePage() {
         throw new Error(error.error || "Failed to register property")
       }
     } catch (error: any) {
-      toast({
-        title: "Registration Failed",
-        description: error.message,
-        variant: "destructive",
-      })
+      sonnerToast.error(error.message || "Failed to register property")
     } finally {
       setLoading(false)
     }
@@ -504,11 +447,7 @@ export default function EnumeratePage() {
     if (validatePropertyForm()) {
       setStep(4)
     } else {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      })
+      sonnerToast.error("Please fill in all required fields")
     }
   }
 

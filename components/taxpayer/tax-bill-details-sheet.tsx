@@ -19,7 +19,7 @@ import {
   ArrowDown,
   RefreshCw,
 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { createClient } from "@/utils/supabase/client"
 import { InvoicePrintDialog } from "@/components/invoice-print-dialog"
 
@@ -34,7 +34,6 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
   const [calculation, setCalculation] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [showPrintDialog, setShowPrintDialog] = useState(false)
-  const { toast } = useToast()
   const supabase = createClient()
 
   useEffect(() => {
@@ -96,11 +95,7 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
 
       if (error) {
         console.error("Error fetching calculation details:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load tax bill details",
-          variant: "destructive",
-        })
+        toast.error("Failed to load tax bill details")
       } else {
         setCalculation(data)
       }
@@ -113,57 +108,44 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
 
   function handleDownload() {
     if (!invoice?.bill_reference) {
-      toast({
-        title: "Invalid Invoice",
+      toast.error("Invalid Invoice", {
         description: "This invoice needs a bill reference before it can be downloaded. Please generate one first.",
-        variant: "destructive",
       })
       return
     }
     if (invoice?.id) {
       setShowPrintDialog(true)
     } else {
-      toast({
-        title: "No Invoice Available",
+      toast.error("No Invoice Available", {
         description: "An invoice has not been generated yet",
-        variant: "destructive",
       })
     }
   }
 
   function handlePrint() {
     if (!invoice?.bill_reference) {
-      toast({
-        title: "Invalid Invoice",
+      toast.error("Invalid Invoice", {
         description: "This invoice needs a bill reference before it can be printed. Please generate one first.",
-        variant: "destructive",
       })
       return
     }
     if (invoice?.id) {
       setShowPrintDialog(true)
     } else {
-      toast({
-        title: "No Invoice Available",
+      toast.error("No Invoice Available", {
         description: "An invoice has not been generated yet",
-        variant: "destructive",
       })
     }
   }
 
   function handlePayNow() {
     if (!invoice?.bill_reference) {
-      toast({
-        title: "Invalid Invoice",
+      toast.error("Invalid Invoice", {
         description: "This invoice needs a bill reference before payment can be processed. Please contact support.",
-        variant: "destructive",
       })
       return
     }
-    toast({
-      title: "Payment",
-      description: "Redirecting to payment gateway...",
-    })
+    toast.loading("Redirecting to payment gateway...")
     // TODO: Implement payment logic
   }
 
@@ -171,6 +153,7 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
     if (!invoice?.id) return
 
     setLoading(true)
+    const loadingToastId = toast.loading("Generating bill reference...")
     try {
       const response = await fetch("/api/generate-bill-reference", {
         method: "POST",
@@ -181,25 +164,23 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
       const result = await response.json()
 
       if (result.success) {
-        toast({
-          title: "Bill Reference Generated",
+        toast.dismiss(loadingToastId)
+        toast.success("Bill Reference Generated", {
           description: `Bill Reference: ${result.billReference}`,
         })
         await fetchCalculationDetails()
         if (onUpdate) onUpdate()
       } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to generate bill reference",
-          variant: "destructive",
+        toast.dismiss(loadingToastId)
+        toast.error("Failed to Generate Bill Reference", {
+          description: result.error || "An error occurred while generating the bill reference",
         })
       }
     } catch (error) {
       console.error("Error generating bill reference:", error)
-      toast({
-        title: "Error",
-        description: "Failed to generate bill reference. Please try again.",
-        variant: "destructive",
+      toast.dismiss(loadingToastId)
+      toast.error("Failed to Generate Bill Reference", {
+        description: "Please try again later.",
       })
     } finally {
       setLoading(false)
