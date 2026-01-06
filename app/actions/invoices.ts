@@ -533,3 +533,94 @@ export async function createPayKadunaInvoice(invoiceData: {
     return { success: false, error: "Failed to create PayKaduna invoice" }
   }
 }
+
+export async function createInvoiceFromTaxCalculation(taxCalculationId: string) {
+  try {
+    const supabase = await createClient()
+
+    // Get tax calculation with related data
+    const { data: calculation, error: calcError } = await supabase
+      .from("tax_calculations")
+      .select(
+        `
+        *,
+        property:properties(id),
+        taxpayer:users!tax_calculations_taxpayer_id_fkey(
+          id,
+          taxpayer_profiles(kadirs_id)
+        )
+      `,
+      )
+      .eq("id", taxCalculationId)
+      .single()
+
+    if (calcError || !calculation) {
+      console.error("[v0] Error fetching tax calculation:", calcError)
+      return { success: false, error: "Tax calculation not found" }
+    }
+
+    // Check if invoice already exists
+    const { data: existingInvoice } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("tax_calculation_id", taxCalculationId)
+      .single()
+
+    if (existingInvoice) {
+      return { success: false, error: "Invoice already exists for this tax calculation" }
+    }
+
+    // Create invoice record
+    const { data: invoice, error: invoiceError } = await supabase
+      .from("invoices")
+      .insert({
+        tax_calculation_id: taxCalculationId,
+        property_id: calculation.property_id,
+        taxpayer_id: calculation.taxpayer_id,
+        tax_year: calculation.tax_year,
+        base_amount: calculation.base_tax || 0,
+        stamp_duty: calculation.stamp_duty || 0,
+        penalty: calculation.penalty || 0,
+        interest: calculation.interest || 0,
+        discount: calculation.discount || 0,
+        total_amount: calculation.total_tax || 0,
+        amount_paid: 0,
+        balance_due: calculation.total_tax || 0,
+        payment_status: "unpaid",
+        issue_date: new Date().toISOString().split("T")[0],
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        invoice_number: `INV-${Date.now()}`,
+        is_printed: false,
+        print_count: 0,
+      })
+      .select()
+      .single()
+
+    if (invoiceError || !invoice) {
+      console.error("[v0] Error creating invoice:", invoiceError)
+      return { success: false, error: "Failed to create invoice" }
+    }
+
+    // Generate bill reference via PayKaduna
+    const billRefResult = await generatePayKadunaInvoice(invoice.id)
+
+    if (!billRefResult.success) {
+      // Delete the invoice if bill reference generation fails
+      await supabase.from("invoices").delete().eq("id", invoice.id)
+      return billRefResult
+    }
+
+    revalidatePath("/admin/tax-calculations")
+    revalidatePath("/admin/invoices")
+    revalidatePath("/taxpayer-dashboard/invoices")
+
+    return {
+      success: true,
+      data: invoice,
+      billReference: billRefResult.data?.billReference,
+    }
+  } catch (error) {
+    console.error("[v0] Error in createInvoiceFromTaxCalculation:", error)
+    return { success: false, error: "Failed to create invoice" }
+  }
+}

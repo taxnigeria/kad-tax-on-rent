@@ -369,7 +369,6 @@ export default function AdminInvoicesPage() {
                       <TableHead>Issue Date</TableHead>
                       <TableHead>Due Date</TableHead>
                       <TableHead>Total Amount</TableHead>
-                      <TableHead>Amount Paid</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -404,14 +403,11 @@ export default function AdminInvoicesPage() {
                           <TableCell>
                             <Skeleton className="h-4 w-24" />
                           </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
                         </TableRow>
                       ))
                     ) : paginatedInvoices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-12">
+                        <TableCell colSpan={8} className="text-center py-12">
                           <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                           <p className="text-muted-foreground">
                             {invoices.length === 0 ? "No invoices found." : "No invoices match your search criteria."}
@@ -481,9 +477,6 @@ export default function AdminInvoicesPage() {
                           </TableCell>
                           <TableCell className="font-bold">
                             ₦{(invoice.total_amount || 0).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
-                          </TableCell>
-                          <TableCell className="font-medium text-green-600">
-                            ₦{(invoice.amount_paid || 0).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
                           </TableCell>
                           <TableCell>
                             <Badge

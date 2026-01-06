@@ -33,6 +33,7 @@ import { GenerateKadirsIdModal } from "./generate-kadirs-id-modal"
 import { useAuth } from "@/contexts/auth-context"
 import { PropertySelectionModal } from "./property-selection-modal"
 import { CreateFirebaseAccountModal } from "./create-firebase-account-modal"
+import { TaxCalculationDetailsSheet } from "./tax-calculation-details-sheet"
 
 type TaxpayerDetailsSheetProps = {
   taxpayerId: string | null
@@ -113,6 +114,8 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
   const [generateKadirsModalOpen, setGenerateKadirsModalOpen] = useState(false)
   const [showPropertySelectionModal, setShowPropertySelectionModal] = useState(false)
   const [showFirebaseCreateModal, setShowFirebaseCreateModal] = useState(false)
+  const [showTaxCalculationDetails, setShowTaxCalculationDetails] = useState(false)
+  const [selectedTaxCalculationId, setSelectedTaxCalculationId] = useState<string | null>(null)
 
   useEffect(() => {
     if (open && taxpayerId) {
@@ -662,9 +665,14 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                             <TableRow
                               key={invoice.id}
                               className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => handleInvoiceClick(invoice.id)}
+                              onClick={() => {
+                                setSelectedTaxCalculationId(invoice.tax_calculation_id || invoice.id)
+                                setShowTaxCalculationDetails(true)
+                              }}
                             >
-                              <TableCell className="font-medium font-mono text-sm">{invoice.invoice_number}</TableCell>
+                              <TableCell className="font-medium font-mono text-sm">
+                                {invoice.bill_reference || invoice.invoice_number}
+                              </TableCell>
                               <TableCell>{new Date(invoice.created_at).toLocaleDateString()}</TableCell>
                               <TableCell className="font-semibold">
                                 ₦{Number(invoice.total_amount).toLocaleString()}
@@ -805,6 +813,16 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
           onOpenChange={setShowFirebaseCreateModal}
           taxpayer={taxpayer}
           onSuccess={handleFirebaseAccountCreated}
+        />
+      )}
+
+      {/* Tax Calculation Details Sheet */}
+      {showTaxCalculationDetails && (
+        <TaxCalculationDetailsSheet
+          open={showTaxCalculationDetails}
+          onOpenChange={setShowTaxCalculationDetails}
+          taxCalculationId={selectedTaxCalculationId}
+          onUpdate={fetchTaxpayerDetails}
         />
       )}
     </>
