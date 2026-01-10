@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { createBrowserClient } from "@/utils/supabase/client"
 import { Skeleton } from "@/components/ui/skeleton"
 import TaxCalculationDetailsSheet from "@/components/admin/tax-calculation-details-sheet"
+import TaxpayerDetailsSheet from "@/components/admin/taxpayer-details-sheet" // Added import for TaxpayerDetailsSheet
 import type { users } from "@/types/users"
 
 type Invoice = {
@@ -74,6 +75,8 @@ export default function AdminInvoicesPage() {
   const [rowsPerPage, setRowsPerPage] = useState(50)
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false)
   const [selectedCalculationId, setSelectedCalculationId] = useState<string | null>(null)
+  const [taxpayerDetailsOpen, setTaxpayerDetailsOpen] = useState(false) // Added state for taxpayer details sheet
+  const [selectedTaxpayerId, setSelectedTaxpayerId] = useState<string | null>(null)
 
   const supabase = createBrowserClient()
 
@@ -197,6 +200,11 @@ export default function AdminInvoicesPage() {
   function handleViewInvoice(invoice: Invoice) {
     setSelectedCalculationId(invoice.tax_calculation_id)
     setDetailsSheetOpen(true)
+  }
+
+  function handleOpenTaxpayerDetails(taxpayerId: string | null) {
+    setSelectedTaxpayerId(taxpayerId)
+    setTaxpayerDetailsOpen(true)
   }
 
   const totalPages = Math.ceil(filteredInvoices.length / rowsPerPage)
@@ -575,6 +583,15 @@ export default function AdminInvoicesPage() {
             open={detailsSheetOpen}
             onOpenChange={setDetailsSheetOpen}
             calculationId={selectedCalculationId}
+            onUpdate={fetchInvoices}
+            onOpenTaxpayerDetails={handleOpenTaxpayerDetails}
+          />
+
+          {/* Taxpayer Details Sheet */}
+          <TaxpayerDetailsSheet
+            taxpayerId={selectedTaxpayerId}
+            open={taxpayerDetailsOpen}
+            onOpenChange={setTaxpayerDetailsOpen}
             onUpdate={fetchInvoices}
           />
         </div>

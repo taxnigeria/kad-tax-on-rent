@@ -828,3 +828,5 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
     </>
   )
 }
+
+export default TaxpayerDetailsSheet
