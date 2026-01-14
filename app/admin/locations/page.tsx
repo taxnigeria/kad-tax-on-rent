@@ -19,7 +19,6 @@ import {
   ChevronRight,
   Pencil,
   Trash2,
-  CheckCircle2,
   XCircle,
   Map,
   Landmark,
@@ -56,7 +55,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 
@@ -798,249 +796,179 @@ export default function LocationsPage() {
 
             {/* Area Offices Tab */}
             <TabsContent value="area-offices" className="space-y-4">
+              {/* Area Offices Stats */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="py-3 px-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Total Offices</p>
-                      <p className="text-lg font-bold">{areaOfficeStats.total}</p>
-                    </div>
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                <Card>
+                  <div className="p-4">
+                    <p className="text-sm text-muted-foreground">Total</p>
+                    <p className="text-2xl font-bold">{areaOfficeStats.total}</p>
                   </div>
                 </Card>
-                <Card className="py-3 px-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Active</p>
-                      <p className="text-lg font-bold text-emerald-600">{areaOfficeStats.active}</p>
-                    </div>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <Card>
+                  <div className="p-4">
+                    <p className="text-sm text-muted-foreground">Active</p>
+                    <p className="text-2xl font-bold text-green-600">{areaOfficeStats.active}</p>
                   </div>
                 </Card>
-                <Card className="py-3 px-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Inactive</p>
-                      <p className="text-lg font-bold text-red-600">{areaOfficeStats.inactive}</p>
-                    </div>
-                    <XCircle className="h-4 w-4 text-red-600" />
+                <Card>
+                  <div className="p-4">
+                    <p className="text-sm text-muted-foreground">Inactive</p>
+                    <p className="text-2xl font-bold text-red-600">{areaOfficeStats.inactive}</p>
                   </div>
                 </Card>
-                <Card className="py-3 px-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Assigned to LGA</p>
-                      <p className="text-lg font-bold text-blue-600">{areaOfficeStats.assigned}</p>
-                    </div>
-                    <Landmark className="h-4 w-4 text-blue-600" />
+                <Card>
+                  <div className="p-4">
+                    <p className="text-sm text-muted-foreground">Assigned to LGA</p>
+                    <p className="text-2xl font-bold">{areaOfficeStats.assigned}</p>
                   </div>
                 </Card>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search offices..."
-                    value={areaOfficeSearch}
-                    onChange={(e) => setAreaOfficeSearch(e.target.value)}
-                    className="pl-9 h-9"
-                  />
-                </div>
-                <Select value={areaOfficeLgaFilter} onValueChange={setAreaOfficeLgaFilter}>
-                  <SelectTrigger className="w-[180px] h-9">
-                    <SelectValue placeholder="Filter by LGA" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All LGAs</SelectItem>
-                    {lgas.map((lga) => (
-                      <SelectItem key={lga.id} value={lga.id}>
-                        {lga.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setEditMode(false)
-                    setAreaOfficeForm({
-                      office_name: "",
-                      office_code: "",
-                      address: "",
-                      phone_number: "",
-                      email: "",
-                      lga_id: "",
-                      area_officer_id: "", // Reset area_officer_id
-                    })
-                    setAddAreaOfficeOpen(true)
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Office
-                </Button>
-              </div>
-
+              {/* Area Offices Table */}
               <Card>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Code</TableHead>
-                      <TableHead>LGA</TableHead>
-                      <TableHead>Officer</TableHead> {/* Add Area Officer column */}
-                      <TableHead>Address</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Cities</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {areaOfficesLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i}>
-                          {Array.from({ length: 9 }).map(
-                            (
-                              _,
-                              j, // Increased cell count
-                            ) => (
-                              <TableCell key={j}>
-                                <Skeleton className="h-4 w-20" />
-                              </TableCell>
-                            ),
-                          )}
-                        </TableRow>
-                      ))
-                    ) : paginatedAreaOffices.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                          {" "}
-                          {/* Increased colSpan */}
-                          No area offices found
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      paginatedAreaOffices.map((office) => (
-                        <TableRow
-                          key={office.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => handleViewAreaOffice(office)}
-                        >
-                          <TableCell className="font-medium">{office.office_name}</TableCell>
-                          <TableCell className="text-muted-foreground">{office.office_code || "-"}</TableCell>
-                          <TableCell>
-                            {office.lga_name || <span className="text-muted-foreground italic">Unassigned</span>}
-                          </TableCell>
-                          <TableCell>
-                            {" "}
-                            {/* Area Officer display */}
-                            {office.area_officer ? (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger>{office.area_officer.last_name}</TooltipTrigger>
-                                  <TooltipContent>
-                                    {office.area_officer.email} <br /> {office.area_officer.phone_number} <br />{" "}
-                                    {office.area_officer.role}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <span className="text-muted-foreground italic">Unassigned</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="max-w-[200px] truncate">{office.address || "-"}</TableCell>
-                          <TableCell>{office.phone_number || "-"}</TableCell>
-                          <TableCell>{office.cities_count}</TableCell>
-                          <TableCell>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  {office.is_active ? (
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                  ) : (
-                                    <XCircle className="h-4 w-4 text-red-600" />
-                                  )}
-                                </TooltipTrigger>
-                                <TooltipContent>{office.is_active ? "Active" : "Inactive"}</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setEditMode(true)
-                                    setSelectedAreaOffice(office)
-                                    setAreaOfficeForm({
-                                      office_name: office.office_name,
-                                      office_code: office.office_code || "",
-                                      address: office.address || "",
-                                      phone_number: office.phone_number || "",
-                                      email: office.email || "",
-                                      lga_id: office.lga_id || "",
-                                      area_officer_id: office.area_officer_id || "", // Add area_officer_id
-                                    })
-                                    setAddAreaOfficeOpen(true)
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-red-600"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setSelectedAreaOffice(office)
-                                    setDeleteAreaOfficeOpen(true)
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-
-                {filteredAreaOffices.length > PER_PAGE && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t">
-                    <p className="text-sm text-muted-foreground">
-                      Showing {(areaOfficePage - 1) * PER_PAGE + 1} to{" "}
-                      {Math.min(areaOfficePage * PER_PAGE, filteredAreaOffices.length)} of {filteredAreaOffices.length}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setAreaOfficePage((p) => Math.max(1, p - 1))}
-                        disabled={areaOfficePage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setAreaOfficePage((p) => p + 1)}
-                        disabled={areaOfficePage * PER_PAGE >= filteredAreaOffices.length}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <Input
+                      placeholder="Search area offices..."
+                      value={areaOfficeSearch}
+                      onChange={(e) => setAreaOfficeSearch(e.target.value)}
+                      className="max-w-sm"
+                    />
+                    <Select value={areaOfficeLgaFilter} onValueChange={setAreaOfficeLgaFilter}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Filter by LGA" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All LGAs</SelectItem>
+                        {lgas.map((lga) => (
+                          <SelectItem key={lga.id} value={lga.id}>
+                            {lga.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={() => setAddAreaOfficeOpen(true)} size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add
+                    </Button>
                   </div>
-                )}
+
+                  <div className="relative w-full overflow-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Office Name</TableHead>
+                          <TableHead>Code</TableHead>
+                          <TableHead>LGA</TableHead>
+                          <TableHead>Area Officer</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {areaOfficesLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-4">
+                              <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                            </TableCell>
+                          </TableRow>
+                        ) : paginatedAreaOffices.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                              No area offices found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          paginatedAreaOffices.map((office) => (
+                            <TableRow
+                              key={office.id}
+                              onClick={() => handleViewAreaOffice(office)}
+                              className="cursor-pointer hover:bg-muted/50"
+                            >
+                              <TableCell>{office.office_name}</TableCell>
+                              <TableCell>{office.office_code || "-"}</TableCell>
+                              <TableCell>{office.lga_name || "-"}</TableCell>
+                              <TableCell>{office.area_officer?.last_name || "-"}</TableCell>
+                              <TableCell>{office.email || "-"}</TableCell>
+                              <TableCell>
+                                <Badge variant={office.is_active ? "default" : "destructive"}>
+                                  {office.is_active ? "Active" : "Inactive"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        handleViewAreaOffice(office)
+                                        setEditMode(true)
+                                        setAreaOfficeForm({
+                                          office_name: office.office_name,
+                                          office_code: office.office_code || "",
+                                          address: office.address,
+                                          phone_number: office.phone_number || "",
+                                          email: office.email || "",
+                                          lga_id: office.lga_id || "",
+                                          area_officer_id: office.area_officer_id || "",
+                                        })
+                                        setAddAreaOfficeOpen(true)
+                                      }}
+                                    >
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-red-600"
+                                      onClick={() => setDeleteAreaOfficeOpen(true)}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {filteredAreaOffices.length > PER_PAGE && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t">
+                      <p className="text-sm text-muted-foreground">
+                        Showing {(areaOfficePage - 1) * PER_PAGE + 1} to{" "}
+                        {Math.min(areaOfficePage * PER_PAGE, filteredAreaOffices.length)} of{" "}
+                        {filteredAreaOffices.length}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAreaOfficePage((p) => Math.max(1, p - 1))}
+                          disabled={areaOfficePage === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAreaOfficePage((p) => p + 1)}
+                          disabled={areaOfficePage * PER_PAGE >= filteredAreaOffices.length}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </Card>
             </TabsContent>
 
