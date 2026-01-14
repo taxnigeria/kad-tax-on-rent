@@ -62,6 +62,14 @@ import { createClient } from "@/lib/supabase/client"
 
 const PER_PAGE = 50
 
+interface User {
+  id: string
+  last_name: string
+  phone_number?: string
+  email?: string
+  role: string
+}
+
 interface AreaOffice {
   id: string
   area_office_id: number
@@ -73,6 +81,8 @@ interface AreaOffice {
   is_active: boolean
   lga_id?: string // Area office now belongs to one LGA
   lga_name?: string
+  area_officer_id?: string // New field for linking to a user
+  area_officer?: User // New field to hold the related User object
   created_at: string
   cities_count?: number
 }
@@ -123,6 +133,8 @@ export default function LocationsPage() {
   const [lgaPage, setLgaPage] = useState(1)
   const [selectedLga, setSelectedLga] = useState<LGA | null>(null)
   const [lgaSheetOpen, setLgaSheetOpen] = useState(false)
+  const [lgaAreaOffices, setLgaAreaOffices] = useState<AreaOffice[]>([]) // State for LGA-specific area offices
+  const [lgaCities, setLgaCities] = useState<City[]>([]) // State for LGA-specific cities
 
   // Cities state
   const [cities, setCities] = useState<City[]>([])
@@ -135,8 +147,30 @@ export default function LocationsPage() {
 
   // Add/Edit dialogs
   const [addAreaOfficeOpen, setAddAreaOfficeOpen] = useState(false)
+  const [areaOfficeForm, setAreaOfficeForm] = useState({
+    // State for area office form inputs
+    office_name: "",
+    office_code: "",
+    address: "",
+    phone_number: "",
+    email: "",
+    lga_id: "",
+    area_officer_id: "",
+  })
   const [addLgaOpen, setAddLgaOpen] = useState(false)
+  const [lgaForm, setLgaForm] = useState({
+    // State for LGA form inputs
+    name: "",
+    state: "",
+  })
   const [addCityOpen, setAddCityOpen] = useState(false)
+  const [cityForm, setCityForm] = useState({
+    // State for city form inputs
+    name: "",
+    lga_id: "",
+    area_office_id: "",
+    state: "",
+  })
   const [editMode, setEditMode] = useState(false)
 
   // Delete dialogs
@@ -153,26 +187,35 @@ export default function LocationsPage() {
   const [deletingCity, setDeletingCity] = useState(false)
   const [togglingStatus, setTogglingStatus] = useState(false)
 
-  const [areaOfficeForm, setAreaOfficeForm] = useState({
-    office_name: "",
-    office_code: "",
-    address: "",
-    phone_number: "",
-    email: "",
-    lga_id: "",
-  })
-  const [lgaForm, setLgaForm] = useState({ name: "", state: "Kaduna" })
-  const [cityForm, setCityForm] = useState({ name: "", lga_id: "", area_office_id: "", state: "Kaduna" })
+  const [users, setUsers] = useState<User[]>([])
+  const [usersLoading, setUsersLoading] = useState(false) // Initialize as false, will be set true when fetching
+  const [selectedAreaOfficer, setSelectedAreaOfficer] = useState<User | null>(null)
+  const [areaOfficerSheetOpen, setAreaOfficerSheetOpen] = useState(false)
 
-  // Related data for side panels
-  const [lgaAreaOffices, setLgaAreaOffices] = useState<AreaOffice[]>([]) // Area offices for an LGA
-  const [lgaCities, setLgaCities] = useState<City[]>([])
+  // Fetch Users (for Area Officer selection)
+  const fetchUsers = async () => {
+    setUsersLoading(true)
+    try {
+      const { data, error } = await supabase.from("users").select("id, last_name, email, phone_number, role")
+      if (error) throw error
+      setUsers(data || [])
+    } catch (error) {
+      console.error("Error fetching users:", error)
+      toast.error("Failed to fetch users")
+    } finally {
+      setUsersLoading(false)
+    }
+  }
 
   // Fetch Area Offices
   const fetchAreaOffices = async () => {
     setAreaOfficesLoading(true)
     try {
-      const { data: offices, error } = await supabase.from("area_offices").select(`*, lgas(name)`).order("office_name")
+      // Include area_officer relation
+      const { data: offices, error } = await supabase
+        .from("area_offices")
+        .select(`*, lgas(name), users!area_officer_id(id, last_name, phone_number, email)`)
+        .order("office_name")
 
       if (error) throw error
 
@@ -191,6 +234,7 @@ export default function LocationsPage() {
             ...office,
             is_active: office.is_active ?? true,
             lga_name: office.lgas?.name,
+            area_officer: office.users, // Assign the related user data
             cities_count: citiesCount,
           }
         }),
@@ -279,6 +323,7 @@ export default function LocationsPage() {
     fetchAreaOffices()
     fetchLgas()
     fetchCities()
+    fetchUsers() // Fetch users on mount
   }, [user, authLoading])
 
   const filteredAreaOffices = useMemo(() => {
@@ -368,11 +413,12 @@ export default function LocationsPage() {
     try {
       const payload = {
         office_name: areaOfficeForm.office_name,
-        office_code: areaOfficeForm.office_code, // Removed || null as empty string is fine
+        office_code: areaOfficeForm.office_code,
         address: areaOfficeForm.address,
         phone_number: areaOfficeForm.phone_number,
         email: areaOfficeForm.email,
         lga_id: areaOfficeForm.lga_id || null,
+        area_officer_id: areaOfficeForm.area_officer_id || null, // Add area_officer_id
       }
 
       if (editMode && selectedAreaOffice) {
@@ -387,7 +433,15 @@ export default function LocationsPage() {
 
       setAddAreaOfficeOpen(false)
       setEditMode(false)
-      setAreaOfficeForm({ office_name: "", office_code: "", address: "", phone_number: "", email: "", lga_id: "" })
+      setAreaOfficeForm({
+        office_name: "",
+        office_code: "",
+        address: "",
+        phone_number: "",
+        email: "",
+        lga_id: "",
+        area_officer_id: "", // Reset area_officer_id
+      })
       fetchAreaOffices()
       fetchLgas() // Refresh LGA counts
     } catch (error) {
@@ -817,6 +871,7 @@ export default function LocationsPage() {
                       phone_number: "",
                       email: "",
                       lga_id: "",
+                      area_officer_id: "", // Reset area_officer_id
                     })
                     setAddAreaOfficeOpen(true)
                   }}
@@ -833,6 +888,7 @@ export default function LocationsPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Code</TableHead>
                       <TableHead>LGA</TableHead>
+                      <TableHead>Officer</TableHead> {/* Add Area Officer column */}
                       <TableHead>Address</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>Cities</TableHead>
@@ -844,16 +900,23 @@ export default function LocationsPage() {
                     {areaOfficesLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
-                          {Array.from({ length: 8 }).map((_, j) => (
-                            <TableCell key={j}>
-                              <Skeleton className="h-4 w-20" />
-                            </TableCell>
-                          ))}
+                          {Array.from({ length: 9 }).map(
+                            (
+                              _,
+                              j, // Increased cell count
+                            ) => (
+                              <TableCell key={j}>
+                                <Skeleton className="h-4 w-20" />
+                              </TableCell>
+                            ),
+                          )}
                         </TableRow>
                       ))
                     ) : paginatedAreaOffices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          {" "}
+                          {/* Increased colSpan */}
                           No area offices found
                         </TableCell>
                       </TableRow>
@@ -868,6 +931,23 @@ export default function LocationsPage() {
                           <TableCell className="text-muted-foreground">{office.office_code || "-"}</TableCell>
                           <TableCell>
                             {office.lga_name || <span className="text-muted-foreground italic">Unassigned</span>}
+                          </TableCell>
+                          <TableCell>
+                            {" "}
+                            {/* Area Officer display */}
+                            {office.area_officer ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>{office.area_officer.last_name}</TooltipTrigger>
+                                  <TooltipContent>
+                                    {office.area_officer.email} <br /> {office.area_officer.phone_number} <br />{" "}
+                                    {office.area_officer.role}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span className="text-muted-foreground italic">Unassigned</span>
+                            )}
                           </TableCell>
                           <TableCell className="max-w-[200px] truncate">{office.address || "-"}</TableCell>
                           <TableCell>{office.phone_number || "-"}</TableCell>
@@ -906,6 +986,7 @@ export default function LocationsPage() {
                                       phone_number: office.phone_number || "",
                                       email: office.email || "",
                                       lga_id: office.lga_id || "",
+                                      area_officer_id: office.area_officer_id || "", // Add area_officer_id
                                     })
                                     setAddAreaOfficeOpen(true)
                                   }}
@@ -1172,6 +1253,31 @@ export default function LocationsPage() {
                   <p className="font-medium">{selectedAreaOffice.lga_name || "Unassigned"}</p>
                 </div>
 
+                <div className="border-t pt-4">
+                  <p className="text-xs text-muted-foreground mb-3">Area Officer</p>
+                  {selectedAreaOffice.area_officer ? (
+                    <div className="flex items-center justify-between p-3 bg-muted rounded">
+                      <div>
+                        <p className="font-medium">{selectedAreaOffice.area_officer.last_name}</p>
+                        <p className="text-xs text-muted-foreground">{selectedAreaOffice.area_officer.email}</p>
+                        <p className="text-xs text-muted-foreground">{selectedAreaOffice.area_officer.phone_number}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedAreaOfficer(selectedAreaOffice.area_officer)
+                          setAreaOfficerSheetOpen(true)
+                        }}
+                      >
+                        View Profile
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">No officer assigned</p>
+                  )}
+                </div>
+
                 <div>
                   <p className="text-xs text-muted-foreground">Address</p>
                   <p className="font-medium">{selectedAreaOffice.address || "-"}</p>
@@ -1200,7 +1306,7 @@ export default function LocationsPage() {
                     onClick={handleToggleAreaOfficeStatus}
                     disabled={togglingStatus} // Added loading state
                   >
-                    {togglingStatus && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    {togglingStatus && <Loader2 className="h-4 w-4 animate-spin mr-2" />} {/* Loading indicator */}
                     {/* Loading indicator */}
                     {selectedAreaOffice.is_active ? "Deactivate" : "Activate"}
                   </Button>
@@ -1357,6 +1463,37 @@ export default function LocationsPage() {
                         {lga.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Area Officer Select */}
+              <div className="space-y-2">
+                <Label>Area Officer</Label>
+                <Select
+                  value={areaOfficeForm.area_officer_id || "none"}
+                  onValueChange={(val) =>
+                    setAreaOfficeForm({ ...areaOfficeForm, area_officer_id: val === "none" ? "" : val })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Area Officer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {/* Fetching users and mapping them */}
+                    {usersLoading ? (
+                      <SelectItem value="loading">Loading users...</SelectItem>
+                    ) : users.length === 0 ? (
+                      <SelectItem value="none">No users available</SelectItem>
+                    ) : (
+                      users
+                        .filter((u) => u.role === "area_officer") // Filter for area officers
+                        .map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.last_name} ({user.email})
+                          </SelectItem>
+                        ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1584,6 +1721,34 @@ export default function LocationsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Area Officer Details Sidepanel */}
+        <Sheet open={areaOfficerSheetOpen} onOpenChange={setAreaOfficerSheetOpen}>
+          <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>{selectedAreaOfficer?.last_name}</SheetTitle>
+              <SheetDescription>Area Officer Details</SheetDescription>
+            </SheetHeader>
+            {selectedAreaOfficer && (
+              <div className="py-6 px-6 space-y-6">
+                <div>
+                  <p className="text-xs text-muted-foreground">Email</p>
+                  <p className="font-medium">{selectedAreaOfficer.email || "-"}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">Phone</p>
+                  <p className="font-medium">{selectedAreaOfficer.phone_number || "-"}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">Role</p>
+                  <Badge>{selectedAreaOfficer.role}</Badge>
+                </div>
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
       </SidebarInset>
     </SidebarProvider>
   )
