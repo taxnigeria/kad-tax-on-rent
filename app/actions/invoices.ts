@@ -35,6 +35,11 @@ export interface Invoice {
     area_office_id?: string
     area_office?: {
       office_name: string
+      address: string
+      area_officer?: {
+        first_name: string
+        last_name: string
+      }
     }
     address?: {
       street_address?: string
@@ -204,7 +209,7 @@ export async function getInvoiceDetails(firebaseUid: string, invoiceId: string) 
       return { success: false, error: "User not found" }
     }
 
-    // Get invoice with property and payment details
+    // Get invoice with property and area office details including area officer
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
       .select(
@@ -217,7 +222,14 @@ export async function getInvoiceDetails(firebaseUid: string, invoiceId: string) 
           house_number,
           street_name,
           area_office_id,
-          area_office:area_offices(office_name),
+          area_office:area_offices(
+            office_name,
+            address,
+            area_officer:users!area_offices_area_officer_id_fkey(
+              first_name,
+              last_name
+            )
+          ),
           address:addresses(
             street_address,
             city,
