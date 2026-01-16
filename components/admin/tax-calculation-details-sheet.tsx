@@ -75,67 +75,67 @@ export function TaxCalculationDetailsSheet({
     setLoading(true)
     try {
       const { data, error } = await supabase
-        .from("tax_calculations")
-        .select(
-          `*,
-          property:properties!inner(
-            id,
-            property_reference,
-            registered_property_name,
-            property_type,
-            property_category,
-            total_annual_rent,
-            rental_commencement_date,
-            area_office_id,
-            owner_id,
-            owner:users!properties_owner_id_fkey(
-              id,
-              first_name,
-              middle_name,
-              last_name,
-              email,
-              phone_number,
-              taxpayer_profiles(
-                kadirs_id,
-                tax_id_or_nin
-              )
-            ),
-            area_office:area_offices(
-              id,
-              office_name,
-              area_officer_id,
-              area_officer:users!area_offices_area_officer_id_fkey(
-                first_name,
-                last_name
-              )
-            ),
-            addresses(
-              street_address,
-              city,
-              state,
-              lga
-            )
-          ),
-          invoices(
-            id,
-            invoice_number,
-            bill_reference,
-            total_amount,
-            base_amount,
-            penalty,
-            interest,
-            discount,
-            stamp_duty,
-            balance_due,
-            amount_paid,
-            payment_status,
-            issue_date,
-            due_date,
-            created_at
-          )`,
+  .from('tax_calculations')
+  .select(`
+    *,
+    property:properties!inner(
+      id,
+      property_reference,
+      registered_property_name,
+      property_type,
+      property_category,
+      total_annual_rent,
+      rental_commencement_date,
+      area_office_id,
+      owner_id,
+      owner:users!properties_owner_id_fkey(
+        id,
+        first_name,
+        middle_name,
+        last_name,
+        email,
+        phone_number,
+        taxpayer_profiles(
+          kadirs_id,
+          tax_id_or_nin
         )
-        .eq("id", actualCalculationId)
-        .single()
+      ),
+      area_office:area_offices!properties_area_office_id_fkey(
+        id,
+        office_name,
+        area_officer_id,
+        area_officer:users!area_offices_area_officer_id_fkey(
+          first_name,
+          last_name
+        )
+      ),
+      addresses(
+        street_address,
+        city,
+        state,
+        lga
+      )
+    ),
+    invoices(
+      id,
+      invoice_number,
+      bill_reference,
+      total_amount,
+      base_amount,
+      penalty,
+      interest,
+      discount,
+      stamp_duty,
+      balance_due,
+      amount_paid,
+      payment_status,
+      issue_date,
+      due_date,
+      created_at
+    )
+  `)
+  .eq('id', actualCalculationId)
+  .maybeSingle();
 
       if (error) {
         console.error("[v0] Error fetching tax calculation:", error)
@@ -248,49 +248,74 @@ export function TaxCalculationDetailsSheet({
   const invoiceData =
     invoice && calculation
       ? {
-          invoiceNumber: invoice.invoice_number,
-          date: new Date(invoice.issue_date).toLocaleDateString(),
-          clientName:
-            `${calculation.property?.owner?.first_name || ""} ${calculation.property?.owner?.last_name || ""}`.trim(),
-          propertyName: calculation.property?.registered_property_name || "Unnamed Property",
-          clientPhone: calculation.property?.owner?.phone_number || "—",
-          areaOffice: calculation.area_office?.office_name || "Headquarters",
-          recipientAddress: calculation.property?.addresses?.[0]
-            ? `${calculation.property.addresses[0].street_address || ""}, ${calculation.property.addresses[0].city || ""}, ${calculation.property.addresses[0].state || ""}`.trim()
-            : "—",
-          assessmentYear: calculation.tax_year,
-          actualAmount: calculation.base_tax_amount || 0,
-          arrears: calculation.backlog_tax_amount || 0,
-          stampDuty: invoice.stamp_duty || 0,
-          penalties: calculation.penalty_amount || 0,
-          interest: calculation.interest_amount || 0,
-          totalOutstanding: invoice.total_amount || 0,
-          officerName: calculation.area_office?.area_officer || "Adamu",
-          items: [
-            {
-              description: `Withholding Tax on Rent (${calculation.tax_year})`,
-              amount: calculation.base_tax_amount || 0,
-            },
-            ...(calculation.backlog_tax_amount > 0
-              ? [
-                  {
-                    description: `Backlog Tax (${calculation.backlog_years} years)`,
-                    amount: calculation.backlog_tax_amount,
-                  },
-                ]
-              : []),
-            ...(calculation.penalty_amount > 0
-              ? [{ description: "Penalties (10%)", amount: calculation.penalty_amount }]
-              : []),
-            ...(calculation.interest_amount > 0
-              ? [{ description: "Interest (27%)", amount: calculation.interest_amount }]
-              : []),
-            ...(invoice.stamp_duty > 0 ? [{ description: "Stamp Duty (1%)", amount: invoice.stamp_duty }] : []),
-          ],
-          discount: invoice.discount || 0,
-          total: invoice.total_amount || 0,
-          paymentReference: invoice.bill_reference || invoice.invoice_number,
-        }
+  invoiceNumber: invoice?.bill_reference,
+  date: invoice?.issue_date
+    ? new Date(invoice.issue_date).toLocaleDateString()
+    : "—",
+
+  clientName: `${calculation.property?.owner?.first_name || ""} ${
+    calculation.property?.owner?.last_name || ""
+  }`.trim(),
+
+  propertyName: calculation.property?.registered_property_name || "Unnamed Property",
+
+  clientPhone: calculation.property?.owner?.phone_number || "—",
+
+  areaOffice:
+    calculation.property?.area_office?.office_name || "Headquarters",
+
+  recipientAddress: calculation.property?.addresses?.[0]
+    ? `${calculation.property.addresses[0].street_address || ""}, ${
+        calculation.property.addresses[0].city || ""
+      }, ${calculation.property.addresses[0].state || ""}`.trim()
+    : "—",
+
+  assessmentYear: calculation.tax_year,
+
+  actualAmount: calculation.base_tax_amount || 0,
+  arrears: calculation.backlog_tax_amount || 0,
+
+  stampDuty: invoice?.stamp_duty || 0,
+  penalties: calculation.penalty_amount || 0,
+  interest: calculation.interest_amount || 0,
+
+  totalOutstanding: invoice?.total_amount || 0,
+
+  officerName: calculation.property?.area_office?.area_officer
+    ? `${calculation.property.area_office.area_officer.first_name} ${calculation.property.area_office.area_officer.last_name}`
+    : "Adamu",
+
+  items: [
+    {
+      description: `Withholding Tax on Rent (${calculation.tax_year})`,
+      amount: calculation.base_tax_amount || 0,
+    },
+    ...(calculation.backlog_tax_amount > 0
+      ? [
+          {
+            description: `Backlog Tax (${calculation.backlog_years} years)`,
+            amount: calculation.backlog_tax_amount,
+          },
+        ]
+      : []),
+    ...(calculation.penalty_amount > 0
+      ? [{ description: "Penalties (10%)", amount: calculation.penalty_amount }]
+      : []),
+    ...(calculation.interest_amount > 0
+      ? [{ description: "Interest (27%)", amount: calculation.interest_amount }]
+      : []),
+    ...(invoice?.stamp_duty > 0
+      ? [{ description: "Stamp Duty (1%)", amount: invoice.stamp_duty }]
+      : []),
+  ],
+
+  discount: invoice?.discount || 0,
+
+  total: invoice?.total_amount || 0,
+
+  paymentReference: invoice?.bill_reference || invoice?.invoice_number,
+}
+
       : null
 
   return (
