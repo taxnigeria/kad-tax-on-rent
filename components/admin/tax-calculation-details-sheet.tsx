@@ -86,6 +86,7 @@ export function TaxCalculationDetailsSheet({
             property_category,
             total_annual_rent,
             rental_commencement_date,
+            area_office_id,
             owner_id,
             owner:users!properties_owner_id_fkey(
               id,
@@ -97,6 +98,15 @@ export function TaxCalculationDetailsSheet({
               taxpayer_profiles(
                 kadirs_id,
                 tax_id_or_nin
+              )
+            ),
+            area_office:area_offices(
+              id,
+              office_name,
+              area_officer_id,
+              area_officer:users!area_offices_area_officer_id_fkey(
+                first_name,
+                last_name
               )
             ),
             addresses(
@@ -244,7 +254,7 @@ export function TaxCalculationDetailsSheet({
             `${calculation.property?.owner?.first_name || ""} ${calculation.property?.owner?.last_name || ""}`.trim(),
           propertyName: calculation.property?.registered_property_name || "Unnamed Property",
           clientPhone: calculation.property?.owner?.phone_number || "—",
-          areaOffice: "Kaduna State Internal Revenue Service",
+          areaOffice: calculation.area_office?.office_name || "Headquarters",
           recipientAddress: calculation.property?.addresses?.[0]
             ? `${calculation.property.addresses[0].street_address || ""}, ${calculation.property.addresses[0].city || ""}, ${calculation.property.addresses[0].state || ""}`.trim()
             : "—",
@@ -255,7 +265,7 @@ export function TaxCalculationDetailsSheet({
           penalties: calculation.penalty_amount || 0,
           interest: calculation.interest_amount || 0,
           totalOutstanding: invoice.total_amount || 0,
-          officerName: "Tax Officer",
+          officerName: calculation.area_office?.area_officer || "Adamu",
           items: [
             {
               description: `Withholding Tax on Rent (${calculation.tax_year})`,
