@@ -564,7 +564,7 @@ export function TaxCalculationDetailsSheet({
                         </div>
                         <Separator className="my-3" />
                         <div className="space-y-2 text-sm">
-                          {invoice?.stamp_duty && invoice.stamp_duty > 0 && (
+                          {invoice?.stamp_duty > 0 && (
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">Stamp Duty</span>
                               <span className="font-medium text-blue-600">
@@ -572,27 +572,29 @@ export function TaxCalculationDetailsSheet({
                               </span>
                             </div>
                           )}
-                          {invoice?.penalty && invoice.penalty > 0 && (
+                          {invoice?.penalty > 0 && (
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">Penalty</span>
                               <span className="font-medium text-orange-600">
-                                +₦{Number(invoice.penalty).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                                +₦{Number(invoice.penalty).toLocaleString("en-NG")}
                               </span>
                             </div>
                           )}
-                          {invoice?.interest && invoice.interest > 0 && (
+
+                          {invoice?.interest > 0 && (
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">Interest</span>
                               <span className="font-medium text-orange-600">
-                                +₦{Number(invoice.interest).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                                +₦{Number(invoice.interest).toLocaleString("en-NG")}
                               </span>
                             </div>
                           )}
-                          {invoice?.discount && invoice.discount > 0 && (
+
+                          {invoice?.discount > 0 && (
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">Discount Applied</span>
                               <span className="font-medium text-green-600">
-                                -₦{Number(invoice.discount).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
+                                -₦{Number(invoice.discount).toLocaleString("en-NG")}
                               </span>
                             </div>
                           )}
