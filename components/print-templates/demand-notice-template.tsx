@@ -35,6 +35,7 @@ export function DemandNoticeTemplate({
   areaOfficeAddress,
 }: DemandNoticeProps) {
   const currentYear = new Date().getFullYear()
+  const displayYears = taxYears || 1
 
   return (
     <div className="demand-notice-page bg-white p-80 min-h-[297mm] max-w-[210mm] mx-auto flex flex-col font-sans">
@@ -58,7 +59,7 @@ export function DemandNoticeTemplate({
           <p className="font-semibold text-xs leading-tight capitalize">{recipientAddress}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs">Date: {date}</p>
+          <p className="text-xs">Date: __/__/{currentYear}</p>
         </div>
       </div>
 
@@ -80,7 +81,7 @@ export function DemandNoticeTemplate({
           of the succeeding month shall attract penalty and interest.
         </p>
         <p className="text-[11px] leading-relaxed text-justify">
-          The amount of liabilities extracted from the last ({taxYears}) year(s) {assessmentYear} - {currentYear}{" "}
+          The amount of liabilities extracted from the last ({displayYears}) year(s) {assessmentYear} - {currentYear}{" "}
           amounting to <span className="font-semibold">{formatCurrency(actualAmount + arrears)}</span> is presented to
           you for remittance to a government-designated bank account, and evidence of such payment should be presented
           within seven (7) days from the date of the service of this letter.

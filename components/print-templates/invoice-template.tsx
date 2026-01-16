@@ -4,6 +4,7 @@ import Image from "next/image"
 
 interface InvoiceProps {
   invoiceNumber: string
+  billReference?: string
   date: string
   clientName: string
   propertyName: string
@@ -21,6 +22,7 @@ interface InvoiceProps {
 
 export function InvoiceTemplate({
   invoiceNumber,
+  billReference,
   date,
   clientName,
   propertyName,
@@ -35,6 +37,8 @@ export function InvoiceTemplate({
   total,
   paymentReference,
 }: InvoiceProps) {
+  const displayReference = billReference || invoiceNumber
+
   return (
     <div className="invoice-page bg-white p-20 min-h-[297mm] max-w-[210mm] mx-auto relative overflow-hidden flex flex-col font-sans">
       {/* Watermark Logo */}
@@ -56,7 +60,7 @@ export function InvoiceTemplate({
             <div className="space-y-1">
               <p className="text-xs">
                 <span className="font-normal text-gray-500">Invoice #: </span>
-                <span className="font-semibold">{invoiceNumber}</span>
+                <span className="font-semibold">{displayReference}</span>
               </p>
               <p className="text-xs">
                 <span className="font-normal text-gray-500">Date: </span>

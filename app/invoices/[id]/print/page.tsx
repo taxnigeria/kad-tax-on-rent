@@ -22,6 +22,10 @@ export default async function InvoicePrintPage({
 
   const areaOfficeName = invoice.property.area_office?.office_name || "Headquarters"
 
+  const areaOfficerName = invoice.property.area_office?.area_officer?.first_name
+    ? `${invoice.property.area_office.area_officer.first_name} ${invoice.property.area_office.area_officer.last_name || ""}`.trim()
+    : "Tax Officer"
+
   const demandNoticeData = {
     recipientName: invoice.property.registered_property_name,
     recipientAddress:
@@ -34,25 +38,24 @@ export default async function InvoicePrintPage({
     penalties: invoice.penalty || 0,
     interest: invoice.interest || 0,
     totalOutstanding: invoice.total_amount || 0,
-    officerName: "Williams Joe Fada",
-    areaOffice: areaOfficeName, // Use fetched area office name
+    officerName: areaOfficerName,
+    areaOffice: areaOfficeName,
+    areaOfficeAddress: invoice.property.area_office?.address || "",
   }
 
   const invoiceData = {
-    invoiceNumber: invoice.bill_reference || invoice.invoice_number, // Use bill_reference as invoice number
+    invoiceNumber: invoice.bill_reference || invoice.invoice_number,
+    billReference: invoice.bill_reference,
     date: new Date(invoice.issue_date).toLocaleDateString("en-GB"),
     clientName: invoice.property.registered_property_name,
     propertyName: invoice.property.registered_property_name,
     clientPhone: "N/A",
-    areaOffice: areaOfficeName, // Use fetched area office name
-    recipientAddress:
-      `${invoice.property.house_number || ""} ${invoice.property.street_name || ""}, ${invoice.property.address?.city || ""}, ${invoice.property.address?.state || ""}`.trim(),
-    assessmentYear: `${invoice.tax_year - 1}-${invoice.tax_year}`,
-    actualAmount: invoice.base_amount || 0,
-    arrears: 0,
+    areaOffice: areaOfficeName,
+    areaOfficeAddress: invoice.property.area_office?.address || "",
+    baseAmount: invoice.base_amount || 0,
     stampDuty: invoice.stamp_duty || 0,
     interest: invoice.interest || 0,
-    penalties: invoice.penalty || 0,
+    penalty: invoice.penalty || 0,
     discount: invoice.discount || 0,
     total: invoice.total_amount || 0,
     paymentReference: invoice.bill_reference,
@@ -75,18 +78,19 @@ export default async function InvoicePrintPage({
         {/* Page 2: Invoice */}
         <InvoiceTemplate
           invoiceNumber={invoiceData.invoiceNumber}
+          billReference={invoiceData.billReference}
           date={invoiceData.date}
           clientName={invoiceData.clientName}
           propertyName={invoiceData.propertyName}
           clientPhone={invoiceData.clientPhone}
           areaOffice={invoiceData.areaOffice}
-          areaOfficeAddress={invoiceData.recipientAddress}
-          baseAmount={invoiceData.actualAmount}
+          areaOfficeAddress={invoiceData.areaOfficeAddress}
+          baseAmount={invoiceData.baseAmount}
           stampDuty={invoiceData.stampDuty}
           interest={invoiceData.interest}
-          penalty={invoiceData.penalties}
+          penalty={invoiceData.penalty}
           discount={invoiceData.discount}
-          total={invoiceData.totalOutstanding}
+          total={invoiceData.total}
           paymentReference={invoiceData.paymentReference}
         />
       </div>

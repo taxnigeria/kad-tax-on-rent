@@ -16,11 +16,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, AlertCircle, Building2, MapPin, ImageIcon, Upload, X } from "lucide-react"
+import { Loader2, AlertCircle, Building2, MapPin, ImageIcon, Upload, X, ChevronRight, Search } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import Image from "next/image"
-import { Separator } from "@/components/ui/separator"
 
 interface Property {
   id: string
@@ -55,6 +54,20 @@ interface EditPropertyModalProps {
   onOpenChange: (open: boolean) => void
   property: Property | null
   onUpdate: () => void
+}
+
+interface City {
+  id: string
+  name: string
+  lga_id: string
+  area_office_id: string | null
+}
+
+interface LGA {
+  id: string
+  name: string
+  state: string
+  area_office_id: string
 }
 
 const PROPERTY_TYPES = [
@@ -94,6 +107,10 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
   const [activeTab, setActiveTab] = useState("details")
   const [areaOffices, setAreaOffices] = useState<{ id: string; office_name: string }[]>([])
   const [propertyManagers, setPropertyManagers] = useState<{ id: string; first_name: string; last_name: string }[]>([])
+  const [cities, setCities] = useState<City[]>([])
+  const [lgas, setLgas] = useState<LGA[]>([])
+  const [cityDialogOpen, setCityDialogOpen] = useState(false)
+  const [citySearchQuery, setCitySearchQuery] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [detailsForm, setDetailsForm] = useState({
@@ -115,12 +132,13 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
   })
 
   const [addressForm, setAddressForm] = useState({
-    house_number: "",
-    street_name: "",
     area_office_id: "",
     street_address: "",
     city: "",
+    city_id: "", // Added city_id for proper tracking
     lga: "",
+    lga_id: "", // Added lga_id for proper tracking
+    state: "Kaduna", // Added state field with default
   })
 
   const [propertyFacadeImage, setPropertyFacadeImage] = useState<{ url: string; name: string } | null>(null)
@@ -134,6 +152,7 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
     if (open) {
       fetchAreaOffices()
       fetchPropertyManagers()
+      fetchCitiesAndLgas() // Added function call to fetch cities and LGAs
     }
   }, [open])
 
@@ -163,6 +182,9 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
         street_address: property.addresses?.street_address || "",
         city: property.addresses?.city || "",
         lga: property.addresses?.lga || "",
+        state: property.addresses?.state || "Kaduna", // Set state from property if available, else default
+        city_id: property.addresses?.city ? cities.find((c) => c.name === property.addresses?.city)?.id || "" : "", // Attempt to set city_id
+        lga_id: property.addresses?.lga ? lgas.find((l) => l.name === property.addresses?.lga)?.id || "" : "", // Attempt to set lga_id
       })
       // Load existing images
       const existingImages =
@@ -184,7 +206,7 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
       setErrors({})
       setActiveTab("details")
     }
-  }, [property])
+  }, [property, cities, lgas]) // Added cities and lgas as dependencies to ensure city_id and lga_id are set correctly
 
   async function fetchAreaOffices() {
     const supabase = createClient()
@@ -207,6 +229,39 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
     if (data) setPropertyManagers(data)
   }
 
+  async function fetchCitiesAndLgas() {
+    const supabase = createClient()
+    const [citiesRes, lgasRes] = await Promise.all([
+      supabase.from("cities").select("id, name, lga_id, area_office_id").order("name"),
+      supabase.from("lgas").select("id, name").order("name"),
+    ])
+
+    if (citiesRes.data) setCities(citiesRes.data)
+    if (lgasRes.data) setLgas(lgasRes.data)
+  }
+
+  function handleCityChange(cityId: string) {
+    const selectedCity = cities.find((c) => c.id === cityId)
+    if (!selectedCity) return
+
+    const cityLga = lgas.find((l) => l.id === selectedCity.lga_id)
+    const cityAreaOffice = selectedCity.area_office_id
+      ? areaOffices.find((a) => a.id === selectedCity.area_office_id)
+      : null
+
+    setAddressForm({
+      ...addressForm,
+      city_id: selectedCity.id,
+      city: selectedCity.name,
+      lga_id: selectedCity.lga_id,
+      lga: cityLga?.name || "",
+      area_office_id: cityAreaOffice?.id || "",
+      state: "Kaduna", // Ensure state is set to Kaduna for consistency with the new structure
+    })
+    setCityDialogOpen(false)
+    setCitySearchQuery("")
+  }
+
   function validateForm() {
     const newErrors: Record<string, string> = {}
 
@@ -218,12 +273,6 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
     }
     if (!detailsForm.status) {
       newErrors.status = "Status is required"
-    }
-    if (!addressForm.house_number.trim()) {
-      newErrors.house_number = "House number is required"
-    }
-    if (!addressForm.street_name.trim()) {
-      newErrors.street_name = "Street name is required"
     }
     if (!addressForm.street_address.trim()) {
       newErrors.street_address = "Full address is required"
@@ -323,7 +372,6 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
     try {
       const supabase = createClient()
 
-      // Update property
       const { error: propertyError } = await supabase
         .from("properties")
         .update({
@@ -344,8 +392,6 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
           admin_notes: detailsForm.admin_notes.trim() || null,
           rejection_reason: detailsForm.rejection_reason.trim() || null,
           property_manager_id: detailsForm.property_manager_id || null,
-          house_number: addressForm.house_number.trim(),
-          street_name: addressForm.street_name.trim(),
           area_office_id: addressForm.area_office_id || null,
           updated_at: new Date().toISOString(),
         })
@@ -359,6 +405,7 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
           .update({
             street_address: addressForm.street_address.trim(),
             city: addressForm.city.trim(),
+            state: addressForm.state.trim(),
             lga: addressForm.lga.trim(),
           })
           .eq("id", property.address_id)
@@ -425,6 +472,8 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
   }
 
   if (!property) return null
+
+  const filteredCities = cities.filter((city) => city.name.toLowerCase().includes(citySearchQuery.toLowerCase()))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -670,17 +719,19 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
               )}
             </div>
 
-            {/* City and LGA */}
             <div className="grid grid-cols-2 gap-4">
+              {/* City Selection with Dialog */}
               <div className="space-y-2">
                 <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  placeholder="e.g., Kaduna"
-                  value={addressForm.city}
-                  onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
-                  className={errors.city ? "border-red-500" : ""}
-                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-between bg-transparent"
+                  onClick={() => setCityDialogOpen(true)}
+                >
+                  {addressForm.city || "Select city..."}
+                  <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
                 {errors.city && (
                   <p className="text-xs text-red-500 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
@@ -688,15 +739,43 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
                   </p>
                 )}
               </div>
+
+              {/* State Field (Read-only, defaults to Kaduna) */}
+              <div className="space-y-2">
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  value={addressForm.state}
+                  onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })}
+                  disabled
+                  readOnly
+                  className="bg-gray-100"
+                />
+              </div>
+            </div>
+
+            {/* LGA and Area Office (Auto-filled from city selection) */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="lga">LGA</Label>
-                <Input
-                  id="lga"
-                  placeholder="e.g., Kaduna North"
-                  value={addressForm.lga}
-                  onChange={(e) => setAddressForm({ ...addressForm, lga: e.target.value })}
-                  className={errors.lga ? "border-red-500" : ""}
-                />
+                <Select
+                  value={addressForm.lga_id}
+                  onValueChange={(value) => {
+                    const selectedLga = lgas.find((l) => l.id === value)
+                    setAddressForm({ ...addressForm, lga_id: value, lga: selectedLga?.name || "" })
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select LGA" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lgas.map((lga) => (
+                      <SelectItem key={lga.id} value={lga.id}>
+                        {lga.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {errors.lga && (
                   <p className="text-xs text-red-500 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
@@ -704,62 +783,25 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
                   </p>
                 )}
               </div>
-            </div>
 
-            <Separator className="my-4" />
-
-            {/* Property-Specific Address Fields */}
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="house_number">House Number *</Label>
-                <Input
-                  id="house_number"
-                  value={addressForm.house_number}
-                  onChange={(e) => setAddressForm({ ...addressForm, house_number: e.target.value })}
-                  className={errors.house_number ? "border-red-500" : ""}
-                />
-                {errors.house_number && (
-                  <p className="text-xs text-red-500 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {errors.house_number}
-                  </p>
-                )}
+                <Label htmlFor="area_office_id">Area Office</Label>
+                <Select
+                  value={addressForm.area_office_id}
+                  onValueChange={(value) => setAddressForm({ ...addressForm, area_office_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select area office" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {areaOffices.map((office) => (
+                      <SelectItem key={office.id} value={office.id}>
+                        {office.office_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="street_name">Street Name *</Label>
-                <Input
-                  id="street_name"
-                  value={addressForm.street_name}
-                  onChange={(e) => setAddressForm({ ...addressForm, street_name: e.target.value })}
-                  className={errors.street_name ? "border-red-500" : ""}
-                />
-                {errors.street_name && (
-                  <p className="text-xs text-red-500 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {errors.street_name}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="area_office_id">Area Office</Label>
-              <Select
-                value={addressForm.area_office_id}
-                onValueChange={(value) => setAddressForm({ ...addressForm, area_office_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select area office" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {areaOffices.map((ao) => (
-                    <SelectItem key={ao.id} value={ao.id}>
-                      {ao.office_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {property.addresses && (
@@ -959,6 +1001,44 @@ export function EditPropertyModal({ open, onOpenChange, property, onUpdate }: Ed
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <Dialog open={cityDialogOpen} onOpenChange={setCityDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select City</DialogTitle>
+            <DialogDescription>Search and select a city from the list</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search cities..."
+                value={citySearchQuery}
+                onChange={(e) => setCitySearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="max-h-[300px] overflow-y-auto space-y-1">
+              {filteredCities.length === 0 ? (
+                <div className="text-center py-6 text-sm text-muted-foreground">
+                  {cities.length === 0 ? "No cities available." : "No cities found."}
+                </div>
+              ) : (
+                filteredCities.map((city) => (
+                  <Button
+                    key={city.id}
+                    variant={addressForm.city_id === city.id ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => handleCityChange(city.id)}
+                  >
+                    {city.name}
+                  </Button>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
