@@ -49,6 +49,8 @@ async function createTaxpayerProfile(input: {
   businessRegistrationDate?: string
   managementLicenseNumber?: string
   yearsOfExperience?: string
+  verificationStatus?: string
+  onboardedById?: string
 }): Promise<CreateProfileResult> {
   try {
     const supabase = createAdminClient()
@@ -79,6 +81,8 @@ async function createTaxpayerProfile(input: {
         business_registration_date: input.businessRegistrationDate || null,
         management_license_number: input.managementLicenseNumber || null,
         years_of_experience: input.yearsOfExperience ? Number.parseInt(input.yearsOfExperience) : null,
+        verification_status: input.verificationStatus || "pending",
+        onboarded_by_id: input.onboardedById || null,
       })
       .select()
       .single()

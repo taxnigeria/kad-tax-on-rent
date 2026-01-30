@@ -16,6 +16,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# npm logs and temp files
+npm_verbose.txt
+npm_error.txt
+npm_install_error.txt
+npm_log.txt
+*.log
+
 # env files
 .env*
 

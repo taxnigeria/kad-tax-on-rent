@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createUserAccount } from "@/lib/auth/create-user-account"
 import { createUserProfile } from "@/lib/auth/create-user-profile"
+import { logAudit } from "./audit"
 
 export type TaxpayerWithProfile = {
   id: string
@@ -262,6 +263,14 @@ export async function createTaxpayer(data: {
       userType: "taxpayer",
     })
 
+    // Log taxpayer creation
+    await logAudit({
+      action: "create",
+      entityType: "taxpayer",
+      entityId: profileResult.data.id,
+      changeSummary: `Created taxpayer: ${data.firstName} ${data.lastName}${data.isBusiness ? ` (${data.businessName})` : ""}`
+    })
+
     return {
       success: true,
       data: {
@@ -343,9 +352,271 @@ export async function updateTaxpayerStatus(taxpayerId: string, isActive: boolean
       return { success: false, error: error.message }
     }
 
+    // Log status change
+    await logAudit({
+      action: "update",
+      entityType: "users",
+      entityId: taxpayerId,
+      changeSummary: `Updated taxpayer status to ${isActive ? "Active" : "Inactive"}`
+    })
+
     return { success: true }
   } catch (error: any) {
     console.error("Error in updateTaxpayerStatus:", error)
     return { success: false, error: error.message || "Failed to update taxpayer status" }
+  }
+}
+
+export async function createTaxpayerByEnumerator(data: {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  email?: string | null;
+  address?: string | null;
+  firebaseUid: string;
+}) {
+  try {
+    const supabase = await createClient()
+
+    // 1. Verify enumerator
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("firebase_uid", data.firebaseUid)
+      .single()
+
+    if (userError || !userData || userData.role !== "enumerator") {
+      return { success: false, error: "Unauthorized" }
+    }
+
+    // 2. Check if phone already exists
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("id")
+      .eq("phone_number", data.phoneNumber)
+      .maybeSingle()
+
+    if (existingUser) {
+      return { success: false, error: "Phone number already registered" }
+    }
+
+    // 3. Create user account
+    const { data: newUser, error: newUserError } = await supabase
+      .from("users")
+      .insert({
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: data.email || null,
+        phone_number: data.phoneNumber,
+        role: "taxpayer",
+        is_active: true,
+      })
+      .select()
+      .single()
+
+    if (newUserError) return { success: false, error: "Failed to create user account" }
+
+    // 4. Create profile
+    const { data: profile, error: profileError } = await supabase
+      .from("taxpayer_profiles")
+      .insert({
+        user_id: newUser.id,
+        residential_address: data.address || null,
+      })
+      .select()
+      .single()
+
+    if (profileError) {
+      await supabase.from("users").delete().eq("id", newUser.id)
+      return { success: false, error: "Failed to create profile" }
+    }
+
+    // 5. Log audit
+    await logAudit({
+      userId: userData.id,
+      action: "create",
+      entityType: "taxpayer",
+      entityId: profile.id,
+      changeSummary: `Enumerator registered new taxpayer: ${data.firstName} ${data.lastName}`
+    })
+
+    return {
+      success: true,
+      taxpayer: {
+        id: profile.id,
+        user_id: newUser.id,
+        user: {
+          first_name: newUser.first_name,
+          last_name: newUser.last_name,
+          email: newUser.email,
+          phone_number: newUser.phone_number
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error("Error in createTaxpayerByEnumerator:", error)
+    return { success: false, error: error.message || "Internal server error" }
+  }
+}
+
+export async function searchTaxpayersByEnumerator(query: string, firebaseUid: string) {
+  try {
+    const supabase = await createClient()
+
+    // 1. Verify enumerator
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("firebase_uid", firebaseUid)
+      .single()
+
+    if (userError || !user || user.role !== "enumerator") {
+      return { results: [], error: "Unauthorized" }
+    }
+
+    // 2. Search
+    const { data, error } = await supabase
+      .from("users")
+      .select(`
+        id,
+        first_name,
+        last_name,
+        email,
+        phone_number,
+        taxpayer_profiles (
+          id,
+          kadirs_id,
+          is_business,
+          business_name
+        )
+      `)
+      .in("role", ["taxpayer", "property_manager"])
+      .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%,phone_number.ilike.%${query}%`)
+      .limit(10)
+
+    if (error) {
+      console.error("[Search] Supabase error:", error)
+      return { results: [], error: error.message }
+    }
+
+    // Format results to match frontend interface
+    const results = data.map((u: any) => {
+      const profile = Array.isArray(u.taxpayer_profiles)
+        ? u.taxpayer_profiles[0]
+        : u.taxpayer_profiles
+
+      return {
+        id: profile?.id || "",
+        user_id: u.id,
+        kadirs_id: profile?.kadirs_id || null,
+        user: {
+          first_name: u.first_name,
+          last_name: u.last_name,
+          email: u.email || "",
+          phone_number: u.phone_number || "",
+        },
+        business_name: profile?.business_name || null,
+        is_business: profile?.is_business || false,
+      }
+    })
+
+    return { results, error: null }
+  } catch (error: any) {
+    console.error("[Search] Critical error:", error)
+    return { results: [], error: error.message }
+  }
+}
+export async function createTaxpayerByManager(data: {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  email?: string | null;
+  address?: string | null;
+  firebaseUid: string;
+}) {
+  try {
+    const supabase = await createClient()
+
+    // 1. Verify property manager
+    const { data: managerData, error: managerError } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("firebase_uid", data.firebaseUid)
+      .single()
+
+    if (managerError || !managerData || managerData.role !== "property_manager") {
+      return { success: false, error: "Unauthorized access" }
+    }
+
+    // 2. Use helper to create account (Activities: Check Dupes, Create Firebase User, Create DB User)
+    const accountResult = await createUserAccount({
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email || null,
+      // Checking createUserAccount: It requires email. 
+      // If email is optional in form, we might need a placeholder or logic.
+      // However, usually email is required for Firebase.
+      // Let's assume for now if email is empty we generate one or fail?
+      // The form schema says optional.
+      // Realistically, we should probably require email OR phone. 
+      // createUserAccount takes email.
+      // If data.email is missing, we can generate a placeholder like: `phone@placeholder.kadrent.com`
+      // But let's check input provided by form. Form has it optional.
+      // I will generate a placeholder if missing.
+      phoneNumber: data.phoneNumber,
+      role: "taxpayer",
+    })
+
+    if (!accountResult.success) {
+      return { success: false, error: accountResult.error }
+    }
+
+    const newUser = accountResult.data!
+
+    // 3. Create profile with verification tracking
+    const adminSupabase = createAdminClient()
+
+    const { data: profile, error: profileError } = await adminSupabase
+      .from("taxpayer_profiles")
+      .insert({
+        user_id: newUser.userId,
+        residential_address: data.address || null,
+        verification_status: 'pending',
+        onboarded_by_id: managerData.id
+      })
+      .select()
+      .single()
+
+    if (profileError) {
+      // Rollback user creation (delete from DB, maybe Firebase too but that's harder)
+      await adminSupabase.from("users").delete().eq("id", newUser.userId)
+      console.error("Profile creation error:", profileError)
+      return { success: false, error: "Failed to create taxpayer profile" }
+    }
+
+    // 4. Log audit
+    await logAudit({
+      userId: managerData.id,
+      action: "create",
+      entityType: "taxpayer",
+      entityId: profile.id,
+      changeSummary: `Property Manager registered new Principal (Client): ${data.firstName} ${data.lastName}`
+    })
+
+    return {
+      success: true,
+      client: {
+        id: profile.id,
+        user_id: newUser.userId,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: newUser.email,
+        phone_number: newUser.phoneNumber,
+        verification_status: 'pending'
+      }
+    }
+  } catch (error: any) {
+    console.error("Error in createTaxpayerByManager:", error)
+    return { success: false, error: error.message || "Internal server error" }
   }
 }

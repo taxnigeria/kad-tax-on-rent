@@ -478,46 +478,46 @@ export default function PropertiesPage() {
                     <TabsContent value="managed" className="space-y-6">
                       {/* Managed Properties Stats */}
                       <div className="grid gap-4 md:grid-cols-4">
-                        <Card className="border-border/50">
+                        <Card className="border-border/50 gap-0">
                           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Total Managed</CardTitle>
                             <Building2 className="h-4 w-4 text-muted-foreground" />
                           </CardHeader>
                           <CardContent className="py-2">
-                            <div className="text-2xl font-bold">{managedStats.total}</div>
+                            <div className="text-xl font-bold">{managedStats.total}</div>
                             <p className="text-xs text-muted-foreground mt-1">{managedStats.verified} verified</p>
                           </CardContent>
                         </Card>
 
-                        <Card className="border-border/50">
+                        <Card className="border-border/50 gap-0">
                           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Verified</CardTitle>
                             <Home className="h-4 w-4 text-green-500" />
                           </CardHeader>
                           <CardContent className="py-2">
-                            <div className="text-2xl font-bold">{managedStats.verified}</div>
+                            <div className="text-xl font-bold">{managedStats.verified}</div>
                             <p className="text-xs text-muted-foreground mt-1">Active properties</p>
                           </CardContent>
                         </Card>
 
-                        <Card className="border-border/50">
+                        <Card className="border-border/50 gap-0">
                           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
                             <Calendar className="h-4 w-4 text-yellow-500" />
                           </CardHeader>
                           <CardContent className="py-2">
-                            <div className="text-2xl font-bold">{managedStats.pending}</div>
+                            <div className="text-xl font-bold">{managedStats.pending}</div>
                             <p className="text-xs text-muted-foreground mt-1">Awaiting verification</p>
                           </CardContent>
                         </Card>
 
-                        <Card className="border-border/50">
+                        <Card className="border-border/50 gap-0">
                           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Total Annual Rent</CardTitle>
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                           </CardHeader>
                           <CardContent className="py-2">
-                            <div className="text-2xl font-bold">₦{managedStats.totalRent.toLocaleString()}</div>
+                            <div className="text-xl font-bold">₦{managedStats.totalRent.toLocaleString()}</div>
                             <p className="text-xs text-muted-foreground mt-1">Across all managed properties</p>
                           </CardContent>
                         </Card>

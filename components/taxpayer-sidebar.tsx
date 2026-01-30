@@ -1,7 +1,7 @@
 "use client"
 
 import type * as React from "react"
-import { Home, Building2, FileText, CreditCard, Bell } from "lucide-react"
+import { Home, Building2, FileText, CreditCard, Bell, Users } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { getUserProfilePhoto } from "@/services/user-service"
@@ -59,49 +59,64 @@ export function TaxpayerSidebar({ ...props }: React.ComponentProps<typeof Sideba
     fetchRole()
   }, [user?.uid])
 
+  const navMain = [
+    {
+      title: "Dashboard",
+      url: "/taxpayer-dashboard",
+      icon: Home,
+      isActive: pathname === "/taxpayer-dashboard",
+    },
+  ]
+
+  // Add Clients for property managers
+  if (supabaseRole === "property_manager") {
+    navMain.push({
+      title: "My Clients",
+      url: "/taxpayer-dashboard/clients",
+      icon: Users,
+      isActive: pathname?.startsWith("/taxpayer-dashboard/clients"),
+    })
+  }
+
+  navMain.push(
+    {
+      title: "My Properties",
+      url: "/taxpayer-dashboard/properties",
+      icon: Building2,
+      isActive: pathname?.startsWith("/taxpayer-dashboard/properties"),
+      items: [
+        {
+          title: "All Properties",
+          url: "/taxpayer-dashboard/properties",
+        },
+        {
+          title: "Add Property",
+          url: "/taxpayer-dashboard/properties/add",
+        },
+      ],
+    },
+    {
+      title: "Invoices",
+      url: "/taxpayer-dashboard/invoices",
+      icon: FileText,
+      isActive: pathname === "/taxpayer-dashboard/invoices",
+    },
+    {
+      title: "Payments",
+      url: "/taxpayer-dashboard/payments",
+      icon: CreditCard,
+      isActive: pathname === "/taxpayer-dashboard/payments",
+    },
+    {
+      title: "Notifications",
+      url: "/taxpayer-dashboard/notifications",
+      icon: Bell,
+      isActive: pathname === "/taxpayer-dashboard/notifications",
+    },
+  )
+
   const data = {
-    navMain: [
-      {
-        title: "Dashboard",
-        url: "/taxpayer-dashboard",
-        icon: Home,
-        isActive: pathname === "/taxpayer-dashboard",
-      },
-      {
-        title: "My Properties",
-        url: "/taxpayer-dashboard/properties",
-        icon: Building2,
-        isActive: pathname?.startsWith("/taxpayer-dashboard/properties"),
-        items: [
-          {
-            title: "All Properties",
-            url: "/taxpayer-dashboard/properties",
-          },
-          {
-            title: "Add Property",
-            url: "/taxpayer-dashboard/properties/add",
-          },
-        ],
-      },
-      {
-        title: "Invoices",
-        url: "/taxpayer-dashboard/invoices",
-        icon: FileText,
-        isActive: pathname === "/taxpayer-dashboard/invoices",
-      },
-      {
-        title: "Payments",
-        url: "/taxpayer-dashboard/payments",
-        icon: CreditCard,
-        isActive: pathname === "/taxpayer-dashboard/payments",
-      },
-      {
-        title: "Notifications",
-        url: "/taxpayer-dashboard/notifications",
-        icon: Bell,
-        isActive: pathname === "/taxpayer-dashboard/notifications",
-      },
-    ],
+    navMain,
   }
 
   return (

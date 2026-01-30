@@ -22,6 +22,7 @@ import {
   MapPinIcon,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { getEnumeratorProperties } from "@/app/actions/get-properties"
 
 type PropertyStatus = "verified" | "pending" | "rejected"
 
@@ -161,10 +162,11 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
 
     setLoading(true)
     try {
-      const res = await fetch(`/api/enumerator/properties?firebaseUid=${user.uid}&status=${status}`)
-      if (res.ok) {
-        const data = await res.json()
-        setProperties(data.properties || [])
+      const data = await getEnumeratorProperties(user.uid, status)
+      if (!data.error) {
+        setProperties(data.properties as any[])
+      } else {
+        console.error("Failed to fetch properties:", data.error)
       }
     } catch (error) {
       console.error("Failed to fetch properties:", error)
@@ -218,7 +220,7 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
                       width="100%"
                       height="100%"
                       loading="lazy"
-                      allowFullScreen=""
+                      allowFullScreen={false}
                       referrerPolicy="no-referrer-when-downgrade"
                       src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDDwW6wgSZfPlWvJnHJKfqhNvRkXKKLowU&q=${latitude},${longitude}`}
                       className="border-0"

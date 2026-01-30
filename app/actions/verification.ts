@@ -3,6 +3,7 @@
 import { createServerClient } from "@/lib/supabase/server"
 import { put } from "@vercel/blob"
 import { normalizeNigerianPhone, isValidNigerianPhone } from "@/lib/utils/phone"
+import { logAudit } from "./audit"
 
 export async function sendPhoneOTP(firebaseUid: string, phoneNumber: string) {
   try {
@@ -147,6 +148,15 @@ export async function verifyPhoneOTP(firebaseUid: string, otp: string) {
     // Also update taxpayer_profiles if exists
     await supabase.from("taxpayer_profiles").update({ phone_verified: true }).eq("user_id", userData.id)
 
+    // Log phone verification
+    await logAudit({
+      userId: userData.id,
+      action: "update",
+      entityType: "users",
+      entityId: userData.id,
+      changeSummary: "Phone number verified via OTP"
+    })
+
     return { success: true, message: "Phone verified successfully" }
   } catch (error: any) {
     console.error("[v0] Verify OTP error:", error)
@@ -190,6 +200,15 @@ export async function syncEmailVerificationStatus(firebaseUid: string, isVerifie
       console.error("[v0] Error updating email verification status:", updateError)
       return { success: false, error: "Failed to update verification status" }
     }
+
+    // Log email verification sync
+    await logAudit({
+      userId: userData.id,
+      action: "update",
+      entityType: "users",
+      entityId: userData.id,
+      changeSummary: `Email verification status synced: ${isVerified ? "Verified" : "Unverified"}`
+    })
 
     return { success: true, message: "Email verification status synced" }
   } catch (error: any) {
@@ -389,6 +408,15 @@ export async function generateKadirsID(firebaseUid: string) {
       console.error("[v0] Error updating KADIRS ID:", updateError)
       return { success: false, error: "Failed to save KADIRS ID" }
     }
+
+    // Log KADIRS ID generation
+    await logAudit({
+      userId: userData.id,
+      action: "generate",
+      entityType: "taxpayer_profiles",
+      entityId: profileData.id,
+      changeSummary: `Generated new KADIRS ID: ${kadirsId}`
+    })
 
     return { success: true, kadirsId }
   } catch (error: any) {

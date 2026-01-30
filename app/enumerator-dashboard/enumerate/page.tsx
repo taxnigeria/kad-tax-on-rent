@@ -29,6 +29,8 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { compressImage } from "@/utils/image-compression"
 import { toast as sonnerToast } from "sonner"
+import { createTaxpayerByEnumerator, searchTaxpayersByEnumerator } from "@/app/actions/taxpayers"
+import { enumerateProperty } from "@/app/actions/create-property"
 
 interface Taxpayer {
   id: string
@@ -224,18 +226,11 @@ export default function EnumeratePage() {
 
     setLoading(true)
     try {
-      const res = await fetch("/api/enumerator/search-taxpayers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchTerm, firebaseUid: user.uid }),
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        setSearchResults(data.results || [])
+      const result = await searchTaxpayersByEnumerator(searchTerm, user.uid)
+      if (!result.error) {
+        setSearchResults(result.results as Taxpayer[])
       } else {
-        const error = await res.json()
-        throw new Error(error.error || "Search failed")
+        throw new Error(result.error)
       }
     } catch (error: any) {
       sonnerToast.error(error.message)
@@ -257,39 +252,22 @@ export default function EnumeratePage() {
 
     setLoading(true)
     try {
-      const res = await fetch("/api/enumerator/create-taxpayer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: `${newTaxpayer.firstName} ${newTaxpayer.lastName}`,
-          phone: newTaxpayer.phoneNumber,
-          email: newTaxpayer.email || null,
-          address: newTaxpayer.residentialAddress || null,
-          firebaseUid: user.uid,
-        }),
+      const result = await createTaxpayerByEnumerator({
+        firstName: newTaxpayer.firstName,
+        lastName: newTaxpayer.lastName,
+        phoneNumber: newTaxpayer.phoneNumber,
+        email: newTaxpayer.email || null,
+        address: newTaxpayer.residentialAddress || null,
+        firebaseUid: user.uid,
       })
 
-      if (res.ok) {
-        const data = await res.json()
+      if (result.success && result.taxpayer) {
         sonnerToast.success(`${newTaxpayer.firstName} ${newTaxpayer.lastName} has been registered`)
 
-        setSelectedTaxpayer({
-          id: data.taxpayer.id,
-          user_id: user.uid,
-          kadirs_id: null,
-          user: {
-            first_name: newTaxpayer.firstName,
-            last_name: newTaxpayer.lastName,
-            email: newTaxpayer.email || "",
-            phone_number: newTaxpayer.phoneNumber,
-          },
-          properties: [],
-        })
-
+        setSelectedTaxpayer(result.taxpayer as Taxpayer)
         setStep(3)
       } else {
-        const error = await res.json()
-        throw new Error(error.error || "Failed to create taxpayer")
+        throw new Error(result.error || "Failed to create taxpayer")
       }
     } catch (error: any) {
       sonnerToast.error(error.message)
@@ -352,12 +330,9 @@ export default function EnumeratePage() {
       formData.append("facadePhoto", facadePhoto)
       formData.append("addressPhoto", addressNumberPhoto)
 
-      const res = await fetch("/api/enumerator/create-property", {
-        method: "POST",
-        body: formData,
-      })
+      const result = await enumerateProperty(formData)
 
-      if (res.ok) {
+      if (result.success) {
         sonnerToast.success("Property registered successfully!")
         setStep(1)
         setSelectedTaxpayer(null)
@@ -385,8 +360,7 @@ export default function EnumeratePage() {
         setLongitude("")
         setSelectedCity(null)
       } else {
-        const error = await res.json()
-        throw new Error(error.error || "Failed to register property")
+        throw new Error(result.error || "Failed to register property")
       }
     } catch (error: any) {
       sonnerToast.error(error.message || "Failed to register property")

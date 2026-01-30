@@ -1,7 +1,8 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { sendPasswordResetEmail } from "@/lib/firebase-admin"
+import { createFirebaseUser, sendPasswordResetEmail } from "@/lib/firebase-admin"
+import { logAudit } from "./audit"
 
 export async function createUserInDatabase(userData: {
   firebaseUid: string
@@ -43,6 +44,15 @@ export async function createUserInDatabase(userData: {
       })
     }
 
+    // Log user creation
+    await logAudit({
+      userId: data.id,
+      action: "create",
+      entityType: "users",
+      entityId: data.id,
+      changeSummary: `User created with role: ${userData.role || "taxpayer"}`
+    })
+
     console.log("[v0] User created in database:", data)
     return { success: true, data }
   } catch (error: any) {
@@ -70,6 +80,51 @@ export async function checkUserExists(firebaseUid: string) {
   } catch (error: any) {
     console.error("[v0] Unexpected error:", error)
     return { exists: false, role: null }
+  }
+}
+
+export async function createAdminFirebaseUser(data: {
+  email: string
+  password?: string
+  displayName: string
+  taxpayerId?: string
+}) {
+  try {
+    const supabase = createAdminClient()
+
+    // Default password if not provided
+    const password = data.password || Math.random().toString(36).slice(-10) + "A1!"
+
+    const { success, uid, error } = await createFirebaseUser(data.email, password, data.displayName)
+
+    if (!success || error) {
+      console.error("[AuthAction] Error creating Firebase user:", error)
+      return { success: false, error: error || "Unknown error" }
+    }
+
+    if (data.taxpayerId && uid) {
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ firebase_uid: uid })
+        .eq("id", data.taxpayerId)
+
+      if (updateError) {
+        console.error("[AuthAction] Error updating user with firebase_uid:", updateError)
+      } else {
+        // Log the linkage
+        await logAudit({
+          action: "update",
+          entityType: "users",
+          entityId: data.taxpayerId,
+          changeSummary: `Linked user account to Firebase UID: ${uid}`
+        })
+      }
+    }
+
+    return { success: true, uid }
+  } catch (error: any) {
+    console.error("[AuthAction] Unexpected error:", error)
+    return { success: false, error: error.message }
   }
 }
 
