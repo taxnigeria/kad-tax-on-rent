@@ -53,6 +53,8 @@ export type TaxpayerWithProfile = {
     business_registration_date: string | null
     management_license_number: string | null
     years_of_experience: number | null
+    registration_source: string
+    onboarded_by_id: string | null
   } | null
   property_count?: number
   invoice_count?: number
@@ -63,44 +65,100 @@ export type TaxpayerWithProfile = {
   payments?: any[]
 }
 
-export async function getTaxpayers() {
+export async function getTaxpayers(params?: {
+  page?: number
+  pageSize?: number
+  search?: string
+  role?: string
+  status?: string
+  source?: string
+  sortField?: string
+  sortOrder?: "asc" | "desc"
+}) {
   try {
-    const supabase = await createClient()
+    const adminSupabase = createAdminClient()
+    const {
+      page = 1,
+      pageSize = 50,
+      search,
+      role,
+      status,
+      source,
+      sortField = "created_at",
+      sortOrder = "desc",
+    } = params || {}
 
-    const { data, error } = await supabase
-      .from("users")
-      .select(
-        `
+    let query = adminSupabase.from("users").select(
+      `
         *,
-        taxpayer_profiles (*)
+        taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (*)
       `,
-      )
-      .in("role", ["taxpayer", "property_manager"])
-      .order("created_at", { ascending: false })
+      { count: "exact" },
+    )
+
+    // Role filter
+    if (role && role !== "all") {
+      query = query.eq("role", role)
+    } else {
+      query = query.in("role", ["taxpayer", "property_manager"])
+    }
+
+    // Status filter
+    if (status && status !== "all") {
+      query = query.eq("is_active", status === "active")
+    }
+
+    // Registration Source filter (joined table)
+    if (source && source !== "all") {
+      query = query.filter("taxpayer_profiles.registration_source", "eq", source)
+    }
+
+    // Search
+    if (search) {
+      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`)
+    }
+
+    // Sorting
+    if (sortField) {
+      // If sorting by a joined field, Supabase syntax is slightly different but usually works if qualified
+      // However, most fields are in 'users'. If it's a profile field, we'd need to handle it.
+      if (sortField === "kadirs_id") {
+        query = query.order("taxpayer_profiles(kadirs_id)", { ascending: sortOrder === "asc", nullsFirst: false })
+      } else {
+        query = query.order(sortField, { ascending: sortOrder === "asc" })
+      }
+    }
+
+    // Pagination
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+    query = query.range(from, to)
+
+    const { data, error, count } = await query
 
     if (error) {
       console.error("Error fetching taxpayers:", error)
-      return { taxpayers: [], error: error.message }
+      return { taxpayers: [], error: error.message, totalCount: 0 }
     }
 
-    return { taxpayers: data as TaxpayerWithProfile[], error: null }
+    return { taxpayers: data as TaxpayerWithProfile[], error: null, totalCount: count || 0 }
   } catch (error) {
     console.error("Error in getTaxpayers:", error)
-    return { taxpayers: [], error: "Failed to fetch taxpayers" }
+    return { taxpayers: [], error: "Failed to fetch taxpayers", totalCount: 0 }
   }
 }
 
 export async function getTaxpayerById(taxpayerId: string) {
   try {
-    const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     // Get taxpayer with profile
-    const { data: taxpayer, error: taxpayerError } = await supabase
+    const { data: taxpayer, error: taxpayerError } = await adminSupabase
       .from("users")
       .select(
         `
         *,
-        taxpayer_profiles (
+        taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
           *,
           lgas (id, name),
           area_offices (id, office_name)
@@ -116,27 +174,27 @@ export async function getTaxpayerById(taxpayerId: string) {
     }
 
     // Get properties count
-    const { count: propertyCount } = await supabase
+    const { count: propertyCount } = await adminSupabase
       .from("properties")
       .select("*", { count: "exact", head: true })
       .eq("owner_id", taxpayerId)
 
     // Get properties list
-    const { data: properties } = await supabase
+    const { data: properties } = await adminSupabase
       .from("properties")
       .select("*")
       .eq("owner_id", taxpayerId)
       .order("created_at", { ascending: false })
 
     // Get invoices
-    const { data: invoices, count: invoiceCount } = await supabase
+    const { data: invoices, count: invoiceCount } = await adminSupabase
       .from("invoices")
       .select("*", { count: "exact" })
       .eq("taxpayer_id", taxpayerId)
       .order("created_at", { ascending: false })
 
     // Get payments
-    const { data: payments } = await supabase
+    const { data: payments } = await adminSupabase
       .from("payments")
       .select(
         `
@@ -247,6 +305,7 @@ export async function createTaxpayer(data: {
       businessRegistrationDate: data.businessRegistrationDate,
       managementLicenseNumber: data.managementLicenseNumber,
       yearsOfExperience: data.yearsOfExperience,
+      registrationSource: "admin",
     })
 
     if (!profileResult.success) {
@@ -343,9 +402,8 @@ async function triggerN8nPostCreationActions(data: {
 
 export async function updateTaxpayerStatus(taxpayerId: string, isActive: boolean) {
   try {
-    const supabase = createAdminClient()
-
-    const { error } = await supabase.from("users").update({ is_active: isActive }).eq("id", taxpayerId)
+    const adminSupabase = createAdminClient()
+    const { error } = await adminSupabase.from("users").update({ is_active: isActive }).eq("id", taxpayerId)
 
     if (error) {
       console.error("Error updating taxpayer status:", error)
@@ -422,6 +480,8 @@ export async function createTaxpayerByEnumerator(data: {
       .insert({
         user_id: newUser.id,
         residential_address: data.address || null,
+        onboarded_by_id: userData.id,
+        registration_source: 'enumerator'
       })
       .select()
       .single()
@@ -483,7 +543,7 @@ export async function searchTaxpayersByEnumerator(query: string, firebaseUid: st
         last_name,
         email,
         phone_number,
-        taxpayer_profiles (
+        taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
           id,
           kadirs_id,
           is_business,
@@ -552,17 +612,7 @@ export async function createTaxpayerByManager(data: {
     const accountResult = await createUserAccount({
       firstName: data.firstName,
       lastName: data.lastName,
-      email: data.email || null,
-      // Checking createUserAccount: It requires email. 
-      // If email is optional in form, we might need a placeholder or logic.
-      // However, usually email is required for Firebase.
-      // Let's assume for now if email is empty we generate one or fail?
-      // The form schema says optional.
-      // Realistically, we should probably require email OR phone. 
-      // createUserAccount takes email.
-      // If data.email is missing, we can generate a placeholder like: `phone@placeholder.kadrent.com`
-      // But let's check input provided by form. Form has it optional.
-      // I will generate a placeholder if missing.
+      email: data.email || `${data.phoneNumber || Math.random().toString(36).slice(-8)}@kadrent.placeholder.com`,
       phoneNumber: data.phoneNumber,
       role: "taxpayer",
     })
@@ -582,7 +632,8 @@ export async function createTaxpayerByManager(data: {
         user_id: newUser.userId,
         residential_address: data.address || null,
         verification_status: 'pending',
-        onboarded_by_id: managerData.id
+        onboarded_by_id: managerData.id,
+        registration_source: 'agent'
       })
       .select()
       .single()

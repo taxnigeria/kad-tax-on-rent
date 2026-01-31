@@ -24,17 +24,20 @@ export default function AdminTaxpayersPage() {
   const router = useRouter()
   const { user, userRole, loading: authLoading } = useAuth()
   const [taxpayers, setTaxpayers] = useState<TaxpayerWithProfile[]>([])
-  const [filteredTaxpayers, setFilteredTaxpayers] = useState<TaxpayerWithProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [roleFilter, setRoleFilter] = useState("all")
+  const [sourceFilter, setSourceFilter] = useState("all")
   const [selectedTaxpayers, setSelectedTaxpayers] = useState<string[]>([])
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [selectedTaxpayerId, setSelectedTaxpayerId] = useState<string | null>(null)
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(50)
+  const [totalCount, setTotalCount] = useState(0)
+  const [sortField, setSortField] = useState("created_at")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingTaxpayer, setEditingTaxpayer] = useState<any>(null)
 
@@ -50,23 +53,34 @@ export default function AdminTaxpayersPage() {
 
   useEffect(() => {
     if (user && userRole && ["admin", "super_admin", "staff"].includes(userRole)) {
-      fetchTaxpayers()
+      const handler = setTimeout(() => {
+        fetchTaxpayers()
+      }, 300)
+      return () => clearTimeout(handler)
     }
-  }, [user, userRole])
-
-  useEffect(() => {
-    filterTaxpayers()
-  }, [searchQuery, statusFilter, roleFilter, taxpayers])
+  }, [user, userRole, searchQuery, statusFilter, roleFilter, sourceFilter, currentPage, rowsPerPage, sortField, sortOrder])
 
   async function fetchTaxpayers() {
     try {
       setLoading(true)
-      const { taxpayers: data, error } = await getTaxpayers()
+      const { taxpayers: data, totalCount: count, error } = await getTaxpayers({
+        page: currentPage,
+        pageSize: rowsPerPage,
+        search: searchQuery,
+        role: roleFilter,
+        status: statusFilter,
+        source: sourceFilter,
+        sortField: sortField,
+        sortOrder: sortOrder
+      })
+
       if (error) {
         console.error("Error fetching taxpayers:", error)
         setTaxpayers([])
+        setTotalCount(0)
       } else {
         setTaxpayers(data || [])
+        setTotalCount(count || 0)
       }
     } catch (error) {
       console.error("Error in fetchTaxpayers:", error)
@@ -76,39 +90,24 @@ export default function AdminTaxpayersPage() {
     }
   }
 
-  function filterTaxpayers() {
-    let filtered = taxpayers
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (t) =>
-          t.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.taxpayer_profiles?.kadirs_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.taxpayer_profiles?.tax_id_or_nin?.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortOrder("asc")
     }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((t) => {
-        if (statusFilter === "active") return t.is_active
-        if (statusFilter === "inactive") return !t.is_active
-        return true
-      })
-    }
-
-    if (roleFilter !== "all") {
-      filtered = filtered.filter((t) => t.role === roleFilter)
-    }
-
-    setFilteredTaxpayers(filtered)
     setCurrentPage(1)
+  }
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <span className="ml-1 text-muted-foreground opacity-30">↕</span>
+    return <span className="ml-1 text-primary">{sortOrder === "asc" ? "↑" : "↓"}</span>
   }
 
   function handleSelectAll(checked: boolean) {
     if (checked) {
-      setSelectedTaxpayers(paginatedTaxpayers.map((t) => t.id))
+      setSelectedTaxpayers(taxpayers.map((t) => t.id))
     } else {
       setSelectedTaxpayers([])
     }
@@ -148,14 +147,13 @@ export default function AdminTaxpayersPage() {
     setEditModalOpen(true)
   }
 
-  const totalPages = Math.ceil(filteredTaxpayers.length / rowsPerPage)
+  const totalPages = Math.ceil(totalCount / rowsPerPage)
   const startIndex = (currentPage - 1) * rowsPerPage
-  const endIndex = startIndex + rowsPerPage
-  const paginatedTaxpayers = filteredTaxpayers.slice(startIndex, endIndex)
+  const endIndex = startIndex + taxpayers.length
 
   const stats = {
-    total: taxpayers.length,
-    active: taxpayers.filter((t) => t.is_active).length,
+    total: totalCount,
+    active: taxpayers.filter((t) => t.is_active).length, // Note: This is now just for the current page
     inactive: taxpayers.filter((t) => !t.is_active).length,
     newThisMonth: taxpayers.filter((t) => {
       const createdDate = new Date(t.created_at)
@@ -274,6 +272,20 @@ export default function AdminTaxpayersPage() {
                 </SelectContent>
               </Select>
 
+              <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                <SelectTrigger className="w-[150px] h-9">
+                  <SelectValue placeholder="Source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sources</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="enumerator">Enumerator</SelectItem>
+                  <SelectItem value="agent">Agent/Manager</SelectItem>
+                  <SelectItem value="self">Self-Registered</SelectItem>
+                  <SelectItem value="unknown">Unknown</SelectItem>
+                </SelectContent>
+              </Select>
+
               {selectedTaxpayers.length > 0 && (
                 <Button variant="outline" size="sm" className="gap-2 h-9 bg-transparent" onClick={handleExport}>
                   <Download className="h-4 w-4" />
@@ -293,18 +305,28 @@ export default function AdminTaxpayersPage() {
                       <TableHead className="w-12">
                         <Checkbox
                           checked={
-                            paginatedTaxpayers.length > 0 && selectedTaxpayers.length === paginatedTaxpayers.length
+                            taxpayers.length > 0 && selectedTaxpayers.length === taxpayers.length
                           }
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
-                      <TableHead>KADIRS ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Registered</TableHead>
+                      <TableHead className="w-12">SN</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("first_name")}>
+                        Taxpayer <SortIcon field="first_name" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("email")}>
+                        Contact <SortIcon field="email" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("role")}>
+                        Role <SortIcon field="role" />
+                      </TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("is_active")}>
+                        Status <SortIcon field="is_active" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("created_at")}>
+                        Registered <SortIcon field="created_at" />
+                      </TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -316,16 +338,13 @@ export default function AdminTaxpayersPage() {
                             <Skeleton className="h-4 w-4" />
                           </TableCell>
                           <TableCell>
+                            <Skeleton className="h-4 w-4" />
+                          </TableCell>
+                          <TableCell>
                             <Skeleton className="h-4 w-24" />
                           </TableCell>
                           <TableCell>
                             <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-40" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
                           </TableCell>
                           <TableCell>
                             <Skeleton className="h-4 w-20" />
@@ -339,21 +358,24 @@ export default function AdminTaxpayersPage() {
                           <TableCell>
                             <Skeleton className="h-4 w-20" />
                           </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-20" />
+                          </TableCell>
                         </TableRow>
                       ))
-                    ) : paginatedTaxpayers.length === 0 ? (
+                    ) : taxpayers.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center py-12">
                           <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                           <p className="text-muted-foreground">
-                            {taxpayers.length === 0
+                            {totalCount === 0
                               ? "No taxpayers found. Add your first taxpayer to get started."
                               : "No taxpayers match your search criteria."}
                           </p>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      paginatedTaxpayers.map((taxpayer) => (
+                      taxpayers.map((taxpayer, index) => (
                         <TableRow
                           key={taxpayer.id}
                           className="cursor-pointer hover:bg-muted/50"
@@ -365,24 +387,33 @@ export default function AdminTaxpayersPage() {
                               onCheckedChange={(checked) => handleSelectTaxpayer(taxpayer.id, checked as boolean)}
                             />
                           </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {taxpayer.taxpayer_profiles?.kadirs_id || "—"}
+                          <TableCell className="text-xs text-muted-foreground">
+                            {startIndex + index + 1}
                           </TableCell>
                           <TableCell>
-                            <div className="font-medium">
-                              {taxpayer.first_name} {taxpayer.middle_name} {taxpayer.last_name}
+                            <div className="flex flex-col">
+                              <span className="font-semibold capitalize text-sm">
+                                {taxpayer.first_name} {taxpayer.last_name}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground uppercase font-mono">
+                                {taxpayer.taxpayer_profiles?.kadirs_id || "NO KADIRS ID"}
+                              </span>
                             </div>
-                            {taxpayer.taxpayer_profiles?.business_name && (
-                              <div className="text-xs text-muted-foreground">
-                                {taxpayer.taxpayer_profiles?.business_name}
-                              </div>
-                            )}
                           </TableCell>
-                          <TableCell>{taxpayer.email}</TableCell>
-                          <TableCell>{taxpayer.phone_number || "—"}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-sm lowercase">{taxpayer.email}</span>
+                              <span className="text-xs text-muted-foreground">{taxpayer.phone_number || "—"}</span>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge variant="outline" className="capitalize">
                               {taxpayer.role?.replace("_", " ")}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="capitalize text-[10px] py-0 h-5">
+                              {taxpayer.taxpayer_profiles?.registration_source || "unknown"}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -411,11 +442,11 @@ export default function AdminTaxpayersPage() {
                   </TableBody>
                 </Table>
               </div>
-              {filteredTaxpayers.length > 0 && (
+              {taxpayers.length > 0 && (
                 <div className="flex items-center justify-between px-6 py-4 border-t">
                   <div className="text-sm text-muted-foreground">
-                    Showing {startIndex + 1} to {Math.min(endIndex, filteredTaxpayers.length)} of{" "}
-                    {filteredTaxpayers.length} taxpayers
+                    Showing {startIndex + 1} to {Math.min(endIndex, totalCount)} of{" "}
+                    {totalCount} taxpayers
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
@@ -431,10 +462,10 @@ export default function AdminTaxpayersPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="10">10</SelectItem>
-                          <SelectItem value="25">25</SelectItem>
                           <SelectItem value="50">50</SelectItem>
                           <SelectItem value="100">100</SelectItem>
+                          <SelectItem value="150">150</SelectItem>
+                          <SelectItem value="200">200</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

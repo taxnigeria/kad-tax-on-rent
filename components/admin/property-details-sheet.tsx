@@ -397,6 +397,15 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader className="sr-only">
+            <SheetTitle>
+              {loading ? "Loading Property Details..." : property ? property.registered_property_name : "Property Details"}
+            </SheetTitle>
+            <SheetDescription>
+              Detailed information about the property
+            </SheetDescription>
+          </SheetHeader>
+
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -407,16 +416,18 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
             </div>
           ) : property ? (
             <>
-              <SheetHeader className="pb-6 border-b sticky top-0 bg-background z-10">
+              <div className="pb-6 px- 4 border-b sticky top-0 bg-background z-10 pt-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <SheetTitle className="text-xl">{property.registered_property_name}</SheetTitle>
-                    <SheetDescription className="flex items-center gap-2 mt-2">
-                      <span className="font-mono text-sm">{property.property_reference || "No reference"}</span>
-                      {getVerificationBadge(property.verification_status || "pending")}
-                      <Badge variant="outline" className="capitalize">
-                        {property.property_type}
-                      </Badge>
+                    <SheetDescription asChild>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="font-mono text-sm text-muted-foreground">{property.property_reference || "No reference"}</span>
+                        {getVerificationBadge(property.verification_status || "pending")}
+                        <Badge variant="outline" className="capitalize">
+                          {property.property_type}
+                        </Badge>
+                      </div>
                     </SheetDescription>
                   </div>
                   <div className="flex gap-2">
@@ -436,7 +447,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                     </SheetClose>
                   </div>
                 </div>
-              </SheetHeader>
+              </div>
               {/* Content section scrolls independently */}
               <div className="space-y-6 mt-6 px-6">
                 {/* Property Photos */}
@@ -1038,9 +1049,8 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
                 {searchResults.map((taxpayer) => (
                   <button
                     key={taxpayer.id}
-                    className={`w-full p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-b-0 ${
-                      selectedNewOwner?.id === taxpayer.id ? "bg-primary/10" : ""
-                    }`}
+                    className={`w-full p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-b-0 ${selectedNewOwner?.id === taxpayer.id ? "bg-primary/10" : ""
+                      }`}
                     onClick={() => setSelectedNewOwner(taxpayer)}
                   >
                     <div className="font-medium">

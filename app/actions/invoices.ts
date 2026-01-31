@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 export interface Invoice {
@@ -634,5 +635,102 @@ export async function createInvoiceFromTaxCalculation(taxCalculationId: string) 
   } catch (error) {
     console.error("[v0] Error in createInvoiceFromTaxCalculation:", error)
     return { success: false, error: "Failed to create invoice" }
+  }
+}
+
+export async function getInvoices(params?: {
+  page?: number
+  pageSize?: number
+  search?: string
+  status?: string
+  taxYear?: string
+  propertyType?: string
+  sortField?: string
+  sortOrder?: "asc" | "desc"
+}) {
+  try {
+    const adminSupabase = createAdminClient()
+    const {
+      page = 1,
+      pageSize = 50,
+      search,
+      status,
+      taxYear,
+      propertyType,
+      sortField = "created_at",
+      sortOrder = "desc",
+    } = params || {}
+
+    let query = adminSupabase.from("invoices").select(
+      `
+          *,
+          properties!inner (
+            id,
+            property_reference,
+            registered_property_name,
+            property_type,
+            owner:users!owner_id (
+              first_name,
+              last_name,
+              email,
+              phone_number,
+              taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
+                kadirs_id
+              )
+            )
+          ),
+          tax_calculations (
+            id,
+            tax_year,
+            backlog_years
+          )
+        `,
+      { count: "exact" },
+    )
+
+    // Filters
+    if (status && status !== "all") {
+      if (status === "overdue") {
+        const today = new Date().toISOString().split("T")[0]
+        query = query.neq("payment_status", "paid").lt("due_date", today)
+      } else {
+        query = query.eq("payment_status", status)
+      }
+    }
+
+    if (taxYear && taxYear !== "all") {
+      query = query.eq("tax_year", parseInt(taxYear))
+    }
+
+    if (propertyType && propertyType !== "all") {
+      query = query.eq("properties.property_type", propertyType)
+    }
+
+    // Search
+    if (search) {
+      query = query.or(`invoice_number.ilike.%${search}%,bill_reference.ilike.%${search}%`)
+    }
+
+    // Sorting
+    if (sortField) {
+      query = query.order(sortField, { ascending: sortOrder === "asc" })
+    }
+
+    // Pagination
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+    query = query.range(from, to)
+
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error("Error fetching invoices:", error)
+      return { invoices: [], error: error.message, totalCount: 0 }
+    }
+
+    return { invoices: data || [], error: null, totalCount: count || 0 }
+  } catch (error) {
+    console.error("Error in getInvoices:", error)
+    return { invoices: [], error: "Failed to fetch invoices", totalCount: 0 }
   }
 }

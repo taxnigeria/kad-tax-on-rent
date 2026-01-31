@@ -80,7 +80,7 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
           phone_number,
           email_verified,
           phone_verified,
-          taxpayer_profiles (
+          taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
             id,
             gender,
             address_line1,

@@ -75,8 +75,8 @@ export function TaxCalculationDetailsSheet({
     setLoading(true)
     try {
       const { data, error } = await supabase
-  .from('tax_calculations')
-  .select(`
+        .from('tax_calculations')
+        .select(`
     *,
     property:properties!inner(
       id,
@@ -95,7 +95,7 @@ export function TaxCalculationDetailsSheet({
         last_name,
         email,
         phone_number,
-        taxpayer_profiles(
+        taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey(
           kadirs_id,
           tax_id_or_nin
         )
@@ -134,8 +134,8 @@ export function TaxCalculationDetailsSheet({
       created_at
     )
   `)
-  .eq('id', actualCalculationId)
-  .maybeSingle();
+        .eq('id', actualCalculationId)
+        .maybeSingle();
 
       if (error) {
         console.error("[v0] Error fetching tax calculation:", error)
@@ -248,73 +248,71 @@ export function TaxCalculationDetailsSheet({
   const invoiceData =
     invoice && calculation
       ? {
-  invoiceNumber: invoice?.bill_reference,
-  date: invoice?.issue_date
-    ? new Date(invoice.issue_date).toLocaleDateString()
-    : "—",
+        invoiceNumber: invoice?.bill_reference,
+        date: invoice?.issue_date
+          ? new Date(invoice.issue_date).toLocaleDateString()
+          : "—",
 
-  clientName: `${calculation.property?.owner?.first_name || ""} ${
-    calculation.property?.owner?.last_name || ""
-  }`.trim(),
+        clientName: `${calculation.property?.owner?.first_name || ""} ${calculation.property?.owner?.last_name || ""
+          }`.trim(),
 
-  propertyName: calculation.property?.registered_property_name || "Unnamed Property",
+        propertyName: calculation.property?.registered_property_name || "Unnamed Property",
 
-  clientPhone: calculation.property?.owner?.phone_number || "—",
+        clientPhone: calculation.property?.owner?.phone_number || "—",
 
-  areaOffice:
-    calculation.property?.area_office?.office_name || "Headquarters",
+        areaOffice:
+          calculation.property?.area_office?.office_name || "Headquarters",
 
-  recipientAddress: calculation.property?.addresses?.[0]
-    ? `${calculation.property.addresses[0].street_address || ""}, ${
-        calculation.property.addresses[0].city || ""
-      }, ${calculation.property.addresses[0].state || ""}`.trim()
-    : "—",
+        recipientAddress: calculation.property?.addresses?.[0]
+          ? `${calculation.property.addresses[0].street_address || ""}, ${calculation.property.addresses[0].city || ""
+            }, ${calculation.property.addresses[0].state || ""}`.trim()
+          : "—",
 
-  assessmentYear: calculation.tax_year,
+        assessmentYear: calculation.tax_year,
 
-  actualAmount: calculation.base_tax_amount || 0,
-  arrears: calculation.backlog_tax_amount || 0,
+        actualAmount: calculation.base_tax_amount || 0,
+        arrears: calculation.backlog_tax_amount || 0,
 
-  stampDuty: invoice?.stamp_duty || 0,
-  penalties: calculation.penalty_amount || 0,
-  interest: calculation.interest_amount || 0,
+        stampDuty: invoice?.stamp_duty || 0,
+        penalties: calculation.penalty_amount || 0,
+        interest: calculation.interest_amount || 0,
 
-  totalOutstanding: invoice?.total_amount || 0,
+        totalOutstanding: invoice?.total_amount || 0,
 
-  officerName: calculation.property?.area_office?.area_officer
-    ? `${calculation.property.area_office.area_officer.first_name} ${calculation.property.area_office.area_officer.last_name}`
-    : "Adamu",
+        officerName: calculation.property?.area_office?.area_officer
+          ? `${calculation.property.area_office.area_officer.first_name} ${calculation.property.area_office.area_officer.last_name}`
+          : "Adamu",
 
-  items: [
-    {
-      description: `Withholding Tax on Rent (${calculation.tax_year})`,
-      amount: calculation.base_tax_amount || 0,
-    },
-    ...(calculation.backlog_tax_amount > 0
-      ? [
+        items: [
           {
-            description: `Backlog Tax (${calculation.backlog_years} years)`,
-            amount: calculation.backlog_tax_amount,
+            description: `Withholding Tax on Rent (${calculation.tax_year})`,
+            amount: calculation.base_tax_amount || 0,
           },
-        ]
-      : []),
-    ...(calculation.penalty_amount > 0
-      ? [{ description: "Penalties (10%)", amount: calculation.penalty_amount }]
-      : []),
-    ...(calculation.interest_amount > 0
-      ? [{ description: "Interest (27%)", amount: calculation.interest_amount }]
-      : []),
-    ...(invoice?.stamp_duty > 0
-      ? [{ description: "Stamp Duty (1%)", amount: invoice.stamp_duty }]
-      : []),
-  ],
+          ...(calculation.backlog_tax_amount > 0
+            ? [
+              {
+                description: `Backlog Tax (${calculation.backlog_years} years)`,
+                amount: calculation.backlog_tax_amount,
+              },
+            ]
+            : []),
+          ...(calculation.penalty_amount > 0
+            ? [{ description: "Penalties (10%)", amount: calculation.penalty_amount }]
+            : []),
+          ...(calculation.interest_amount > 0
+            ? [{ description: "Interest (27%)", amount: calculation.interest_amount }]
+            : []),
+          ...(invoice?.stamp_duty > 0
+            ? [{ description: "Stamp Duty (1%)", amount: invoice.stamp_duty }]
+            : []),
+        ],
 
-  discount: invoice?.discount || 0,
+        discount: invoice?.discount || 0,
 
-  total: invoice?.total_amount || 0,
+        total: invoice?.total_amount || 0,
 
-  paymentReference: invoice?.bill_reference || invoice?.invoice_number,
-}
+        paymentReference: invoice?.bill_reference || invoice?.invoice_number,
+      }
 
       : null
 
@@ -526,10 +524,10 @@ export function TaxCalculationDetailsSheet({
                       <span className="font-medium">Calculated on:</span>{" "}
                       {calculation.calculation_date
                         ? new Date(calculation.calculation_date).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
                         : "—"}
                     </div>
                   </div>

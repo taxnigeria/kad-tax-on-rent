@@ -84,6 +84,8 @@ type TaxpayerDetails = {
     paykaduna_customer_id: string
     lgas: { name: string }
     area_offices: { office_name: string }
+    registration_source: string
+    onboarded_by_id: string | null
   }
   properties: any[]
   invoices: any[]
@@ -269,13 +271,19 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader className="sr-only">
+            <SheetTitle>
+              {loading ? "Loading Taxpayer Details..." : taxpayer ? `${taxpayer.first_name} ${taxpayer.last_name}` : "Taxpayer Details"}
+            </SheetTitle>
+          </SheetHeader>
+
           {loading ? (
             <div className="space-y-6 mt-6 px-6">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : taxpayer ? (
             <>
-              <SheetHeader className="pb-6 border-b sticky top-0 bg-background z-10">
+              <div className="pb-6 pl-6 border-b sticky top-0 bg-background z-10 pt-4">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1">
                     <div className="flex items-center gap-2">
@@ -374,7 +382,7 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                     </SheetClose>
                   </div>
                 </div>
-              </SheetHeader>
+              </div>
 
               <div className="space-y-6 mt-6 mb-6 px-6">
                 {/* Status and Quick Stats */}
@@ -417,8 +425,8 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                 <Separator />
 
                 {/* Contact Information */}
-                <Card>
-                  <CardHeader className="pb-2">
+                <Card className="gap-0">
+                  <CardHeader className="pb-0">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Mail className="h-4 w-4" />
                       Contact Information
@@ -507,6 +515,10 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                       <div className="text-xs text-muted-foreground">Registered</div>
                       <div className="font-medium">{new Date(taxpayer.created_at).toLocaleDateString()}</div>
                     </div>
+                    <div className="space-y-1">
+                      <div className="text-xs text-muted-foreground">Registration Source</div>
+                      <div className="font-medium capitalize">{taxpayer.taxpayer_profiles?.registration_source || "unknown"}</div>
+                    </div>
                     {taxpayer.taxpayer_profiles?.years_of_experience && (
                       <div className="space-y-1">
                         <div className="text-xs text-muted-foreground">Years of Experience</div>
@@ -528,33 +540,33 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                 {(taxpayer.taxpayer_profiles?.lga_id ||
                   taxpayer.taxpayer_profiles?.area_office_id ||
                   taxpayer.taxpayer_profiles?.address_line1) && (
-                  <>
-                    <Separator />
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-semibold">Location Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                        {taxpayer.taxpayer_profiles?.lgas?.name && (
-                          <div className="space-y-1">
-                            <div className="text-xs text-muted-foreground">LGA</div>
-                            <div className="font-medium">{taxpayer.taxpayer_profiles.lgas.name}</div>
-                          </div>
-                        )}
-                        {taxpayer.taxpayer_profiles?.area_offices?.office_name && (
-                          <div className="space-y-1">
-                            <div className="text-xs text-muted-foreground">Area Office</div>
-                            <div className="font-medium">{taxpayer.taxpayer_profiles.area_offices.office_name}</div>
-                          </div>
-                        )}
-                        {taxpayer.taxpayer_profiles?.address_line1 && (
-                          <div className="space-y-1 md:col-span-2 lg:col-span-3">
-                            <div className="text-xs text-muted-foreground">Address</div>
-                            <div className="font-medium">{taxpayer.taxpayer_profiles.address_line1}</div>
-                          </div>
-                        )}
+                    <>
+                      <Separator />
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-semibold">Location Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                          {taxpayer.taxpayer_profiles?.lgas?.name && (
+                            <div className="space-y-1">
+                              <div className="text-xs text-muted-foreground">LGA</div>
+                              <div className="font-medium">{taxpayer.taxpayer_profiles.lgas.name}</div>
+                            </div>
+                          )}
+                          {taxpayer.taxpayer_profiles?.area_offices?.office_name && (
+                            <div className="space-y-1">
+                              <div className="text-xs text-muted-foreground">Area Office</div>
+                              <div className="font-medium">{taxpayer.taxpayer_profiles.area_offices.office_name}</div>
+                            </div>
+                          )}
+                          {taxpayer.taxpayer_profiles?.address_line1 && (
+                            <div className="space-y-1 md:col-span-2 lg:col-span-3">
+                              <div className="text-xs text-muted-foreground">Address</div>
+                              <div className="font-medium">{taxpayer.taxpayer_profiles.address_line1}</div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
 
                 <Separator />
 

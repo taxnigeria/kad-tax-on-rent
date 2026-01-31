@@ -16,8 +16,26 @@ import { auth } from "./firebase"
 import { createUserInDatabase } from "@/app/actions/auth"
 import { getFirebaseErrorMessage } from "./firebase-errors"
 
-export async function signIn(email: string, password: string, rememberMe = false) {
+export async function signIn(email: string, password: string, rememberMe = false, recaptchaToken?: string) {
   try {
+    // Verify reCAPTCHA if token provided
+    if (recaptchaToken) {
+      const verifyResponse = await fetch('/api/auth/verify-recaptcha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: recaptchaToken, action: 'login' })
+      })
+
+      if (!verifyResponse.ok) {
+        return { user: null, error: 'reCAPTCHA verification failed' }
+      }
+
+      const verificationResult = await verifyResponse.json()
+      if (!verificationResult.success) {
+        return { user: null, error: verificationResult.error || 'reCAPTCHA verification failed' }
+      }
+    }
+
     await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence)
     const userCredential = await signInWithEmailAndPassword(auth, email, password)
     return { user: userCredential.user, error: null }
@@ -53,9 +71,28 @@ export async function signUp(data: {
   lastName: string
   phoneNumber: string
   role?: string
+  recaptchaToken?: string
 }) {
   try {
     console.log("[v0] Starting signup process...")
+
+    // Verify reCAPTCHA if token provided
+    if (data.recaptchaToken) {
+      const verifyResponse = await fetch('/api/auth/verify-recaptcha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: data.recaptchaToken, action: 'signup' })
+      })
+
+      if (!verifyResponse.ok) {
+        return { user: null, error: 'reCAPTCHA verification failed' }
+      }
+
+      const verificationResult = await verifyResponse.json()
+      if (!verificationResult.success) {
+        return { user: null, error: verificationResult.error || 'reCAPTCHA verification failed' }
+      }
+    }
 
     // Create user in Firebase Auth
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password)

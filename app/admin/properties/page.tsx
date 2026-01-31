@@ -10,14 +10,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Building2, Plus, Search, Filter, Download, CheckCircle, Clock, Home, Pencil } from "lucide-react"
+import { Building2, Plus, Search, Filter, Download, CheckCircle, Clock, Home, Pencil, Users, UserCheck, AlertCircle } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { createClient } from "@/lib/supabase/client"
-import { PropertyDetailsSheet } from "@/components/admin/property-details-sheet"
 import { EditPropertyModal } from "@/components/admin/edit-property-modal"
-import { AddPropertyModal } from "@/components/admin/add-property-modal" // Added import for AddPropertyModal
+import { AddPropertyModal } from "@/components/admin/add-property-modal"
+import { PropertyDetailsSheet } from "@/components/admin/property-details-sheet"
+import { getProperties } from "@/app/actions/properties"
 
 type Property = {
   id: string
@@ -46,8 +47,8 @@ export default function AdminPropertiesPage() {
   const router = useRouter()
   const { user, userRole, loading: authLoading } = useAuth()
   const [properties, setProperties] = useState<Property[]>([])
-  const [filteredProperties, setFilteredProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const [propertyTypeFilter, setPropertyTypeFilter] = useState("all")
   const [verificationStatusFilter, setVerificationStatusFilter] = useState("all")
@@ -55,13 +56,14 @@ export default function AdminPropertiesPage() {
   const [selectedProperties, setSelectedProperties] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(50)
+  const [sortField, setSortField] = useState("created_at")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [showAddPropertyModal, setShowAddPropertyModal] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
   const [showPropertyDetails, setShowPropertyDetails] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingProperty, setEditingProperty] = useState<any>(null)
 
-  const supabase = createClient()
 
   useEffect(() => {
     if (!authLoading) {
@@ -75,93 +77,62 @@ export default function AdminPropertiesPage() {
 
   useEffect(() => {
     if (user && userRole && ["admin", "super_admin", "staff"].includes(userRole)) {
-      fetchProperties()
+      const handler = setTimeout(() => {
+        fetchProperties()
+      }, 300)
+      return () => clearTimeout(handler)
     }
-  }, [user, userRole])
-
-  useEffect(() => {
-    filterProperties()
-  }, [searchQuery, propertyTypeFilter, verificationStatusFilter, statusFilter, properties])
+  }, [user, userRole, searchQuery, propertyTypeFilter, verificationStatusFilter, statusFilter, currentPage, rowsPerPage, sortField, sortOrder])
 
   async function fetchProperties() {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from("properties")
-        .select(
-          `
-          id,
-          property_reference,
-          registered_property_name,
-          property_type,
-          total_annual_rent,
-          verification_status,
-          status,
-          created_at,
-          street_name,
-          house_number,
-          owner_id,
-          users!properties_owner_id_fkey (
-            id,
-            first_name,
-            last_name,
-            email,
-            taxpayer_profiles (
-              kadirs_id
-            )
-          )
-        `,
-        )
-        .order("created_at", { ascending: false })
+      const { properties: data, totalCount: count, error } = await getProperties({
+        page: currentPage,
+        pageSize: rowsPerPage,
+        search: searchQuery,
+        propertyType: propertyTypeFilter,
+        verificationStatus: verificationStatusFilter,
+        status: statusFilter,
+        sortField: sortField,
+        sortOrder: sortOrder
+      })
 
       if (error) {
         console.error("Error fetching properties:", error)
         setProperties([])
+        setTotalCount(0)
       } else {
         setProperties((data as any) || [])
+        setTotalCount(count || 0)
       }
     } catch (error) {
       console.error("Error in fetchProperties:", error)
       setProperties([])
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
   }
 
-  function filterProperties() {
-    let filtered = properties
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (p) =>
-          p.registered_property_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.property_reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.users?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.users?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.users?.taxpayer_profiles?.kadirs_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.street_name?.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortOrder("asc")
     }
-
-    if (propertyTypeFilter !== "all") {
-      filtered = filtered.filter((p) => p.property_type === propertyTypeFilter)
-    }
-
-    if (verificationStatusFilter !== "all") {
-      filtered = filtered.filter((p) => p.verification_status === verificationStatusFilter)
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((p) => p.status === statusFilter)
-    }
-
-    setFilteredProperties(filtered)
     setCurrentPage(1)
+  }
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <span className="ml-1 text-muted-foreground opacity-30">↕</span>
+    return <span className="ml-1 text-primary">{sortOrder === "asc" ? "↑" : "↓"}</span>
   }
 
   function handleSelectAll(checked: boolean) {
     if (checked) {
-      setSelectedProperties(paginatedProperties.map((p) => p.id))
+      setSelectedProperties(properties.map((p) => p.id))
     } else {
       setSelectedProperties([])
     }
@@ -197,24 +168,23 @@ export default function AdminPropertiesPage() {
     fetchProperties()
   }
 
-  const totalPages = Math.ceil(filteredProperties.length / rowsPerPage)
+  const totalPages = Math.ceil(totalCount / rowsPerPage)
   const startIndex = (currentPage - 1) * rowsPerPage
-  const endIndex = startIndex + rowsPerPage
-  const paginatedProperties = filteredProperties.slice(startIndex, endIndex)
+  const endIndex = startIndex + properties.length
 
   const stats = {
-    total: properties.length,
+    total: totalCount,
     verified: properties.filter((p) => p.verification_status === "approved").length,
     pending: properties.filter((p) => p.verification_status === "pending").length,
     totalRent: properties.reduce((sum, p) => sum + (p.total_annual_rent || 0), 0),
   }
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
-          <p className="mt-4 text-muted-foreground">Loading...</p>
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground font-medium">Authenticating...</p>
         </div>
       </div>
     )
@@ -246,7 +216,8 @@ export default function AdminPropertiesPage() {
             <div className="grid gap-3 md:grid-cols-4">
               {[...Array(4)].map((_, i) => (
                 <Card key={i} className="py-3 px-4">
-                  {/* Placeholder for skeleton component */}
+                  <Skeleton className="h-4 w-20 mb-2" />
+                  <Skeleton className="h-5 w-16" />
                 </Card>
               ))}
             </div>
@@ -361,22 +332,35 @@ export default function AdminPropertiesPage() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted hover:bg-muted">
+                    <TableRow className="bg-muted hover:bg-muted font-bold">
                       <TableHead className="w-12">
                         <Checkbox
                           checked={
-                            paginatedProperties.length > 0 && selectedProperties.length === paginatedProperties.length
+                            properties.length > 0 && selectedProperties.length === properties.length
                           }
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
-                      <TableHead>Property Name</TableHead>
+                      <TableHead className="w-12">SN</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("registered_property_name")}>
+                        Property Name <SortIcon field="registered_property_name" />
+                      </TableHead>
                       <TableHead>Owner/Taxpayer</TableHead>
-                      <TableHead>Address</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Annual Rent</TableHead>
-                      <TableHead>Verification</TableHead>
-                      <TableHead>Registered</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("street_name")}>
+                        Address <SortIcon field="street_name" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("property_type")}>
+                        Type <SortIcon field="property_type" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("total_annual_rent")}>
+                        Annual Rent <SortIcon field="total_annual_rent" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("verification_status")}>
+                        Verification <SortIcon field="verification_status" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("created_at")}>
+                        Registered <SortIcon field="created_at" />
+                      </TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -384,30 +368,31 @@ export default function AdminPropertiesPage() {
                     {loading ? (
                       [...Array(5)].map((_, i) => (
                         <TableRow key={i}>
-                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
-                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
-                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
-                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
-                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
-                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
-                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
-                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
-                          <TableCell>{/* Placeholder for skeleton component */}</TableCell>
+                          <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         </TableRow>
                       ))
-                    ) : paginatedProperties.length === 0 ? (
+                    ) : properties.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-12">
+                        <TableCell colSpan={10} className="text-center py-12">
                           <Building2 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                           <p className="text-muted-foreground">
-                            {properties.length === 0
+                            {totalCount === 0
                               ? "No properties found. Add your first property to get started."
                               : "No properties match your search criteria."}
                           </p>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      paginatedProperties.map((property) => (
+                      properties.map((property, index) => (
                         <TableRow
                           key={property.id}
                           onClick={() => handleViewDetails(property.id)}
@@ -419,48 +404,53 @@ export default function AdminPropertiesPage() {
                               onCheckedChange={(checked) => handleSelectProperty(property.id, checked as boolean)}
                             />
                           </TableCell>
-                          <TableCell>
-                            <div className="font-medium">{property.registered_property_name || "Unnamed Property"}</div>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {startIndex + index + 1}
                           </TableCell>
                           <TableCell>
-                            <div className="font-medium">
+                            <div className="font-semibold capitalize text-sm">
+                              {property.registered_property_name || "Unnamed Property"}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-semibold capitalize text-sm">
                               {property.users?.first_name} {property.users?.last_name}
                             </div>
-                            <div className="text-xs text-muted-foreground font-mono">
+                            <div className="text-[11px] text-muted-foreground uppercase font-mono">
                               {property.users?.taxpayer_profiles?.kadirs_id || "No KADIRS ID"}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="text-sm">
+                            <div className="text-sm capitalize truncate max-w-[200px]" title={`${property.house_number} ${property.street_name}`}>
                               {property.house_number} {property.street_name}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="capitalize">
+                            <Badge variant="outline" className="capitalize text-[10px]">
                               {property.property_type?.replace("_", " ")}
                             </Badge>
                           </TableCell>
-                          <TableCell className="font-medium">
+                          <TableCell className="font-medium text-sm">
                             ₦{(property.total_annual_rent || 0).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
                           </TableCell>
                           <TableCell>
                             {property.verification_status === "approved" && (
-                              <Badge className="bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20">
+                              <Badge className="bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20 h-5 text-[10px]">
                                 Approved
                               </Badge>
                             )}
                             {property.verification_status === "pending" && (
-                              <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/20">
+                              <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/20 h-5 text-[10px]">
                                 Pending
                               </Badge>
                             )}
                             {property.verification_status === "rejected" && (
-                              <Badge className="bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20">
+                              <Badge className="bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20 h-5 text-[10px]">
                                 Rejected
                               </Badge>
                             )}
                             {property.verification_status === "needs_info" && (
-                              <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20">
+                              <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20 h-5 text-[10px]">
                                 Needs Info
                               </Badge>
                             )}
@@ -481,11 +471,11 @@ export default function AdminPropertiesPage() {
                   </TableBody>
                 </Table>
               </div>
-              {filteredProperties.length > 0 && (
+              {properties.length > 0 && (
                 <div className="flex items-center justify-between px-6 py-4 border-t">
                   <div className="text-sm text-muted-foreground">
-                    Showing {startIndex + 1} to {Math.min(endIndex, filteredProperties.length)} of{" "}
-                    {filteredProperties.length} properties
+                    Showing {startIndex + 1} to {Math.min(endIndex, totalCount)} of{" "}
+                    {totalCount} properties
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
@@ -501,10 +491,10 @@ export default function AdminPropertiesPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="10">10</SelectItem>
-                          <SelectItem value="25">25</SelectItem>
                           <SelectItem value="50">50</SelectItem>
                           <SelectItem value="100">100</SelectItem>
+                          <SelectItem value="150">150</SelectItem>
+                          <SelectItem value="200">200</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
