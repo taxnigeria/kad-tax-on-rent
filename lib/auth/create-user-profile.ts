@@ -51,6 +51,7 @@ async function createTaxpayerProfile(input: {
   yearsOfExperience?: string
   verificationStatus?: string
   onboardedById?: string
+  registrationSource?: string
 }): Promise<CreateProfileResult> {
   try {
     const supabase = createAdminClient()
@@ -83,6 +84,7 @@ async function createTaxpayerProfile(input: {
         years_of_experience: input.yearsOfExperience ? Number.parseInt(input.yearsOfExperience) : null,
         verification_status: input.verificationStatus || "pending",
         onboarded_by_id: input.onboardedById || null,
+        registration_source: input.registrationSource || "unknown",
       })
       .select()
       .single()

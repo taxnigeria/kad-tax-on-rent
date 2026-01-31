@@ -13,9 +13,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { signIn } from "@/lib/auth"
 import { getUserRole } from "@/app/actions/get-user-role"
 import GoogleSignInButton from "@/components/google-signin-button"
+import { useRecaptcha } from "@/lib/recaptcha"
 
 export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
   const router = useRouter()
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
+  const { executeRecaptcha } = useRecaptcha(siteKey)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
@@ -27,41 +30,49 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
     setError("")
     setLoading(true)
 
-    const { user, error: signInError } = await signIn(email, password, rememberMe)
+    try {
+      // Get reCAPTCHA token
+      const recaptchaToken = await executeRecaptcha('login')
 
-    if (signInError) {
-      setError(signInError)
-      setLoading(false)
-    } else if (user) {
-      try {
-        const role = await getUserRole(user.uid)
+      const { user, error: signInError } = await signIn(email, password, rememberMe, recaptchaToken)
 
-        if (role) {
-          if (role === "tenant") {
-            router.push("/tenant-dashboard")
-          } else if (role === "taxpayer" || role === "property_manager") {
-            router.push("/taxpayer-dashboard")
-          } else if (role === "enumerator") {
-            router.push("/enumerator-dashboard")
-          } else if (
-            role === "admin" ||
-            role === "super_admin" ||
-            role === "superadmin" ||
-            role === "staff" ||
-            role === "qa"
-          ) {
-            router.push("/admin")
+      if (signInError) {
+        setError(signInError)
+        setLoading(false)
+      } else if (user) {
+        try {
+          const role = await getUserRole(user.uid)
+
+          if (role) {
+            if (role === "tenant") {
+              router.push("/tenant-dashboard")
+            } else if (role === "taxpayer" || role === "property_manager") {
+              router.push("/taxpayer-dashboard")
+            } else if (role === "enumerator") {
+              router.push("/enumerator-dashboard")
+            } else if (
+              role === "admin" ||
+              role === "super_admin" ||
+              role === "superadmin" ||
+              role === "staff" ||
+              role === "qa"
+            ) {
+              router.push("/admin")
+            } else {
+              router.push("/taxpayer-dashboard")
+            }
           } else {
+            console.error("[v0] Could not fetch user role, defaulting to taxpayer dashboard")
             router.push("/taxpayer-dashboard")
           }
-        } else {
-          console.error("[v0] Could not fetch user role, defaulting to taxpayer dashboard")
+        } catch (error) {
+          console.error("[v0] Error in role-based redirect:", error)
           router.push("/taxpayer-dashboard")
         }
-      } catch (error) {
-        console.error("[v0] Error in role-based redirect:", error)
-        router.push("/taxpayer-dashboard")
       }
+    } catch (recaptchaError) {
+      setError("reCAPTCHA verification failed. Please try again.")
+      setLoading(false)
     }
   }
 

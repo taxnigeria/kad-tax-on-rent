@@ -70,7 +70,7 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
               middle_name,
               last_name,
               email,
-              taxpayer_profiles (
+              taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
                 kadirs_id
               )
             )
@@ -228,47 +228,47 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
   const invoiceData =
     invoice && calculation
       ? {
-          invoiceNumber: invoice.invoice_number,
-          date: new Date(invoice.issue_date).toLocaleDateString(),
-          clientName: `${owner?.first_name || ""} ${owner?.middle_name || ""} ${owner?.last_name || ""}`.trim(),
-          propertyName: property?.registered_property_name || "Unnamed Property",
-          clientPhone: owner?.email || "—",
-          areaOffice: "Kaduna State Internal Revenue Service",
-          recipientAddress: property?.addresses?.[0]
-            ? `${property.street_name || ""} ${property.house_number || ""}, ${property.addresses[0].city || ""}, ${property.addresses[0].state || ""}`.trim()
-            : "—",
-          assessmentYear: calculation.tax_year,
-          actualAmount: calculation.base_tax_amount || 0,
-          arrears: calculation.backlog_tax_amount || 0,
-          stampDuty: 0,
-          penalties: calculation.penalty_amount || 0,
-          interest: calculation.interest_amount || 0,
-          totalOutstanding: invoice.total_amount || 0,
-          officerName: "Tax Officer",
-          items: [
-            {
-              description: `Withholding Tax on Rent (${calculation.tax_year})`,
-              amount: calculation.base_tax_amount || 0,
-            },
-            ...(calculation.backlog_tax_amount > 0
-              ? [
-                  {
-                    description: `Backlog Tax (${calculation.backlog_years} years)`,
-                    amount: calculation.backlog_tax_amount,
-                  },
-                ]
-              : []),
-            ...(calculation.penalty_amount > 0
-              ? [{ description: "Penalties (10%)", amount: calculation.penalty_amount }]
-              : []),
-            ...(calculation.interest_amount > 0
-              ? [{ description: "Interest (27%)", amount: calculation.interest_amount }]
-              : []),
-          ],
-          discount: 0,
-          total: invoice.total_amount || 0,
-          paymentReference: invoice.invoice_number,
-        }
+        invoiceNumber: invoice.invoice_number,
+        date: new Date(invoice.issue_date).toLocaleDateString(),
+        clientName: `${owner?.first_name || ""} ${owner?.middle_name || ""} ${owner?.last_name || ""}`.trim(),
+        propertyName: property?.registered_property_name || "Unnamed Property",
+        clientPhone: owner?.email || "—",
+        areaOffice: "Kaduna State Internal Revenue Service",
+        recipientAddress: property?.addresses?.[0]
+          ? `${property.street_name || ""} ${property.house_number || ""}, ${property.addresses[0].city || ""}, ${property.addresses[0].state || ""}`.trim()
+          : "—",
+        assessmentYear: calculation.tax_year,
+        actualAmount: calculation.base_tax_amount || 0,
+        arrears: calculation.backlog_tax_amount || 0,
+        stampDuty: 0,
+        penalties: calculation.penalty_amount || 0,
+        interest: calculation.interest_amount || 0,
+        totalOutstanding: invoice.total_amount || 0,
+        officerName: "Tax Officer",
+        items: [
+          {
+            description: `Withholding Tax on Rent (${calculation.tax_year})`,
+            amount: calculation.base_tax_amount || 0,
+          },
+          ...(calculation.backlog_tax_amount > 0
+            ? [
+              {
+                description: `Backlog Tax (${calculation.backlog_years} years)`,
+                amount: calculation.backlog_tax_amount,
+              },
+            ]
+            : []),
+          ...(calculation.penalty_amount > 0
+            ? [{ description: "Penalties (10%)", amount: calculation.penalty_amount }]
+            : []),
+          ...(calculation.interest_amount > 0
+            ? [{ description: "Interest (27%)", amount: calculation.interest_amount }]
+            : []),
+        ],
+        discount: 0,
+        total: invoice.total_amount || 0,
+        paymentReference: invoice.invoice_number,
+      }
       : null
 
   return (

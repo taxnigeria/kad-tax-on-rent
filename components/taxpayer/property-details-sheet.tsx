@@ -69,7 +69,7 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
             last_name,
             email,
             phone_number,
-            taxpayer_profiles (
+            taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
               kadirs_id,
               tax_id_or_nin
             )

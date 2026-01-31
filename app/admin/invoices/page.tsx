@@ -14,7 +14,7 @@ import { FileText, Search, Filter, DollarSign, AlertCircle, CheckCircle2 } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { createBrowserClient } from "@/utils/supabase/client"
+import { getInvoices } from "@/app/actions/invoices"
 import { Skeleton } from "@/components/ui/skeleton"
 import TaxCalculationDetailsSheet from "@/components/admin/tax-calculation-details-sheet"
 import TaxpayerDetailsSheet from "@/components/admin/taxpayer-details-sheet" // Added import for TaxpayerDetailsSheet
@@ -64,8 +64,8 @@ export default function AdminInvoicesPage() {
   const router = useRouter()
   const { user, userRole, loading: authLoading } = useAuth()
   const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [yearFilter, setYearFilter] = useState("all")
@@ -73,12 +73,12 @@ export default function AdminInvoicesPage() {
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(50)
+  const [sortField, setSortField] = useState("created_at")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false)
   const [selectedCalculationId, setSelectedCalculationId] = useState<string | null>(null)
-  const [taxpayerDetailsOpen, setTaxpayerDetailsOpen] = useState(false) // Added state for taxpayer details sheet
+  const [taxpayerDetailsOpen, setTaxpayerDetailsOpen] = useState(false)
   const [selectedTaxpayerId, setSelectedTaxpayerId] = useState<string | null>(null)
-
-  const supabase = createBrowserClient()
 
   useEffect(() => {
     if (!authLoading) {
@@ -92,94 +92,87 @@ export default function AdminInvoicesPage() {
 
   useEffect(() => {
     if (user && userRole && ["admin", "super_admin", "staff"].includes(userRole)) {
-      fetchInvoices()
+      const handler = setTimeout(() => {
+        fetchInvoices()
+      }, 300)
+      return () => clearTimeout(handler)
     }
-  }, [user, userRole])
-
-  useEffect(() => {
-    filterInvoices()
-  }, [searchQuery, statusFilter, yearFilter, propertyTypeFilter, invoices])
+  }, [user, userRole, searchQuery, statusFilter, yearFilter, propertyTypeFilter, currentPage, rowsPerPage, sortField, sortOrder])
 
   async function fetchInvoices() {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from("invoices")
-        .select(
-          `
-          *,
-          properties!inner (
-            id,
-            property_reference,
-            registered_property_name,
-            property_type,
-            owner:users!owner_id (
-              first_name,
-              last_name,
-              email,
-              phone_number,
-              taxpayer_profiles (
-                kadirs_id
-              )
-            )
-          ),
-          tax_calculations (
-            id,
-            tax_year,
-            backlog_years
-          )
-        `,
-        )
-        .order("created_at", { ascending: false })
+      const { invoices: data, totalCount: count, error } = await getInvoices({
+        page: currentPage,
+        pageSize: rowsPerPage,
+        search: searchQuery,
+        status: statusFilter,
+        taxYear: yearFilter,
+        propertyType: propertyTypeFilter,
+        sortField,
+        sortOrder
+      })
 
       if (error) {
         console.error("Error fetching invoices:", error)
         setInvoices([])
+        setTotalCount(0)
       } else {
         setInvoices((data as any) || [])
+        setTotalCount(count || 0)
       }
     } catch (error) {
       console.error("Error in fetchInvoices:", error)
       setInvoices([])
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
   }
 
-  function filterInvoices() {
-    let filtered = invoices
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (inv) =>
-          inv.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inv.properties?.registered_property_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inv.properties?.property_reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inv.properties?.owner?.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inv.properties?.owner?.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inv.properties?.owner?.taxpayer_profiles?.[0]?.kadirs_id?.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortOrder("asc")
     }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((inv) => inv.payment_status === statusFilter)
-    }
-
-    if (yearFilter !== "all") {
-      filtered = filtered.filter((inv) => inv.tax_year?.toString() === yearFilter)
-    }
-
-    if (propertyTypeFilter !== "all") {
-      filtered = filtered.filter((inv) => inv.properties?.property_type === propertyTypeFilter)
-    }
-
-    setFilteredInvoices(filtered)
     setCurrentPage(1)
   }
 
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <span className="ml-1 text-muted-foreground opacity-30">↕</span>
+    return <span className="ml-1 text-primary">{sortOrder === "asc" ? "↑" : "↓"}</span>
+  }
+
+  const getRelativeDate = (dateString: string) => {
+    if (!dateString) return "N/A"
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffTime = date.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) return "Today"
+    if (diffDays === 1) return "Tomorrow"
+    if (diffDays === -1) return "Yesterday"
+
+    if (Math.abs(diffDays) < 30) {
+      return `${Math.abs(diffDays)}d ${diffDays < 0 ? 'ago' : 'left'}`
+    }
+
+    const diffMonths = Math.floor(Math.abs(diffDays) / 30)
+    if (diffMonths < 12) {
+      return `${diffMonths}m ${diffDays < 0 ? 'ago' : 'left'}`
+    }
+
+    const diffYears = Math.floor(diffMonths / 12)
+    return `${diffYears}y ${diffDays < 0 ? 'ago' : 'left'}`
+  }
+
+
   function handleSelectAll(checked: boolean) {
     if (checked) {
-      setSelectedInvoices(paginatedInvoices.map((inv) => inv.id))
+      setSelectedInvoices(invoices.map((inv) => inv.id))
     } else {
       setSelectedInvoices([])
     }
@@ -207,15 +200,14 @@ export default function AdminInvoicesPage() {
     setTaxpayerDetailsOpen(true)
   }
 
-  const totalPages = Math.ceil(filteredInvoices.length / rowsPerPage)
+  const totalPages = Math.ceil(totalCount / rowsPerPage)
   const startIndex = (currentPage - 1) * rowsPerPage
-  const endIndex = startIndex + rowsPerPage
-  const paginatedInvoices = filteredInvoices.slice(startIndex, endIndex)
+  const endIndex = startIndex + invoices.length
 
   const availableYears = Array.from(new Set(invoices.map((inv) => inv.tax_year))).sort((a, b) => b - a)
 
   const stats = {
-    total: invoices.length,
+    total: totalCount,
     totalAmount: invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0),
     totalPaid: invoices.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0),
     totalOutstanding: invoices.reduce((sum, inv) => sum + (inv.balance_due || 0), 0),
@@ -223,6 +215,17 @@ export default function AdminInvoicesPage() {
     unpaid: invoices.filter((inv) => inv.payment_status === "unpaid").length,
     partiallyPaid: invoices.filter((inv) => inv.payment_status === "partially_paid").length,
     overdue: invoices.filter((inv) => inv.payment_status !== "paid" && new Date(inv.due_date) < new Date()).length,
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground font-medium">Authenticating...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!user || (userRole && !["admin", "super_admin", "staff"].includes(userRole))) {
@@ -363,70 +366,66 @@ export default function AdminInvoicesPage() {
               <div className="overflow-hidden rounded-lg border">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted hover:bg-muted">
+                    <TableRow className="bg-muted hover:bg-muted font-bold text-xs uppercase">
                       <TableHead className="w-12">
                         <Checkbox
-                          checked={paginatedInvoices.length > 0 && selectedInvoices.length === paginatedInvoices.length}
+                          checked={invoices.length > 0 && selectedInvoices.length === invoices.length}
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
-                      <TableHead>Bill Reference</TableHead>
+                      <TableHead className="w-12">SN</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("bill_reference")}>
+                        Bill Ref <SortIcon field="bill_reference" />
+                      </TableHead>
                       <TableHead>Property</TableHead>
                       <TableHead>Owner</TableHead>
-                      <TableHead>Tax Period</TableHead>
-                      <TableHead>Issue Date</TableHead>
-                      <TableHead>Due Date</TableHead>
-                      <TableHead>Total Amount</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("tax_year")}>
+                        Period <SortIcon field="tax_year" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("issue_date")}>
+                        Issued <SortIcon field="issue_date" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("due_date")}>
+                        Due <SortIcon field="due_date" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("total_amount")}>
+                        Amount <SortIcon field="total_amount" />
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort("payment_status")}>
+                        Status <SortIcon field="payment_status" />
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                       [...Array(5)].map((_, i) => (
                         <TableRow key={i}>
-                          <TableCell>
-                            <Skeleton className="h-4 w-4" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-40" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-32" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-20" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-24" />
-                          </TableCell>
+                          <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         </TableRow>
                       ))
-                    ) : paginatedInvoices.length === 0 ? (
+                    ) : invoices.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-12">
+                        <TableCell colSpan={10} className="text-center py-12">
                           <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
                           <p className="text-muted-foreground">
-                            {invoices.length === 0 ? "No invoices found." : "No invoices match your search criteria."}
+                            {totalCount === 0 ? "No invoices found." : "No invoices match your search criteria."}
                           </p>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      paginatedInvoices.map((invoice) => (
+                      invoices.map((invoice, index) => (
                         <TableRow
                           key={invoice.id}
-                          className="cursor-pointer hover:bg-muted/50"
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
                           onClick={() => handleViewInvoice(invoice)}
                         >
                           <TableCell onClick={(e) => e.stopPropagation()}>
@@ -435,67 +434,65 @@ export default function AdminInvoicesPage() {
                               onCheckedChange={(checked) => handleSelectInvoice(invoice.id, checked as boolean)}
                             />
                           </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {startIndex + index + 1}
+                          </TableCell>
                           <TableCell>
-                            <div className="font-mono font-medium">
+                            <div className="font-mono font-medium text-xs">
                               {invoice.bill_reference || invoice.invoice_number}
                             </div>
                             {invoice.tax_calculations?.backlog_years && (
-                              <Badge variant="outline" className="mt-1 text-xs">
+                              <Badge variant="outline" className="mt-1 text-[9px] h-4">
                                 Backlog
                               </Badge>
                             )}
                           </TableCell>
                           <TableCell>
-                            <div className="font-medium">
+                            <div className="font-semibold capitalize text-sm">
                               {invoice.properties?.registered_property_name || "Unnamed Property"}
                             </div>
-                            <div className="text-xs text-muted-foreground font-mono">
+                            <div className="text-[10px] text-muted-foreground font-mono">
                               {invoice.properties?.property_reference}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="font-medium">
+                            <div className="font-semibold capitalize text-sm">
                               {invoice.properties?.owner?.first_name} {invoice.properties?.owner?.last_name}
                             </div>
-                            <div className="text-xs text-muted-foreground font-mono">
+                            <div className="text-[10px] text-muted-foreground font-mono">
                               {invoice.properties?.owner?.taxpayer_profiles?.[0]?.kadirs_id || "No KADIRS ID"}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="font-mono">
+                            <Badge variant="outline" className="font-mono text-[10px]">
                               {invoice.tax_period}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="text-sm">
+                            <div className="text-xs">
                               {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : "N/A"}
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="text-sm">
+                            <div className="text-xs font-semibold text-primary">
+                              {getRelativeDate(invoice.due_date)}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
                               {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "N/A"}
                             </div>
-                            {invoice.payment_status !== "paid" &&
-                              invoice.due_date &&
-                              new Date(invoice.due_date) < new Date() && (
-                                <Badge variant="destructive" className="mt-1 text-xs">
-                                  Overdue
-                                </Badge>
-                              )}
                           </TableCell>
-                          <TableCell className="font-bold">
+                          <TableCell className="font-bold text-sm">
                             ₦{(invoice.total_amount || 0).toLocaleString("en-NG", { minimumFractionDigits: 0 })}
                           </TableCell>
                           <TableCell>
                             <Badge
                               variant="outline"
-                              className={
-                                invoice.payment_status === "paid"
-                                  ? "bg-green-500/10 text-green-500 border-green-500/20"
-                                  : invoice.payment_status === "partially_paid"
-                                    ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-                                    : "bg-red-500/10 text-red-500 border-red-500/20"
-                              }
+                              className={`text-[10px] h-5 ${invoice.payment_status === "paid"
+                                ? "bg-green-500/10 text-green-500 border-green-500/20"
+                                : invoice.payment_status === "partially_paid"
+                                  ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+                                  : "bg-red-500/10 text-red-500 border-red-500/20"
+                                }`}
                             >
                               {invoice.payment_status.replace("_", " ")}
                             </Badge>
@@ -506,11 +503,11 @@ export default function AdminInvoicesPage() {
                   </TableBody>
                 </Table>
               </div>
-              {filteredInvoices.length > 0 && (
+              {invoices.length > 0 && (
                 <div className="flex items-center justify-between px-6 py-4 border-t">
                   <div className="text-sm text-muted-foreground">
-                    Showing {startIndex + 1} to {Math.min(endIndex, filteredInvoices.length)} of{" "}
-                    {filteredInvoices.length} invoices
+                    Showing {startIndex + 1} to {Math.min(endIndex, totalCount)} of{" "}
+                    {totalCount} invoices
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
@@ -526,10 +523,10 @@ export default function AdminInvoicesPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="10">10</SelectItem>
-                          <SelectItem value="25">25</SelectItem>
                           <SelectItem value="50">50</SelectItem>
                           <SelectItem value="100">100</SelectItem>
+                          <SelectItem value="150">150</SelectItem>
+                          <SelectItem value="200">200</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

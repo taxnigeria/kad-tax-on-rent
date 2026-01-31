@@ -265,7 +265,7 @@ export async function getManagedClients(managerFirebaseUid: string) {
           last_name,
           email,
           phone_number,
-          taxpayer_profiles (
+          taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
             kadirs_id,
             business_name,
             verification_status
@@ -309,7 +309,7 @@ export async function getManagedClients(managerFirebaseUid: string) {
            last_name,
            email,
            phone_number,
-           taxpayer_profiles (
+           taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
               kadirs_id,
               business_name,
               verification_status

@@ -13,6 +13,7 @@ import { signUp } from "@/lib/auth"
 import { Loader2, ChevronLeft } from "lucide-react"
 import { IconHome, IconKey, IconBriefcase, IconCheck } from "@tabler/icons-react"
 import GoogleSignInButton from "@/components/google-signin-button"
+import { useRecaptcha } from "@/lib/recaptcha"
 
 type UserRole = "taxpayer" | "tenant" | "property_manager"
 
@@ -50,6 +51,8 @@ const roleOptions: RoleOption[] = [
 
 export function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
   const router = useRouter()
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
+  const { executeRecaptcha } = useRecaptcha(siteKey)
 
   // Multi-step state
   const [step, setStep] = useState<1 | 2>(1)
@@ -112,21 +115,30 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
       return
     }
 
-    const { user, error: signUpError } = await signUp({
-      email: formData.email,
-      password: formData.password,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      phoneNumber: formData.phoneNumber,
-      role: selectedRole,
-    })
+    try {
+      // Get reCAPTCHA token
+      const recaptchaToken = await executeRecaptcha('signup')
 
-    if (signUpError) {
-      setError(signUpError)
+      const { user, error: signUpError } = await signUp({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phoneNumber: formData.phoneNumber,
+        role: selectedRole,
+        recaptchaToken
+      })
+
+      if (signUpError) {
+        setError(signUpError)
+        setLoading(false)
+      } else if (user) {
+        // Success - redirect to success page
+        router.push("/signup-success")
+      }
+    } catch (recaptchaError) {
+      setError("reCAPTCHA verification failed. Please try again.")
       setLoading(false)
-    } else if (user) {
-      // Success - redirect to success page
-      router.push("/signup-success")
     }
   }
 

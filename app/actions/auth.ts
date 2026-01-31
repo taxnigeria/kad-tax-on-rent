@@ -37,10 +37,11 @@ export async function createUserInDatabase(userData: {
       return { success: false, error: error.message }
     }
 
-    if (userData.profilePhotoUrl) {
+    if (data.role === "taxpayer" || data.role === "property_manager") {
       await supabase.from("taxpayer_profiles").insert({
         user_id: data.id,
-        profile_photo_url: userData.profilePhotoUrl,
+        profile_photo_url: userData.profilePhotoUrl || null,
+        registration_source: 'self'
       })
     }
 

@@ -14,7 +14,8 @@ import { Calculator, Search, Filter, Download, DollarSign, TrendingUp, FileText 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { createBrowserClient } from "@supabase/ssr"
+
+import { getTaxCalculations } from "@/app/actions/tax-calculations"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TaxCalculationDetailsSheet from "@/components/admin/tax-calculation-details-sheet"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -71,10 +72,7 @@ export default function TaxCalculationsPage() {
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false)
   const [selectedCalculationId, setSelectedCalculationId] = useState<string | null>(null)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+
 
   useEffect(() => {
     if (!authLoading) {
@@ -99,34 +97,7 @@ export default function TaxCalculationsPage() {
   async function fetchCalculations() {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from("tax_calculations")
-        .select(
-          `
-          *,
-          properties!inner (
-            id,
-            property_reference,
-            registered_property_name,
-            property_type,
-            owner_id,
-            users!properties_owner_id_fkey (
-              first_name,
-              last_name,
-              taxpayer_profiles (
-                kadirs_id
-              )
-            )
-          ),
-          invoices (
-            id,
-            invoice_number,
-            payment_status,
-            total_amount
-          )
-        `,
-        )
-        .order("created_at", { ascending: false })
+      const { calculations: data, error } = await getTaxCalculations()
 
       if (error) {
         console.error("Error fetching tax calculations:", error)
@@ -141,6 +112,8 @@ export default function TaxCalculationsPage() {
       setLoading(false)
     }
   }
+
+
 
   function filterCalculations() {
     let filtered = calculations

@@ -156,7 +156,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     async function fetchData() {
       const [citiesRes, lgasRes, areaOfficesRes] = await Promise.all([
         supabase.from("cities").select("id, name, lga_id, area_office_id").order("name"),
-        supabase.from("lgas").select("id, name").order("name"),
+        supabase.from("lgas").select("*").order("name"),
         supabase.from("area_offices").select("id, office_name, office_code, lga_id").order("office_name"),
       ])
 
@@ -221,7 +221,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
           last_name,
           email,
           phone_number,
-          taxpayer_profiles (
+          taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
             kadirs_id
           )
         `,

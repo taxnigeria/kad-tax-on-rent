@@ -117,7 +117,7 @@ export default function AdminPaymentsPage() {
                 last_name,
                 email,
                 phone_number,
-                taxpayer_profiles (
+                taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
                   kadirs_id
                 )
               )
