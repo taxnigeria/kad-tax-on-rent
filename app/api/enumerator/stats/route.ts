@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
       .eq("action", "create")
 
     const totalProperties = properties?.length || 0
-    const verifiedProperties = properties?.filter((p) => p.verification_status === "verified").length || 0
-    const pendingProperties = properties?.filter((p) => p.verification_status === "pending").length || 0
+    const verifiedProperties = properties?.filter((p) => p.verification_status === "verified" || p.verification_status === "approved").length || 0
+    const pendingProperties = properties?.filter((p) => p.verification_status === "pending" || p.verification_status === "submitted" || p.verification_status === "under_review").length || 0
     const rejectedProperties = properties?.filter((p) => p.verification_status === "rejected").length || 0
 
     // Calculate approval rate

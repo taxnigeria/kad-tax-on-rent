@@ -27,14 +27,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden - Enumerator access only" }, { status: 403 })
     }
 
-    // Get all enumerators with their stats
+    // Calculate current month boundaries
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+
+    // Get all enumerators with their stats for the current month
     const { data: enumerators, error } = await supabase
       .from("users")
       .select(`
         id,
         first_name,
         last_name,
-        properties:properties!enumerated_by(id, verification_status)
+        properties:properties!enumerated_by(id, verification_status, enumeration_date)
       `)
       .eq("role", "enumerator")
       .eq("is_active", true)
@@ -44,13 +49,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch leaderboard" }, { status: 500 })
     }
 
-    // Calculate stats for each enumerator
+    // Calculate stats for each enumerator (filtered by current month)
     const leaderboard =
       enumerators
         ?.map((enumerator) => {
-          const total = enumerator.properties?.length || 0
+          // Filter properties to only include those enumerated this month
+          const monthlyProperties = enumerator.properties?.filter((p: { enumeration_date: string | null }) => {
+            if (!p.enumeration_date) return false
+            return p.enumeration_date >= startOfMonth.split("T")[0] && p.enumeration_date <= endOfMonth.split("T")[0]
+          }) || []
+
+          const total = monthlyProperties.length
           const verified =
-            enumerator.properties?.filter((p: { verification_status: string }) => p.verification_status === "verified")
+            monthlyProperties.filter((p: { verification_status: string }) => p.verification_status === "approved" || p.verification_status === "verified")
               .length || 0
           const approvalRate = total > 0 ? ((verified / total) * 100).toFixed(1) : "0"
 
@@ -63,7 +74,13 @@ export async function GET(request: NextRequest) {
             isCurrentUser: enumerator.id === currentUser.id,
           }
         })
-        .sort((a, b) => b.totalProperties - a.totalProperties) || []
+        // Sort by verified properties (primary), then total properties (secondary)
+        .sort((a, b) => {
+          if (b.verifiedProperties !== a.verifiedProperties) {
+            return b.verifiedProperties - a.verifiedProperties
+          }
+          return b.totalProperties - a.totalProperties
+        }) || []
 
     // Find current user's rank
     const userRank = leaderboard.findIndex((e) => e.isCurrentUser) + 1

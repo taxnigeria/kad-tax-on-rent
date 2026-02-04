@@ -377,7 +377,7 @@ export async function generateKadirsID(firebaseUid: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: authToken,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify(kadirsRequestBody),
     })
@@ -622,7 +622,7 @@ export async function verifyExistingKadirsID(criteria: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: authToken,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({ criteria }),
     })

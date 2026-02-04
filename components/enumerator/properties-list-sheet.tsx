@@ -20,6 +20,7 @@ import {
   User,
   DollarSign,
   MapPinIcon,
+  Navigation,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { getEnumeratorProperties } from "@/app/actions/get-properties"
@@ -33,6 +34,7 @@ interface Property {
   property_type: string
   property_category: string
   status: string
+  verification_status: string
   total_annual_rent: number
   house_number: string
   street_name: string
@@ -131,7 +133,9 @@ function getStatusConfig(status: PropertyStatus) {
 function getPropertyStatusBadge(status: string) {
   switch (status) {
     case "verified":
+    case "approved":
       return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">Verified</Badge>
+    case "pending":
     case "submitted":
     case "under_review":
       return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">Pending</Badge>
@@ -194,6 +198,14 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
     const longitude = selectedProperty.addresses?.longitude
 
     const facadePhoto = selectedProperty.documents?.find((doc) => doc.document_type === "property_facade")?.file_url
+    const addressPhoto = selectedProperty.documents?.find((doc) => doc.document_type === "address_number")?.file_url
+
+    // Function to open directions in Google Maps
+    const openDirections = () => {
+      if (latitude && longitude) {
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`, "_blank")
+      }
+    }
 
     return (
       <Sheet open={open} onOpenChange={handleClose}>
@@ -214,17 +226,28 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
             {latitude && longitude && (
               <Card>
                 <CardContent className="pt-6">
-                  <p className="text-sm font-medium mb-3">Location</p>
-                  <div className="w-full h-48 rounded-lg overflow-hidden bg-muted">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-medium">Location</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={openDirections}
+                      className="gap-2"
+                    >
+                      <Navigation className="h-4 w-4" />
+                      Get Directions
+                    </Button>
+                  </div>
+                  <div className="w-full h-48 rounded-lg overflow-hidden">
                     <iframe
                       width="100%"
                       height="100%"
+                      style={{ border: 0 }}
                       loading="lazy"
-                      allowFullScreen={false}
+                      allowFullScreen
                       referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDDwW6wgSZfPlWvJnHJKfqhNvRkXKKLowU&q=${latitude},${longitude}`}
-                      className="border-0"
-                    ></iframe>
+                      src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${latitude},${longitude}&zoom=17`}
+                    />
                   </div>
                   <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
                     <MapPinIcon className="h-4 w-4" />
@@ -241,8 +264,21 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
                 <CardContent className="pt-6">
                   <p className="text-sm font-medium mb-3">Property Photo</p>
                   <img
-                    src={facadePhoto || "/placeholder.svg"}
+                    src={facadePhoto}
                     alt="Property facade"
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {addressPhoto && (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium mb-3">Address Photo</p>
+                  <img
+                    src={addressPhoto}
+                    alt="Property address"
                     className="w-full h-48 object-cover rounded-lg"
                   />
                 </CardContent>
@@ -251,7 +287,7 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
 
             {/* Status Badge */}
             <div className="flex items-center justify-between">
-              {getPropertyStatusBadge(selectedProperty.status)}
+              {getPropertyStatusBadge(selectedProperty.verification_status)}
               <span className="text-sm text-muted-foreground">{formatDate(selectedProperty.created_at)}</span>
             </div>
 
@@ -406,7 +442,7 @@ export function PropertiesListSheet({ open, onOpenChange, status }: PropertiesLi
                         <p className="font-medium truncate">
                           {property.registered_property_name || "Unnamed Property"}
                         </p>
-                        {getPropertyStatusBadge(property.status)}
+                        {getPropertyStatusBadge(property.verification_status)}
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
                         {property.house_number} {property.street_name}, {property.addresses?.city || "N/A"}

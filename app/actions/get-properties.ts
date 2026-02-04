@@ -95,20 +95,20 @@ export async function getEnumeratorProperties(firebaseUid: string, status?: stri
       return { properties: [], error: "Unauthorized" }
     }
 
-    // Map status filter
-    let dbStatus: string[] = []
+    // Map status filter to verification_status values
+    let dbStatuses: string[] = []
     switch (status) {
       case "verified":
-        dbStatus = ["verified"]
+        dbStatuses = ["verified", "approved"]
         break
       case "pending":
-        dbStatus = ["submitted", "under_review"]
+        dbStatuses = ["pending", "submitted", "under_review"]
         break
       case "rejected":
-        dbStatus = ["rejected"]
+        dbStatuses = ["rejected"]
         break
       default:
-        dbStatus = ["submitted", "under_review", "verified", "rejected"]
+        dbStatuses = ["verified", "approved", "pending", "submitted", "under_review", "rejected"]
     }
 
     const { data: properties, error: propertiesError } = await supabase
@@ -120,6 +120,7 @@ export async function getEnumeratorProperties(firebaseUid: string, status?: stri
         property_type,
         property_category,
         status,
+        verification_status,
         total_annual_rent,
         house_number,
         street_name,
@@ -143,7 +144,7 @@ export async function getEnumeratorProperties(firebaseUid: string, status?: stri
         )
       `)
       .eq("enumerated_by", user.id)
-      .in("status", dbStatus)
+      .in("verification_status", dbStatuses)
       .order("created_at", { ascending: false })
 
     if (propertiesError) {

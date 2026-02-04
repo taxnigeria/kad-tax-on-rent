@@ -450,11 +450,18 @@ export async function createTaxpayerByEnumerator(data: {
       return { success: false, error: "Unauthorized" }
     }
 
+    // Normalize phone number before checks
+    const { normalizePhone } = await import("@/lib/utils/phone")
+    const normalizedPhone = normalizePhone(data.phoneNumber)
+    if (!normalizedPhone) {
+      return { success: false, error: "Invalid phone number format" }
+    }
+
     // 2. Check if phone or email already exists in Supabase
     const { data: existingSupabaseUser } = await supabase
       .from("users")
       .select("id, email, phone_number")
-      .or(`phone_number.eq.${data.phoneNumber}${data.email ? `,email.eq.${data.email}` : ""}`)
+      .or(`phone_number.eq.${normalizedPhone}${data.email ? `,email.eq.${data.email}` : ""}`)
       .maybeSingle()
 
     if (existingSupabaseUser) {
@@ -463,7 +470,7 @@ export async function createTaxpayerByEnumerator(data: {
     }
 
     // 3. Check if exists in Firebase
-    const firebaseCheck = await checkFirebaseUserExists(data.email, data.phoneNumber)
+    const firebaseCheck = await checkFirebaseUserExists(data.email, normalizedPhone)
     if (firebaseCheck.exists) {
       return {
         success: false,
@@ -472,7 +479,7 @@ export async function createTaxpayerByEnumerator(data: {
     }
 
     // 4. Check PayKaduna API (Optional but recommended)
-    const indicators = [data.email, data.phoneNumber].filter(Boolean)
+    const indicators = [data.email, normalizedPhone].filter(Boolean)
     for (const indicator of indicators) {
       try {
         const kadirsCheck = await verifyExistingKadirsID(indicator!)
@@ -495,7 +502,7 @@ export async function createTaxpayerByEnumerator(data: {
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email || null,
-        phone_number: data.phoneNumber,
+        phone_number: normalizedPhone,
         role: "taxpayer",
         is_active: true,
       })

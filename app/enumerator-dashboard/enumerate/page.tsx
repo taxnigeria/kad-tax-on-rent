@@ -31,6 +31,8 @@ import { compressImage } from "@/utils/image-compression"
 import { toast as sonnerToast } from "sonner"
 import { createTaxpayerByEnumerator, searchTaxpayersByEnumerator } from "@/app/actions/taxpayers"
 import { enumerateProperty } from "@/app/actions/create-property"
+import { PhoneInput } from "@/components/ui/phone-input"
+import { validateEmailFormat } from "@/app/actions/validation"
 
 interface Taxpayer {
   id: string
@@ -239,9 +241,41 @@ export default function EnumeratePage() {
     }
   }
 
+  const capitalize = (str: string) => {
+    if (!str) return ""
+    return str.charAt(0).toUpperCase() + str.slice(1)
+  }
+
+  const validateStep2 = async () => {
+    const errors: Record<string, string> = {}
+
+    if (!newTaxpayer.firstName.trim()) {
+      errors.firstName = "First name is required"
+    }
+    if (!newTaxpayer.lastName.trim()) {
+      errors.lastName = "Last name is required"
+    }
+    if (!newTaxpayer.phoneNumber.trim()) {
+      errors.phoneNumber = "Phone number is required"
+    } else {
+      // Basic check for length, although PhoneInput handles more
+      if (newTaxpayer.phoneNumber.length < 5) {
+        errors.phoneNumber = "Invalid phone number"
+      }
+    }
+
+    if (newTaxpayer.email && !(await validateEmailFormat(newTaxpayer.email))) {
+      errors.email = "Invalid email format"
+    }
+
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const createNewTaxpayer = async () => {
-    if (!newTaxpayer.firstName || !newTaxpayer.lastName || !newTaxpayer.phoneNumber) {
-      sonnerToast.error("Name and phone number are required")
+    const isValid = await validateStep2()
+    if (!isValid) {
+      sonnerToast.error("Please correct the errors in the form")
       return
     }
 
@@ -543,28 +577,62 @@ export default function EnumeratePage() {
                 <Label>First Name *</Label>
                 <Input
                   value={newTaxpayer.firstName}
-                  onChange={(e) => setNewTaxpayer({ ...newTaxpayer, firstName: e.target.value })}
+                  onChange={(e) => {
+                    const val = capitalize(e.target.value)
+                    setNewTaxpayer({ ...newTaxpayer, firstName: val })
+                    if (val.trim()) setValidationErrors((prev) => {
+                      const { firstName, ...rest } = prev
+                      return rest
+                    })
+                  }}
                   placeholder="John"
+                  className={validationErrors.firstName ? "border-red-500" : ""}
                 />
+                {validationErrors.firstName && (
+                  <p className="text-[10px] text-red-500">{validationErrors.firstName}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Last Name *</Label>
                 <Input
                   value={newTaxpayer.lastName}
-                  onChange={(e) => setNewTaxpayer({ ...newTaxpayer, lastName: e.target.value })}
+                  onChange={(e) => {
+                    const val = capitalize(e.target.value)
+                    setNewTaxpayer({ ...newTaxpayer, lastName: val })
+                    if (val.trim()) setValidationErrors((prev) => {
+                      const { lastName, ...rest } = prev
+                      return rest
+                    })
+                  }}
                   placeholder="Doe"
+                  className={validationErrors.lastName ? "border-red-500" : ""}
                 />
+                {validationErrors.lastName && (
+                  <p className="text-[10px] text-red-500">{validationErrors.lastName}</p>
+                )}
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>Phone Number *</Label>
-              <Input
-                type="tel"
+              <PhoneInput
                 value={newTaxpayer.phoneNumber}
-                onChange={(e) => setNewTaxpayer({ ...newTaxpayer, phoneNumber: e.target.value })}
-                placeholder="0801234567"
+                onChange={(val) => {
+                  setNewTaxpayer({ ...newTaxpayer, phoneNumber: val })
+                  if (val.trim()) setValidationErrors((prev) => {
+                    const { phoneNumber, ...rest } = prev
+                    return rest
+                  })
+                }}
+                onNormalizedChange={(normalized) => {
+                  // We can store normalized if needed
+                }}
+                userId={user?.id}
+                className={validationErrors.phoneNumber ? "[&_input]:border-red-500" : ""}
               />
+              {validationErrors.phoneNumber && (
+                <p className="text-[10px] text-red-500">{validationErrors.phoneNumber}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -572,9 +640,24 @@ export default function EnumeratePage() {
               <Input
                 type="email"
                 value={newTaxpayer.email}
-                onChange={(e) => setNewTaxpayer({ ...newTaxpayer, email: e.target.value })}
+                onChange={async (e) => {
+                  const val = e.target.value
+                  setNewTaxpayer({ ...newTaxpayer, email: val })
+                  if (val && !(await validateEmailFormat(val))) {
+                    setValidationErrors((prev) => ({ ...prev, email: "Invalid email format" }))
+                  } else {
+                    setValidationErrors((prev) => {
+                      const { email, ...rest } = prev
+                      return rest
+                    })
+                  }
+                }}
                 placeholder="john@example.com"
+                className={validationErrors.email ? "border-red-500" : ""}
               />
+              {validationErrors.email && (
+                <p className="text-xs text-red-500">{validationErrors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">

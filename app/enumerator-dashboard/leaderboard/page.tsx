@@ -239,7 +239,7 @@ export default function LeaderboardPage() {
 
               {/* Avatar */}
               <Avatar className="h-10 w-10">
-                <AvatarFallback className={index < 3 ? "bg-primary/20 text-primary" : ""}>
+                <AvatarFallback className={index < 3 ? "bg-primary/20 text-xs" : ""}>
                   {getInitials(agent.name)}
                 </AvatarFallback>
               </Avatar>
