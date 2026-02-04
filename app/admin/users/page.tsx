@@ -30,6 +30,8 @@ import {
   KeyRound,
   ChevronLeft,
   ChevronRight,
+  ShieldCheck,
+  ShieldX,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -68,6 +70,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { EditUserModal } from "@/components/admin/edit-user-modal"
+import { createAdminFirebaseUser } from "@/app/actions/auth"
 
 const STAFF_ROLES = ["super_admin", "superadmin", "admin", "staff", "enumerator", "qa", "area_officer"]
 
@@ -138,6 +141,7 @@ export default function AdminUsersPage() {
 
   // Selection
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [creatingFirebaseAccount, setCreatingFirebaseAccount] = useState(false)
 
   // Sheet/Dialog state
   const [selectedUser, setSelectedUser] = useState<StaffUser | null>(null)
@@ -448,6 +452,37 @@ export default function AdminUsersPage() {
       setEnumerationStats(null)
     } finally {
       setLoadingEnumerations(false)
+    }
+  }
+
+  const handleCreateFirebaseAccount = async () => {
+    if (!selectedUser) return
+
+    setCreatingFirebaseAccount(true)
+    const toastId = toast.loading("Creating Firebase account...")
+
+    try {
+      const response = await createAdminFirebaseUser({
+        email: selectedUser.email,
+        password: selectedUser.phone_number,
+        displayName: `${selectedUser.first_name} ${selectedUser.last_name}`,
+        taxpayerId: selectedUser.id,
+      })
+
+      if (response.success) {
+        toast.success("Firebase account created successfully", { id: toastId })
+        // Update local state
+        setSelectedUser({ ...selectedUser, firebase_uid: response.uid as string })
+        // Also update in the users list
+        setUsers(users.map((u) => (u.id === selectedUser.id ? { ...u, firebase_uid: response.uid as string } : u)))
+        fetchFirebaseUsers() // Refresh migration list as well
+      } else {
+        toast.error(response.error || "Failed to create account", { id: toastId })
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred", { id: toastId })
+    } finally {
+      setCreatingFirebaseAccount(false)
     }
   }
 
@@ -832,6 +867,18 @@ export default function AdminUsersPage() {
                                     {u.phone_verified ? "Phone Verified" : "Phone Unverified"}
                                   </TooltipContent>
                                 </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    {u.firebase_uid ? (
+                                      <ShieldCheck className="h-4 w-4 text-orange-500" />
+                                    ) : (
+                                      <ShieldX className="h-4 w-4 text-muted-foreground/40" />
+                                    )}
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {u.firebase_uid ? "Firebase Account OK" : "No Firebase Account"}
+                                  </TooltipContent>
+                                </Tooltip>
                               </div>
                             </TableCell>
                             <TableCell>{formatDate(u.created_at)}</TableCell>
@@ -1165,11 +1212,51 @@ export default function AdminUsersPage() {
                 {/* Status */}
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium text-muted-foreground">Account Status</h4>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={selectedUser.is_active ? "default" : "secondary"}>
                       {selectedUser.is_active ? "Active" : "Inactive"}
                     </Badge>
+                    {selectedUser.firebase_uid ? (
+                      <Badge variant="outline" className="border-orange-200 bg-orange-50/50 text-orange-700 gap-1.5 py-0.5 px-2">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Firebase Account Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-red-200 bg-red-50/50 text-red-700 gap-1.5 py-0.5 px-2">
+                        <ShieldX className="h-3.5 w-3.5" />
+                        No Firebase Account
+                      </Badge>
+                    )}
                   </div>
+                  {!selectedUser.firebase_uid && (
+                    <div className="mt-2 p-3 rounded-lg border border-orange-100 bg-orange-50/30">
+                      <p className="text-xs text-orange-800 mb-2">
+                        This user does not have a Firebase account for mobile/web login.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                        onClick={handleCreateFirebaseAccount}
+                        disabled={creatingFirebaseAccount}
+                      >
+                        {creatingFirebaseAccount ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Creating Account...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Create Firebase Account
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-[10px] text-muted-foreground mt-2 text-center">
+                        The phone number ({selectedUser.phone_number}) will be set as the initial password.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Role Management */}
