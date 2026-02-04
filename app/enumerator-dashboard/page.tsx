@@ -156,8 +156,8 @@ export default function EnumeratorDashboard() {
 
       {/* Quick Stats */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="gap-0 pb-0 hover:bg-muted/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 m-0">
             <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -168,10 +168,10 @@ export default function EnumeratorDashboard() {
         </Card>
 
         <Card
-          className="cursor-pointer hover:bg-muted/50 transition-colors"
+          className="cursor-pointer gap-0 pb-0  hover:bg-muted/50 transition-colors"
           onClick={() => handleStatusClick("verified")}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 m-0">
             <CardTitle className="text-sm font-medium">Verified</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
@@ -182,10 +182,10 @@ export default function EnumeratorDashboard() {
         </Card>
 
         <Card
-          className="cursor-pointer hover:bg-muted/50 transition-colors"
+          className="cursor-pointer gap-0 pb-0  hover:bg-muted/50 transition-colors"
           onClick={() => handleStatusClick("pending")}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 m-0">
             <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
@@ -195,8 +195,8 @@ export default function EnumeratorDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="gap-0 pb-0  hover:bg-muted/50 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 m-0">
             <CardTitle className="text-sm font-medium">Taxpayers Created</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>

@@ -24,7 +24,7 @@ import {
   Landmark,
   Loader2,
 } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -1552,13 +1552,29 @@ export default function LocationsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Select an Area Office</SelectItem>
-                    {areaOffices
-                      .filter((ao) => ao.lga_id === cityForm.lga_id)
-                      .map((ao) => (
-                        <SelectItem key={ao.id} value={ao.id}>
-                          {ao.office_name}
-                        </SelectItem>
-                      ))}
+                    {areaOffices.filter((ao) => ao.lga_id === cityForm.lga_id).length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Matches Selected LGA</SelectLabel>
+                        {areaOffices
+                          .filter((ao) => ao.lga_id === cityForm.lga_id)
+                          .map((ao) => (
+                            <SelectItem key={ao.id} value={ao.id}>
+                              {ao.office_name}
+                            </SelectItem>
+                          ))}
+                      </SelectGroup>
+                    )}
+                    <SelectSeparator />
+                    <SelectGroup>
+                      <SelectLabel>Other Area Offices</SelectLabel>
+                      {areaOffices
+                        .filter((ao) => ao.lga_id !== cityForm.lga_id)
+                        .map((ao) => (
+                          <SelectItem key={ao.id} value={ao.id}>
+                            {ao.office_name} ({ao.lga_name || "No LGA"})
+                          </SelectItem>
+                        ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>

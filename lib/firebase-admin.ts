@@ -231,6 +231,43 @@ export async function getFirebaseUser(uid: string) {
   }
 }
 
+export async function checkFirebaseUserExists(email?: string | null, phoneNumber?: string | null) {
+  if (!firebaseAdminAvailable) {
+    return { exists: false, error: "Firebase Admin not available" }
+  }
+
+  const { auth } = await getFirebaseAdmin()
+
+  if (!auth) {
+    return { exists: false, error: "Firebase Admin not configured" }
+  }
+
+  try {
+    if (email) {
+      try {
+        await auth.getUserByEmail(email)
+        return { exists: true, provider: "email" }
+      } catch (error: any) {
+        if (error.code !== "auth/user-not-found") throw error
+      }
+    }
+
+    if (phoneNumber) {
+      try {
+        await auth.getUserByPhoneNumber(phoneNumber)
+        return { exists: true, provider: "phone" }
+      } catch (error: any) {
+        if (error.code !== "auth/user-not-found") throw error
+      }
+    }
+
+    return { exists: false }
+  } catch (error: any) {
+    console.error("[Firebase Admin] Error checking user existence:", error)
+    return { exists: false, error: error.message }
+  }
+}
+
 export async function deleteFirebaseUser(uid: string) {
   if (!firebaseAdminAvailable) {
     return { success: false, error: "Firebase Admin not available in this environment" }

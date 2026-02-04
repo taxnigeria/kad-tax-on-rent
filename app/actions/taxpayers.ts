@@ -6,6 +6,8 @@ import { createUserAccount } from "@/lib/auth/create-user-account"
 import { createUserProfile } from "@/lib/auth/create-user-profile"
 import { logAudit } from "./audit"
 import { getAuthToken } from "./get-auth-token"
+import { checkFirebaseUserExists } from "@/lib/firebase-admin"
+import { verifyExistingKadirsID } from "./verification"
 
 export type TaxpayerWithProfile = {
   id: string
@@ -448,18 +450,45 @@ export async function createTaxpayerByEnumerator(data: {
       return { success: false, error: "Unauthorized" }
     }
 
-    // 2. Check if phone already exists
-    const { data: existingUser } = await supabase
+    // 2. Check if phone or email already exists in Supabase
+    const { data: existingSupabaseUser } = await supabase
       .from("users")
-      .select("id")
-      .eq("phone_number", data.phoneNumber)
+      .select("id, email, phone_number")
+      .or(`phone_number.eq.${data.phoneNumber}${data.email ? `,email.eq.${data.email}` : ""}`)
       .maybeSingle()
 
-    if (existingUser) {
-      return { success: false, error: "Phone number already registered" }
+    if (existingSupabaseUser) {
+      const conflict = existingSupabaseUser.phone_number === data.phoneNumber ? "phone number" : "email"
+      return { success: false, error: `A user with this ${conflict} is already registered in our system.` }
     }
 
-    // 3. Create user account
+    // 3. Check if exists in Firebase
+    const firebaseCheck = await checkFirebaseUserExists(data.email, data.phoneNumber)
+    if (firebaseCheck.exists) {
+      return {
+        success: false,
+        error: `A user with this ${firebaseCheck.provider === 'email' ? 'email' : 'phone number'} already has an account. Please search for the existing taxpayer instead.`
+      }
+    }
+
+    // 4. Check PayKaduna API (Optional but recommended)
+    const indicators = [data.email, data.phoneNumber].filter(Boolean)
+    for (const indicator of indicators) {
+      try {
+        const kadirsCheck = await verifyExistingKadirsID(indicator!)
+        if (kadirsCheck.success && kadirsCheck.data) {
+          return {
+            success: false,
+            error: `An account already exists in the KADIRS database with this ${indicator === data.email ? 'email' : 'phone number'} (KADIRS ID: ${kadirsCheck.data.tpui}). Please use the 'Search' feature to find and link this taxpayer.`,
+            meta: { kadirsData: kadirsCheck.data }
+          }
+        }
+      } catch (err) {
+        console.warn(`[createTaxpayerByEnumerator] PayKaduna check for ${indicator} failed, continuing...`, err)
+      }
+    }
+
+    // 5. Create user account
     const { data: newUser, error: newUserError } = await supabase
       .from("users")
       .insert({
