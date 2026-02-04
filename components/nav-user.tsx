@@ -2,11 +2,9 @@
 
 import { useAuth } from "@/contexts/auth-context"
 import { useState, useEffect } from "react"
-import { ChevronsUpDown, LogOut, User, HelpCircle, Moon, Sun } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { getUserProfilePhoto } from "@/services/user-service"
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -16,6 +14,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { AdminSettingsModal } from "@/components/admin/settings-modal"
+import {
+  ChevronsUpDown,
+  LogOut,
+  User,
+  HelpCircle,
+  Moon,
+  Sun,
+  Settings,
+} from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,12 +52,13 @@ function getUserInitials(email: string | null, displayName: string | null): stri
 }
 
 export function NavUser() {
-  const { user, logout } = useAuth()
+  const { user, userRole, logout } = useAuth()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [isMounted, setIsMounted] = useState(false)
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -129,6 +138,12 @@ export function NavUser() {
                 <HelpCircle className="mr-2 h-4 w-4" />
                 <span>Help & Support</span>
               </DropdownMenuItem>
+              {(userRole === "admin" || userRole === "super_admin") && (
+                <DropdownMenuItem onClick={() => setShowSettingsModal(true)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>System Settings</span>
+                </DropdownMenuItem>
+               )}
               <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
                 {theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
                 <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
@@ -160,6 +175,11 @@ export function NavUser() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AdminSettingsModal
+        open={showSettingsModal}
+        onOpenChange={setShowSettingsModal}
+      />
     </>
   )
 }

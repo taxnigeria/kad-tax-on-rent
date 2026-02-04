@@ -513,9 +513,9 @@ export default function AdminDashboard() {
               </div>
 
               {/* Charts Row */}
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 {/* Monthly Revenue Chart */}
-                <Card className="col-span-1">
+                <Card className="col-span-2">
                   <CardHeader>
                     <CardTitle className="text-base">Monthly Revenue Trend</CardTitle>
                   </CardHeader>
