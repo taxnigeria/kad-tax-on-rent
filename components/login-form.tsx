@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { signIn } from "@/lib/auth"
-import { getUserRole } from "@/app/actions/get-user-role"
+import { getUserStatus } from "@/app/actions/get-user-status"
+import { logout } from "@/lib/auth"
 import GoogleSignInButton from "@/components/google-signin-button"
 import { useRecaptcha } from "@/lib/recaptcha"
 
@@ -41,7 +42,20 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
         setLoading(false)
       } else if (user) {
         try {
-          const role = await getUserRole(user.uid)
+          const { role, isActive, error: statusError } = await getUserStatus(user.uid)
+
+          if (statusError) {
+            setError(statusError)
+            setLoading(false)
+            return
+          }
+
+          if (!isActive) {
+            setError("Your account has been deactivated. Please contact support for assistance.")
+            await logout() // Clear session
+            setLoading(false)
+            return
+          }
 
           if (role) {
             if (role === "tenant") {

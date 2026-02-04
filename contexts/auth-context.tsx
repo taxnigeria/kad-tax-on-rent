@@ -4,7 +4,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import type { User } from "firebase/auth"
 import { onAuthStateChange, logout as firebaseLogout } from "@/lib/auth"
-import { getUserRole } from "@/app/actions/get-user-role"
+import { getUserStatus } from "@/app/actions/get-user-status"
 
 interface AuthContextType {
   user: User | null
@@ -26,10 +26,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (firebaseUser) {
         try {
-          const role = await getUserRole(firebaseUser.uid)
-          setUserRole(role)
+          const { role, isActive } = await getUserStatus(firebaseUser.uid)
+
+          if (!isActive) {
+            console.warn("[v0] Deactivated user detected, logging out")
+            await firebaseLogout()
+            setUser(null)
+            setUserRole(null)
+          } else {
+            setUserRole(role)
+          }
         } catch (error) {
-          console.error("[v0] Error fetching user role:", error)
+          console.error("[v0] Error fetching user status:", error)
           setUserRole(null)
         }
       } else {

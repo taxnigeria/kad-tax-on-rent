@@ -13,10 +13,18 @@ import { Badge } from "@/components/ui/badge"
 import { Users, UserPlus, AlertCircle, UserCheck, Search, Filter, Download, Pencil } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { toast } from "sonner"
 import { AddTaxpayerModal } from "@/components/admin/add-taxpayer-modal"
 import { TaxpayerDetailsSheet } from "@/components/admin/taxpayer-details-sheet"
 import { EditTaxpayerModal } from "@/components/admin/edit-taxpayer-modal"
-import { getTaxpayers, type TaxpayerWithProfile } from "@/app/actions/taxpayers"
+import {
+  getTaxpayers,
+  type TaxpayerWithProfile,
+  bulkUpdateTaxpayerStatus,
+  bulkUpdateTaxpayerSource,
+  bulkDeleteTaxpayers,
+  bulkGenerateKadirsIds
+} from "@/app/actions/taxpayers"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -26,7 +34,7 @@ export default function AdminTaxpayersPage() {
   const [taxpayers, setTaxpayers] = useState<TaxpayerWithProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("active")
   const [roleFilter, setRoleFilter] = useState("all")
   const [sourceFilter, setSourceFilter] = useState("all")
   const [selectedTaxpayers, setSelectedTaxpayers] = useState<string[]>([])
@@ -129,6 +137,86 @@ export default function AdminTaxpayersPage() {
   function handleExport() {
     // TODO: Implement CSV export
     console.log("Exporting taxpayers:", selectedTaxpayers.length > 0 ? selectedTaxpayers : "all")
+  }
+
+  async function handleBulkDeactivate() {
+    if (selectedTaxpayers.length === 0) return
+
+    try {
+      setLoading(true)
+      const result = await bulkUpdateTaxpayerStatus(selectedTaxpayers, false)
+      if (result.success) {
+        toast.success(`Successfully deactivated ${selectedTaxpayers.length} taxpayers`)
+        setSelectedTaxpayers([])
+        fetchTaxpayers()
+      } else {
+        toast.error(result.error || "Failed to deactivate taxpayers")
+      }
+    } catch (error) {
+      toast.error("An error occurred during bulk deactivation")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selectedTaxpayers.length === 0) return
+    if (!confirm(`Are you sure you want to delete ${selectedTaxpayers.length} taxpayers? This action cannot be undone.`)) return
+
+    try {
+      setLoading(true)
+      const result = await bulkDeleteTaxpayers(selectedTaxpayers)
+      if (result.success) {
+        toast.success(`Successfully deleted ${selectedTaxpayers.length} taxpayers`)
+        setSelectedTaxpayers([])
+        fetchTaxpayers()
+      } else {
+        toast.error(result.error || "Failed to delete taxpayers")
+      }
+    } catch (error) {
+      toast.error("An error occurred during bulk deletion")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleBulkChangeSource(source: string) {
+    if (selectedTaxpayers.length === 0) return
+
+    try {
+      setLoading(true)
+      const result = await bulkUpdateTaxpayerSource(selectedTaxpayers, source)
+      if (result.success) {
+        toast.success(`Successfully updated source for ${selectedTaxpayers.length} taxpayers`)
+        setSelectedTaxpayers([])
+        fetchTaxpayers()
+      } else {
+        toast.error(result.error || "Failed to update source")
+      }
+    } catch (error) {
+      toast.error("An error occurred while changing source")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleBulkGenerateKadirs() {
+    toast.info("Bulk KADIRS ID generation initiated", {
+      description: "This process may take some time depending on the number of records."
+    })
+
+    const result = await bulkGenerateKadirsIds(selectedTaxpayers)
+    if (result.success) {
+      toast.success("Bulk Generation Complete", {
+        description: (result as any).message
+      })
+      setSelectedTaxpayers([])
+      fetchTaxpayers()
+    } else {
+      toast.warning("Bulk Generation Limited", {
+        description: result.error
+      })
+    }
   }
 
   function handleEditTaxpayer(taxpayer: TaxpayerWithProfile) {
@@ -294,6 +382,74 @@ export default function AdminTaxpayersPage() {
               )}
             </div>
           </div>
+
+          {/* Bulk Actions Bar */}
+          {selectedTaxpayers.length > 0 && (
+            <div className="sticky top-2 z-30 flex items-center justify-between bg-primary px-4 py-2 rounded-lg shadow-lg text-primary-foreground animate-in slide-in-from-top-4 duration-300">
+              <div className="flex items-center gap-3">
+                <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground border-none">
+                  {selectedTaxpayers.length} Selected
+                </Badge>
+                <div className="h-4 w-px bg-primary-foreground/20 mx-1" />
+                <p className="text-sm font-medium hidden md:block">Bulk Actions:</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-[11px] font-semibold hover:bg-primary-foreground/10 text-primary-foreground gap-1.5"
+                  onClick={handleBulkDeactivate}
+                >
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Deactivate
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-[11px] font-semibold hover:bg-primary-foreground/10 text-primary-foreground gap-1.5"
+                  onClick={handleBulkGenerateKadirs}
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  Generate KADIRS ID
+                </Button>
+
+                <Select onValueChange={handleBulkChangeSource}>
+                  <SelectTrigger className="h-8 w-[130px] bg-primary-foreground/10 border-none text-[11px] font-semibold text-primary-foreground">
+                    <SelectValue placeholder="Change Source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="enumerator">Enumerator</SelectItem>
+                    <SelectItem value="agent">Agent/Manager</SelectItem>
+                    <SelectItem value="self">Self-Registered</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="h-4 w-px bg-primary-foreground/20 mx-1" />
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-[11px] font-semibold hover:bg-red-500/20 text-red-100 gap-1.5"
+                  onClick={handleBulkDelete}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-red-200" />
+                  Delete
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full hover:bg-primary-foreground/20 ml-2"
+                  onClick={() => setSelectedTaxpayers([])}
+                >
+                  <span className="text-xs">×</span>
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Taxpayers Table */}
           <Card>

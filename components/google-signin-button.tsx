@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { signInWithGoogle } from "@/lib/auth"
+import { signInWithGoogle, logout } from "@/lib/auth"
 import { checkUserExists } from "@/app/actions/auth"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -26,11 +26,17 @@ export function GoogleSignInButton() {
 
     if (user) {
       // Check if user exists in Supabase database
-      const { exists, role } = await checkUserExists(user.uid)
+      const { exists, role, isActive } = await checkUserExists(user.uid)
 
       if (!exists) {
         // New user - redirect to complete profile
         router.push("/complete-profile")
+      } else if (!isActive) {
+        // Deactivated user
+        setError("Your account has been deactivated. Please contact support for assistance.")
+        await logout()
+        setLoading(false)
+        return
       } else {
         // Existing user - redirect to appropriate dashboard
         if (role === "tenant") {

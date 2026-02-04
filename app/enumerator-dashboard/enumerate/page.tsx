@@ -298,8 +298,8 @@ export default function EnumeratePage() {
       return
     }
 
-    if (!facadePhoto || !addressNumberPhoto) {
-      sonnerToast.error("Please upload facade and address number photos")
+    if (!facadePhoto) {
+      sonnerToast.error("Please upload facade photo")
       return
     }
 
@@ -328,7 +328,9 @@ export default function EnumeratePage() {
       formData.append("latitude", latitude)
       formData.append("longitude", longitude)
       formData.append("facadePhoto", facadePhoto)
-      formData.append("addressPhoto", addressNumberPhoto)
+      if (addressNumberPhoto) {
+        formData.append("addressPhoto", addressNumberPhoto)
+      }
 
       const result = await enumerateProperty(formData)
 
@@ -402,9 +404,6 @@ export default function EnumeratePage() {
     }
     if (!facadePhoto) {
       errors.facadePhoto = "Facade photo is required"
-    }
-    if (!addressNumberPhoto) {
-      errors.addressPhoto = "Address number photo is required"
     }
     if (!propertyData.annualRent.trim()) {
       errors.annualRent = "Annual rent is required"
@@ -904,9 +903,9 @@ export default function EnumeratePage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Address Number Photo *</Label>
+                <Label>Address Number Photo (Optional)</Label>
                 <div
-                  className={`border-2 border-dashed rounded-lg p-4 text-center relative cursor-pointer ${validationErrors.addressPhoto ? "border-destructive" : ""}`}
+                  className={`border-2 border-dashed rounded-lg p-4 text-center relative cursor-pointer`}
                   onClick={() => addressInputRef.current?.click()}
                 >
                   {addressPreview ? (
@@ -935,12 +934,7 @@ export default function EnumeratePage() {
                     }}
                   />
                 </div>
-                {validationErrors.addressPhoto && (
-                  <p className="text-xs text-destructive flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {validationErrors.addressPhoto}
-                  </p>
-                )}
+
               </div>
             </div>
 

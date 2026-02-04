@@ -85,10 +85,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!facadePhoto || !addressNumberPhoto) {
+    if (!facadePhoto) {
       return NextResponse.json(
         {
-          error: "Facade photo and address number photo are required",
+          error: "Facade photo is required",
         },
         { status: 400 },
       )
@@ -104,10 +104,12 @@ export async function POST(request: NextRequest) {
       })
       facadeUrl = facadeBlob.url
 
-      const addressBlob = await put(`properties/${taxpayerId}/address-${Date.now()}.jpg`, addressNumberPhoto, {
-        access: "public",
-      })
-      addressNumberUrl = addressBlob.url
+      if (addressNumberPhoto) {
+        const addressBlob = await put(`properties/${taxpayerId}/address-${Date.now()}.jpg`, addressNumberPhoto, {
+          access: "public",
+        })
+        addressNumberUrl = addressBlob.url
+      }
     } catch (uploadError) {
       console.error("[v0] Photo upload error:", uploadError)
       return NextResponse.json({ error: "Failed to upload photos" }, { status: 500 })
@@ -183,7 +185,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Store photo URLs in documents table
-    await supabase.from("documents").insert([
+    const documents = [
       {
         entity_type: "property",
         entity_id: property.id,
@@ -192,15 +194,20 @@ export async function POST(request: NextRequest) {
         file_url: facadeUrl,
         uploaded_by: userData.id,
       },
-      {
+    ]
+
+    if (addressNumberUrl) {
+      documents.push({
         entity_type: "property",
         entity_id: property.id,
         document_type: "address_number",
         document_name: "Address Number Photo",
         file_url: addressNumberUrl,
         uploaded_by: userData.id,
-      },
-    ])
+      })
+    }
+
+    await supabase.from("documents").insert(documents)
 
     // Log activity for gamification
     await supabase.from("audit_logs").insert({
@@ -212,7 +219,7 @@ export async function POST(request: NextRequest) {
       new_values: {
         latitude: latitude || null,
         longitude: longitude || null,
-        photos: { facade: facadeUrl, addressNumber: addressNumberUrl },
+        photos: { facade: facadeUrl, addressNumber: addressNumberUrl || null },
         rentalCommencementDate: rentalCommencementDate || null,
       },
     })

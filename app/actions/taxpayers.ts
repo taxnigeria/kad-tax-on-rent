@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createUserAccount } from "@/lib/auth/create-user-account"
 import { createUserProfile } from "@/lib/auth/create-user-profile"
 import { logAudit } from "./audit"
+import { getAuthToken } from "./get-auth-token"
 
 export type TaxpayerWithProfile = {
   id: string
@@ -669,5 +670,240 @@ export async function createTaxpayerByManager(data: {
   } catch (error: any) {
     console.error("Error in createTaxpayerByManager:", error)
     return { success: false, error: error.message || "Internal server error" }
+  }
+}
+
+export async function bulkUpdateTaxpayerStatus(taxpayerIds: string[], isActive: boolean) {
+  try {
+    const adminSupabase = createAdminClient()
+    const { error } = await adminSupabase
+      .from("users")
+      .update({ is_active: isActive })
+      .in("id", taxpayerIds)
+
+    if (error) {
+      console.error("Error bulk updating taxpayer status:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Log status change for each
+    await Promise.all(
+      taxpayerIds.map((id) =>
+        logAudit({
+          action: "update",
+          entityType: "users",
+          entityId: id,
+          changeSummary: `Bulk updated taxpayer status to ${isActive ? "Active" : "Inactive"}`
+        })
+      )
+    )
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in bulkUpdateTaxpayerStatus:", error)
+    return { success: false, error: error.message || "Failed to bulk update taxpayer status" }
+  }
+}
+
+export async function bulkUpdateTaxpayerSource(taxpayerIds: string[], source: string) {
+  try {
+    const adminSupabase = createAdminClient()
+    const { error } = await adminSupabase
+      .from("taxpayer_profiles")
+      .update({ registration_source: source })
+      .in("user_id", taxpayerIds)
+
+    if (error) {
+      console.error("Error bulk updating taxpayer source:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Log source change for each
+    await Promise.all(
+      taxpayerIds.map((id) =>
+        logAudit({
+          action: "update",
+          entityType: "taxpayer_profiles",
+          entityId: id,
+          changeSummary: `Bulk updated taxpayer registration source to ${source}`
+        })
+      )
+    )
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in bulkUpdateTaxpayerSource:", error)
+    return { success: false, error: error.message || "Failed to bulk update taxpayer source" }
+  }
+}
+
+export async function bulkDeleteTaxpayers(taxpayerIds: string[]) {
+  try {
+    const adminSupabase = createAdminClient()
+
+    // Note: Deleting from 'users' might be restricted if there are foreign key constraints 
+    // without cascading deletes. In our schema, taxpayer_profiles has user_id FK.
+    // We should delete profile first OR rely on CASCADE.
+
+    // Check if cascade is on (most of our migrations seem to handle it, but being safe)
+    await adminSupabase.from("taxpayer_profiles").delete().in("user_id", taxpayerIds)
+
+    const { error } = await adminSupabase
+      .from("users")
+      .delete()
+      .in("id", taxpayerIds)
+
+    if (error) {
+      console.error("Error bulk deleting taxpayers:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Log deletion
+    await Promise.all(
+      taxpayerIds.map((id) =>
+        logAudit({
+          action: "delete",
+          entityType: "users",
+          entityId: id,
+          changeSummary: `Bulk deleted taxpayer account`
+        })
+      )
+    )
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in bulkDeleteTaxpayers:", error)
+    return { success: false, error: error.message || "Failed to bulk delete taxpayers" }
+  }
+}
+
+export async function bulkGenerateKadirsIds(taxpayerIds: string[]) {
+  try {
+    const adminSupabase = createAdminClient()
+    const authToken = await getAuthToken()
+
+    // Get state ID from settings
+    const { data: settingsData } = await adminSupabase
+      .from("system_settings")
+      .select("state_id")
+      .eq("setting_key", "default_state")
+      .maybeSingle()
+
+    const stateId = settingsData?.state_id || 19 // Default to 19 (Kaduna)
+    const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
+
+    let successCount = 0
+    let failureCount = 0
+    const errors: string[] = []
+
+    for (const taxpayerId of taxpayerIds) {
+      try {
+        // Fetch full data for this taxpayer
+        const { data: userData, error: fetchError } = await adminSupabase
+          .from("users")
+          .select(`
+            *,
+            taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
+              *,
+              lgas (id, name, paykaduna_lga_id),
+              area_offices (id, name, paykaduna_tax_station_id)
+            )
+          `)
+          .eq("id", taxpayerId)
+          .single()
+
+        if (fetchError || !userData) throw new Error("Could not fetch taxpayer data")
+
+        const profile = userData.taxpayer_profiles
+        if (profile?.kadirs_id) {
+          // Already has an ID, skip
+          continue
+        }
+
+        // Validate minimal required fields for KADIRS API
+        if (!userData.first_name || !userData.last_name || !profile?.address_line1 || !profile?.lgas?.paykaduna_lga_id || !profile?.industry_id) {
+          throw new Error("Missing required fields (Name, Address, LGA, or Industry)")
+        }
+
+        const kadirsRequestBody = {
+          firstName: userData.first_name,
+          middleName: userData.middle_name || "",
+          lastName: userData.last_name,
+          email: userData.email,
+          phoneNumber: userData.phone_number || "null",
+          password: `Taxpayer${new Date().getFullYear()}#`,
+          confirmPassword: `Taxpayer${new Date().getFullYear()}#`,
+          addressLine1: profile.address_line1,
+          genderId: profile.gender === "female" ? 1 : 2,
+          lgaId: Number.parseInt(profile.lgas.paykaduna_lga_id) || 2,
+          stateId: stateId,
+          taxStation: profile.area_offices?.paykaduna_tax_station_id || 1,
+          industryId: profile.industry_id,
+          userType: profile.user_type || "Individual",
+          tin: profile.tin || "",
+          rcNumber: profile.rc_number || "",
+          identifier: "null",
+        }
+
+        const response = await fetch(kadirsApiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(kadirsRequestBody),
+        })
+
+        if (!response.ok) {
+          throw new Error(`API returned status ${response.status}`)
+        }
+
+        const responseData = await response.json()
+
+        if (responseData.success === true || responseData.tpui) {
+          const kadirsId = responseData?.userRegistration?.tpui || responseData.tpui
+
+          if (kadirsId) {
+            // Update profile
+            await adminSupabase
+              .from("taxpayer_profiles")
+              .update({ kadirs_id: kadirsId })
+              .eq("user_id", taxpayerId)
+
+            successCount++
+
+            await logAudit({
+              action: "generate",
+              entityType: "taxpayer",
+              entityId: profile.id,
+              changeSummary: `Bulk generated KADIRS ID: ${kadirsId}`
+            })
+          } else {
+            throw new Error("KADIRS ID not found in response")
+          }
+        } else {
+          throw new Error(responseData.error || "Generation unsuccessful")
+        }
+      } catch (err: any) {
+        failureCount++
+        errors.push(`${taxpayerId}: ${err.message}`)
+      }
+    }
+
+    if (successCount === 0 && failureCount > 0) {
+      return {
+        success: false,
+        error: `Failed to generate any IDs. Reasons: ${errors.slice(0, 3).join(", ")}`
+      }
+    }
+
+    return {
+      success: true,
+      message: `Generated ${successCount} IDs successfully. ${failureCount} failed.`,
+      details: errors
+    }
+  } catch (error: any) {
+    console.error("Error in bulkGenerateKadirsIds:", error)
+    return { success: false, error: error.message || "Failed to bulk generate IDs" }
   }
 }

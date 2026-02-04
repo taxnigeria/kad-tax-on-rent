@@ -187,8 +187,8 @@ export async function enumerateProperty(formData: FormData) {
     const facadePhoto = formData.get("facadePhoto") as File | null
     const addressNumberPhoto = (formData.get("addressNumberPhoto") || formData.get("addressPhoto")) as File | null
 
-    if (!facadePhoto || !addressNumberPhoto) {
-      return { success: false, error: "Both facade and address photos are required" }
+    if (!facadePhoto) {
+      return { success: false, error: "Facade photo is required" }
     }
 
     // Upload photos to Vercel Blob
@@ -199,8 +199,10 @@ export async function enumerateProperty(formData: FormData) {
       const facadeBlob = await put(`properties/${taxpayerId}/facade-${Date.now()}.jpg`, facadePhoto, { access: "public" })
       facadeUrl = facadeBlob.url
 
-      const addressBlob = await put(`properties/${taxpayerId}/address-${Date.now()}.jpg`, addressNumberPhoto, { access: "public" })
-      addressNumberUrl = addressBlob.url
+      if (addressNumberPhoto) {
+        const addressBlob = await put(`properties/${taxpayerId}/address-${Date.now()}.jpg`, addressNumberPhoto, { access: "public" })
+        addressNumberUrl = addressBlob.url
+      }
     } catch (uploadError) {
       console.error("[Enumerate] Photo upload error:", uploadError)
       return { success: false, error: "Failed to upload photos" }
@@ -253,7 +255,7 @@ export async function enumerateProperty(formData: FormData) {
     if (propertyError) return { success: false, error: "Failed to create property record" }
 
     // Store photo URLs in documents table
-    await supabase.from("documents").insert([
+    const documents = [
       {
         entity_type: "property",
         entity_id: property.id,
@@ -262,15 +264,20 @@ export async function enumerateProperty(formData: FormData) {
         file_url: facadeUrl,
         uploaded_by: userData.id,
       },
-      {
+    ]
+
+    if (addressNumberUrl) {
+      documents.push({
         entity_type: "property",
         entity_id: property.id,
         document_type: "address_number",
         document_name: "Address Number Photo",
         file_url: addressNumberUrl,
         uploaded_by: userData.id,
-      },
-    ])
+      })
+    }
+
+    await supabase.from("documents").insert(documents)
 
     // Log activity
     await logAudit({
@@ -282,7 +289,7 @@ export async function enumerateProperty(formData: FormData) {
       newValues: {
         latitude: latitude || null,
         longitude: longitude || null,
-        photos: { facade: facadeUrl, addressNumber: addressNumberUrl }
+        photos: { facade: facadeUrl, addressNumber: addressNumberUrl || null }
       }
     })
 

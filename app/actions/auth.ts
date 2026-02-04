@@ -68,19 +68,23 @@ export async function checkUserExists(firebaseUid: string) {
 
     const { data, error } = await supabase
       .from("users")
-      .select("id, role")
+      .select("id, role, is_active")
       .eq("firebase_uid", firebaseUid)
       .maybeSingle()
 
     if (error) {
       console.error("[v0] Error checking user:", error)
-      return { exists: false, role: null }
+      return { exists: false, role: null, isActive: false }
     }
 
-    return { exists: !!data, role: data?.role || null }
+    return {
+      exists: !!data,
+      role: data?.role || null,
+      isActive: data?.is_active ?? true
+    }
   } catch (error: any) {
     console.error("[v0] Unexpected error:", error)
-    return { exists: false, role: null }
+    return { exists: false, role: null, isActive: false }
   }
 }
 
