@@ -17,6 +17,9 @@ import { Switch } from "@/components/ui/switch"
 import { Loader2, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { isValidNigerianPhone, normalizeNigerianPhone } from "@/lib/utils/phone"
+
+const isCapitalized = (str: string) => /^[A-Z]/.test(str);
 
 interface User {
   id: string
@@ -84,15 +87,28 @@ export function EditUserModal({ open, onOpenChange, user, onUpdate }: EditUserMo
 
     if (!formData.first_name.trim()) {
       newErrors.first_name = "First name is required"
+    } else if (!isCapitalized(formData.first_name.trim())) {
+      newErrors.first_name = "Must start with a capital letter"
     }
+
     if (!formData.last_name.trim()) {
       newErrors.last_name = "Last name is required"
+    } else if (!isCapitalized(formData.last_name.trim())) {
+      newErrors.last_name = "Must start with a capital letter"
     }
+
     if (!formData.email.trim()) {
       newErrors.email = "Email is required"
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Invalid email format"
     }
+
+    if (!formData.phone_number.trim()) {
+      newErrors.phone_number = "Phone number is required"
+    } else if (!isValidNigerianPhone(formData.phone_number.trim())) {
+      newErrors.phone_number = "Invalid Nigerian phone number"
+    }
+
     if (!formData.role) {
       newErrors.role = "Role is required"
     }
@@ -115,7 +131,7 @@ export function EditUserModal({ open, onOpenChange, user, onUpdate }: EditUserMo
           middle_name: formData.middle_name.trim() || null,
           last_name: formData.last_name.trim(),
           email: formData.email.trim(),
-          phone_number: formData.phone_number.trim() || null,
+          phone_number: normalizeNigerianPhone(formData.phone_number.trim()),
           role: formData.role,
           is_active: formData.is_active,
           updated_at: new Date().toISOString(),
@@ -141,7 +157,7 @@ export function EditUserModal({ open, onOpenChange, user, onUpdate }: EditUserMo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Edit User</DialogTitle>
+          <DialogTitle>Edit Staff Member</DialogTitle>
           <DialogDescription>Update user information and permissions</DialogDescription>
         </DialogHeader>
 
@@ -206,13 +222,23 @@ export function EditUserModal({ open, onOpenChange, user, onUpdate }: EditUserMo
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone_number">Phone Number</Label>
+            <Label htmlFor="phone_number">Phone Number *</Label>
             <Input
               id="phone_number"
               value={formData.phone_number}
-              onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-              placeholder="+234..."
+              onChange={(e) => {
+                setFormData({ ...formData, phone_number: e.target.value })
+                if (errors.phone_number) setErrors({ ...errors, phone_number: "" })
+              }}
+              placeholder="08012345678"
+              className={errors.phone_number ? "border-red-500" : ""}
             />
+            {errors.phone_number && (
+              <p className="text-xs text-red-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {errors.phone_number}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

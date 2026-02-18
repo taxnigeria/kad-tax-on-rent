@@ -123,35 +123,43 @@ export function RegisterPropertyModal({
             // Prioritize identifying user role
             const { data: userProfile } = await supabase
                 .from("users")
-                .select("role")
+                .select("id, role")
                 .eq("firebase_uid", user.uid)
                 .single()
 
             const role = userProfile?.role || null
             setUserRole(role)
 
-            if (role === "property_manager") {
-                fetchAuthorizedOwners()
+            if (role === "property_manager" && userProfile?.id) {
+                fetchRegisteredClients(userProfile.id)
+            } else if (role === "admin") {
+                fetchRegisteredClients() // Admin can see all clients
             }
         } catch (error) {
             console.error("Error fetching user role:", error)
         }
     }
 
-    async function fetchAuthorizedOwners() {
-        if (!user?.uid) return
+    async function fetchRegisteredClients(managerId?: string) {
         try {
-            const { data, error } = await supabase
-                .from("manager_authorizations")
-                .select("owner_id, users!manager_authorizations_owner_id_fkey(first_name, last_name, email)")
-                .eq("manager_id", user.uid)
-                .eq("is_active", true)
+            let query = supabase
+                .from("taxpayer_profiles")
+                .select(`
+                    owner_id:user_id,
+                    users:users!taxpayer_profiles_user_id_fkey(first_name, last_name, email)
+                `)
+
+            if (managerId) {
+                query = query.eq("onboarded_by_id", managerId)
+            }
+
+            const { data, error } = await query
 
             if (!error && data) {
                 setAuthorizedOwners(data)
             }
         } catch (error) {
-            console.error("Error fetching authorized owners:", error)
+            console.error("Error fetching registered clients:", error)
         }
     }
 

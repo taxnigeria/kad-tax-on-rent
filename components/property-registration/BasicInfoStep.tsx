@@ -225,7 +225,7 @@ export function BasicInfoStep({
                             </SelectTrigger>
                             <SelectContent>
                                 {authorizedOwners.length === 0 ? (
-                                    <div className="p-2 text-sm text-muted-foreground">No authorized owners found</div>
+                                    <div className="p-2 text-sm text-muted-foreground">No registered clients found</div>
                                 ) : (
                                     authorizedOwners.map((owner) => (
                                         <SelectItem key={owner.owner_id} value={owner.owner_id}>

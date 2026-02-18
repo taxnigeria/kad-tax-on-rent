@@ -67,10 +67,13 @@ import {
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { EditUserModal } from "@/components/admin/edit-user-modal"
 import { createAdminFirebaseUser } from "@/app/actions/auth"
+import { isValidNigerianPhone, normalizeNigerianPhone } from "@/lib/utils/phone"
+import { toast } from "sonner"
+
+const isCapitalized = (str: string) => /^[A-Z]/.test(str);
 
 const STAFF_ROLES = ["super_admin", "superadmin", "admin", "staff", "enumerator", "qa", "area_officer"]
 
@@ -158,6 +161,7 @@ export default function AdminUsersPage() {
     role: "staff",
   })
   const [addingUser, setAddingUser] = useState(false)
+  const [addUserErrors, setAddUserErrors] = useState<Record<string, string>>({})
 
   // Migration state
   const [migratingUser, setMigratingUser] = useState<string | null>(null)
@@ -358,17 +362,48 @@ export default function AdminUsersPage() {
   }
 
   async function handleAddUser() {
-    if (!newUserData.first_name || !newUserData.last_name || !newUserData.email) {
-      toast.error("Please fill in all required fields")
+    const newErrors: Record<string, string> = {}
+
+    if (!newUserData.first_name) {
+      newErrors.first_name = "First name is required"
+    } else if (!isCapitalized(newUserData.first_name)) {
+      newErrors.first_name = "Must start with a capital letter"
+    }
+
+    if (!newUserData.last_name) {
+      newErrors.last_name = "Last name is required"
+    } else if (!isCapitalized(newUserData.last_name)) {
+      newErrors.last_name = "Must start with a capital letter"
+    }
+
+    if (!newUserData.email) {
+      newErrors.email = "Email is required"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUserData.email)) {
+      newErrors.email = "Invalid email format"
+    }
+
+    if (!newUserData.phone_number) {
+      newErrors.phone_number = "Phone number is required"
+    } else if (!isValidNigerianPhone(newUserData.phone_number)) {
+      newErrors.phone_number = "Invalid Nigerian phone number"
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setAddUserErrors(newErrors)
       return
     }
+
+    setAddUserErrors({})
 
     try {
       setAddingUser(true)
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newUserData),
+        body: JSON.stringify({
+          ...newUserData,
+          phone_number: normalizeNigerianPhone(newUserData.phone_number)
+        }),
       })
       const data = await response.json()
 
@@ -583,7 +618,7 @@ export default function AdminUsersPage() {
             </div>
             <Button onClick={() => setIsAddUserDialogOpen(true)}>
               <UserPlus className="h-4 w-4 mr-2" />
-              Add User
+              Add Staff
             </Button>
           </div>
 
@@ -1414,7 +1449,7 @@ export default function AdminUsersPage() {
       <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Staff User</DialogTitle>
+            <DialogTitle>Add New Staff member</DialogTitle>
             <DialogDescription>
               Create a new staff account. They will receive an email to set their password.
             </DialogDescription>
@@ -1426,18 +1461,28 @@ export default function AdminUsersPage() {
                 <Input
                   id="first_name"
                   value={newUserData.first_name}
-                  onChange={(e) => setNewUserData({ ...newUserData, first_name: e.target.value })}
+                  onChange={(e) => {
+                    setNewUserData({ ...newUserData, first_name: e.target.value })
+                    if (addUserErrors.first_name) setAddUserErrors({ ...addUserErrors, first_name: "" })
+                  }}
                   placeholder="John"
+                  className={addUserErrors.first_name ? "border-red-500" : ""}
                 />
+                {addUserErrors.first_name && <p className="text-xs text-red-500">{addUserErrors.first_name}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="last_name">Last Name *</Label>
                 <Input
                   id="last_name"
                   value={newUserData.last_name}
-                  onChange={(e) => setNewUserData({ ...newUserData, last_name: e.target.value })}
+                  onChange={(e) => {
+                    setNewUserData({ ...newUserData, last_name: e.target.value })
+                    if (addUserErrors.last_name) setAddUserErrors({ ...addUserErrors, last_name: "" })
+                  }}
                   placeholder="Doe"
+                  className={addUserErrors.last_name ? "border-red-500" : ""}
                 />
+                {addUserErrors.last_name && <p className="text-xs text-red-500">{addUserErrors.last_name}</p>}
               </div>
             </div>
             <div className="space-y-2">
@@ -1446,18 +1491,28 @@ export default function AdminUsersPage() {
                 id="email"
                 type="email"
                 value={newUserData.email}
-                onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                onChange={(e) => {
+                  setNewUserData({ ...newUserData, email: e.target.value })
+                  if (addUserErrors.email) setAddUserErrors({ ...addUserErrors, email: "" })
+                }}
                 placeholder="john.doe@example.com"
+                className={addUserErrors.email ? "border-red-500" : ""}
               />
+              {addUserErrors.email && <p className="text-xs text-red-500">{addUserErrors.email}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">Phone Number *</Label>
               <Input
                 id="phone"
                 value={newUserData.phone_number}
-                onChange={(e) => setNewUserData({ ...newUserData, phone_number: e.target.value })}
+                onChange={(e) => {
+                  setNewUserData({ ...newUserData, phone_number: e.target.value })
+                  if (addUserErrors.phone_number) setAddUserErrors({ ...addUserErrors, phone_number: "" })
+                }}
                 placeholder="08012345678"
+                className={addUserErrors.phone_number ? "border-red-500" : ""}
               />
+              {addUserErrors.phone_number && <p className="text-xs text-red-500">{addUserErrors.phone_number}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role *</Label>
@@ -1492,8 +1547,8 @@ export default function AdminUsersPage() {
       {/* Edit User Modal */}
       {editingUser && (
         <EditUserModal
-          isOpen={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
           user={editingUser}
           onUpdate={() => {
             fetchUsers()

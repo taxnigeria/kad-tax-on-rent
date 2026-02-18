@@ -17,6 +17,10 @@ import { formatCurrency } from "@/lib/utils"
 import {
   LineChart,
   Line,
+  Area,
+  AreaChart,
+  BarChart,
+  Bar,
   PieChart,
   Pie,
   Cell,
@@ -82,6 +86,16 @@ interface MonthlyRevenue {
   revenue: number
 }
 
+interface LgaPerformance {
+  name: string
+  revenue: number
+}
+
+interface EnumeratorStat {
+  name: string
+  count: number
+}
+
 export default function AdminDashboard() {
   const { user, userRole, loading: authLoading } = useAuth()
   const router = useRouter()
@@ -98,6 +112,8 @@ export default function AdminDashboard() {
     calculations: [],
   })
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([])
+  const [lgaPerformance, setLgaPerformance] = useState<LgaPerformance[]>([])
+  const [topEnumerators, setTopEnumerators] = useState<EnumeratorStat[]>([])
 
   // Auth check
   useEffect(() => {
@@ -123,14 +139,15 @@ export default function AdminDashboard() {
         { data: properties },
         { data: taxCalculations },
         { data: recentPaymentsData },
+        { data: lgas },
       ] = await Promise.all([
-        supabase.from("payments").select("amount, verification_status, created_at"),
-        supabase.from("invoices").select("total_amount, payment_status, due_date, created_at"),
+        supabase.from("payments").select("amount, verification_status, created_at, invoice_id"),
+        supabase.from("invoices").select("id, total_amount, payment_status, due_date, created_at, property_id"),
         // Join taxpayer_profiles with users to get is_active
         supabase
           .from("taxpayer_profiles")
           .select("id, created_at, user_id, users!inner(is_active)"),
-        supabase.from("properties").select("id, verification_status, created_at"),
+        supabase.from("properties").select("id, verification_status, created_at, lga_id, enumerated_by_user_id"),
         supabase
           .from("tax_calculations")
           .select("id, total_tax_due, property_id, created_at, properties(registered_property_name)")
@@ -150,6 +167,7 @@ export default function AdminDashboard() {
           )
           .order("created_at", { ascending: false })
           .limit(5),
+        supabase.from("lgas").select("id, name"),
       ])
 
       // Calculate revenue stats
@@ -233,6 +251,39 @@ export default function AdminDashboard() {
           date: new Date(p.created_at).toLocaleDateString(),
         })) || []
 
+      // Calculate LGA performance
+      const lgaData: LgaPerformance[] = (lgas || []).map(lga => {
+        const lgaRevenue = (payments || [])
+          .filter(p => p.verification_status === "verified")
+          .filter(p => {
+            const inv = invoices?.find(i => i.id === p.invoice_id)
+            const prop = properties?.find(pr => pr.id === inv?.property_id)
+            return prop?.lga_id === lga.id
+          })
+          .reduce((sum, p) => sum + (p.amount || 0), 0)
+
+        return { name: lga.name, revenue: lgaRevenue }
+      })
+        .filter(l => l.revenue > 0)
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5)
+
+      // Calculate Top Enumerators
+      const enumeratorMap = new Map<string, number>()
+      properties?.filter(p => p.verification_status === "verified").forEach(p => {
+        if (p.enumerated_by_user_id) {
+          enumeratorMap.set(p.enumerated_by_user_id, (enumeratorMap.get(p.enumerated_by_user_id) || 0) + 1)
+        }
+      })
+
+      // We don't have user names easily here without another join, 
+      // but for now let's use the ID or placeholder if we can't find them.
+      // In a real app, you'd join with the users table.
+      const enumStats: EnumeratorStat[] = Array.from(enumeratorMap.entries())
+        .map(([id, count]) => ({ name: `Staff ${id.slice(0, 4)}`, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5)
+
       setStats({
         revenue: {
           total: totalCollected + totalOutstanding,
@@ -261,6 +312,8 @@ export default function AdminDashboard() {
       })
 
       setMonthlyRevenue(monthlyData)
+      setLgaPerformance(lgaData)
+      setTopEnumerators(enumStats)
       setRecentActivity({
         payments: recentPaymentsProcessed,
         registrations: recentRegs,
@@ -288,19 +341,15 @@ export default function AdminDashboard() {
     const channel = supabase
       .channel("admin-dashboard-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, () => {
-        console.log("[v0] Payments updated, refreshing dashboard...")
         loadDashboardData()
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "invoices" }, () => {
-        console.log("[v0] Invoices updated, refreshing dashboard...")
         loadDashboardData()
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "properties" }, () => {
-        console.log("[v0] Properties updated, refreshing dashboard...")
         loadDashboardData()
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "taxpayer_profiles" }, () => {
-        console.log("[v0] Taxpayers updated, refreshing dashboard...")
         loadDashboardData()
       })
       .subscribe()
@@ -336,8 +385,8 @@ export default function AdminDashboard() {
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
-              <p className="text-sm text-muted-foreground">Real-time overview of tax collection system</p>
+              <h1 className="text-2xl font-bold tracking-tight text-gradient">Admin Dashboard</h1>
+              <p className="text-xs text-muted-foreground">Real-time overview of tax collection system</p>
             </div>
           </div>
 
@@ -359,156 +408,86 @@ export default function AdminDashboard() {
           ) : (
             <>
               {/* Revenue Stats */}
-              <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs sm:grid-cols-2 lg:grid-cols-4">
-                <Card className="@container/card">
-                  <CardHeader>
-                    <CardDescription>Total Revenue</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                      {formatCurrency(stats.revenue.total)}
-                    </CardTitle>
-                    <CardAction>
-                      <Badge variant="outline">
-                        <DollarSign className="size-4" />
-                      </Badge>
-                    </CardAction>
+              {/* Decision Center - Tasks Needing Attention */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="md:col-span-2 border-primary/20 bg-primary/5">
+                  <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <AlertCircle className="size-4 text-primary" />
+                        Decision Center
+                      </CardTitle>
+                      <CardDescription className="text-[10px]">Critical items requiring administrative action</CardDescription>
+                    </div>
                   </CardHeader>
-                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">All time collection</div>
-                    <div className="text-muted-foreground">Collected + Outstanding</div>
-                  </CardFooter>
+                  <CardContent className="py-3 px-4 pt-0">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="p-2 rounded-lg bg-background border flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary transition-colors" onClick={() => router.push('/admin/properties?status=pending')}>
+                        <span className="text-lg font-bold text-orange-600">{stats.properties.pending}</span>
+                        <span className="text-[10px] text-muted-foreground">Pending Properties</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-background border flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary transition-colors" onClick={() => router.push('/admin/payments?status=pending')}>
+                        <span className="text-lg font-bold text-blue-600">{stats.revenue.pendingVerification}</span>
+                        <span className="text-[10px] text-muted-foreground">Pending Payments</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-background border flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary transition-colors" onClick={() => router.push('/admin/invoices?status=overdue')}>
+                        <span className="text-lg font-bold text-red-600">{stats.invoices.overdue}</span>
+                        <span className="text-[10px] text-muted-foreground">Overdue Invoices</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-background border flex flex-col items-center justify-center text-center">
+                        <span className="text-lg font-bold text-green-600">{(stats.revenue.collected / (stats.revenue.total || 1) * 100).toFixed(0)}%</span>
+                        <span className="text-[10px] text-muted-foreground">Collection Eff.</span>
+                      </div>
+                    </div>
+                  </CardContent>
                 </Card>
 
-                <Card className="@container/card">
-                  <CardHeader>
-                    <CardDescription>Collected Revenue</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                      {formatCurrency(stats.revenue.collected)}
+                <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20">
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <TrendingUp className="size-4 text-green-600" />
+                      Growth Insight
                     </CardTitle>
-                    <CardAction>
-                      <Badge variant="outline" className="text-green-600">
-                        <CheckCircle className="size-4" />
-                      </Badge>
-                    </CardAction>
                   </CardHeader>
-                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">Verified payments</div>
-                    <div className="text-muted-foreground">Successfully collected</div>
-                  </CardFooter>
-                </Card>
-
-                <Card className="@container/card">
-                  <CardHeader>
-                    <CardDescription>Outstanding</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                      {formatCurrency(stats.revenue.outstanding)}
-                    </CardTitle>
-                    <CardAction>
-                      <Badge variant="outline" className="text-orange-600">
-                        <AlertCircle className="size-4" />
-                      </Badge>
-                    </CardAction>
-                  </CardHeader>
-                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">Unpaid invoices</div>
-                    <div className="text-muted-foreground">Requires attention</div>
-                  </CardFooter>
-                </Card>
-
-                <Card className="@container/card">
-                  <CardHeader>
-                    <CardDescription>Pending Verification</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                      {stats.revenue.pendingVerification}
-                    </CardTitle>
-                    <CardAction>
-                      <Badge variant="outline" className="text-blue-600">
-                        <Clock className="size-4" />
-                      </Badge>
-                    </CardAction>
-                  </CardHeader>
-                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">Awaiting approval</div>
-                    <div className="text-muted-foreground">Payments to review</div>
-                  </CardFooter>
+                  <CardContent className="py-2 px-4 pt-0">
+                    <div className="text-lg font-bold">{stats.taxpayers.newThisMonth}</div>
+                    <p className="text-[10px] text-muted-foreground">New taxpayers registered this month. The system is seeing a healthy growth rate.</p>
+                  </CardContent>
                 </Card>
               </div>
 
-              {/* Taxpayer & Property Stats */}
-              <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs sm:grid-cols-2 lg:grid-cols-4">
-                <Card className="@container/card">
-                  <CardHeader>
-                    <CardDescription>Total Taxpayers</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                      {stats.taxpayers.total}
-                    </CardTitle>
-                    <CardAction>
-                      <Badge variant="outline">
-                        <Users className="size-4" />
-                      </Badge>
-                    </CardAction>
-                  </CardHeader>
-                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">{stats.taxpayers.active} active taxpayers</div>
-                    <div className="text-muted-foreground">Registered in system</div>
-                  </CardFooter>
+              {/* Compact KPI Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <Card className="py-3 px-4 relative overflow-hidden group hover:shadow-md transition-shadow dashboard-card">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Revenue</span>
+                    <span className="text-xl font-bold font-mono">{formatCurrency(stats.revenue.total)}</span>
+                  </div>
+                  <DollarSign className="absolute right-2 top-1/2 -translate-y-1/2 size-8 text-black/[0.03] group-hover:text-primary/5 transition-colors" />
                 </Card>
 
-                <Card className="@container/card">
-                  <CardHeader>
-                    <CardDescription>New This Month</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                      {stats.taxpayers.newThisMonth}
-                    </CardTitle>
-                    <CardAction>
-                      <Badge variant="outline" className="text-green-600">
-                        <TrendingUp className="size-4" />
-                      </Badge>
-                    </CardAction>
-                  </CardHeader>
-                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">
-                      New registrations <TrendingUp className="size-4" />
-                    </div>
-                    <div className="text-muted-foreground">Growth this period</div>
-                  </CardFooter>
+                <Card className="py-3 px-4 relative overflow-hidden group hover:shadow-md transition-shadow dashboard-card">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Collected</span>
+                    <span className="text-xl font-bold font-mono text-green-600">{formatCurrency(stats.revenue.collected)}</span>
+                  </div>
+                  <CheckCircle className="absolute right-2 top-1/2 -translate-y-1/2 size-8 text-black/[0.03] group-hover:text-green-500/5 transition-colors" />
                 </Card>
 
-                <Card className="@container/card">
-                  <CardHeader>
-                    <CardDescription>Total Properties</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                      {stats.properties.total}
-                    </CardTitle>
-                    <CardAction>
-                      <Badge variant="outline">
-                        <Home className="size-4" />
-                      </Badge>
-                    </CardAction>
-                  </CardHeader>
-                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">
-                      {stats.properties.verified} verified properties
-                    </div>
-                    <div className="text-muted-foreground">Registered assets</div>
-                  </CardFooter>
+                <Card className="py-3 px-4 relative overflow-hidden group hover:shadow-md transition-shadow dashboard-card">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Taxpayers</span>
+                    <span className="text-xl font-bold font-mono">{stats.taxpayers.total}</span>
+                  </div>
+                  <Users className="absolute right-2 top-1/2 -translate-y-1/2 size-8 text-black/[0.03] group-hover:text-primary/5 transition-colors" />
                 </Card>
 
-                <Card className="@container/card">
-                  <CardHeader>
-                    <CardDescription>Pending Properties</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                      {stats.properties.pending}
-                    </CardTitle>
-                    <CardAction>
-                      <Badge variant="outline" className="text-orange-600">
-                        <Clock className="size-4" />
-                      </Badge>
-                    </CardAction>
-                  </CardHeader>
-                  <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                    <div className="line-clamp-1 flex gap-2 font-medium">Awaiting verification</div>
-                    <div className="text-muted-foreground">Requires admin action</div>
-                  </CardFooter>
+                <Card className="py-3 px-4 relative overflow-hidden group hover:shadow-md transition-shadow dashboard-card">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Verified Props</span>
+                    <span className="text-xl font-bold font-mono text-blue-600">{stats.properties.verified}</span>
+                  </div>
+                  <Home className="absolute right-2 top-1/2 -translate-y-1/2 size-8 text-black/[0.03] group-hover:text-blue-500/5 transition-colors" />
                 </Card>
               </div>
 
@@ -524,19 +503,43 @@ export default function AdminDashboard() {
                       config={{
                         revenue: {
                           label: "Revenue",
-                          color: "hsl(var(--chart-1))",
+                          color: "hsl(var(--primary))",
                         },
                       }}
                       className="h-[200px] w-full"
                     >
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={monthlyRevenue}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" />
-                          <YAxis />
+                        <AreaChart data={monthlyRevenue}>
+                          <defs>
+                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
+                          <XAxis
+                            dataKey="month"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 10 }}
+                            dy={10}
+                          />
+                          <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 10 }}
+                            tickFormatter={(value) => `₦${(value / 1000).toFixed(0)}k`}
+                          />
                           <ChartTooltip content={<ChartTooltipContent />} />
-                          <Line type="monotone" dataKey="revenue" stroke="var(--color-revenue)" strokeWidth={2} />
-                        </LineChart>
+                          <Area
+                            type="monotone"
+                            dataKey="revenue"
+                            stroke="hsl(var(--primary))"
+                            fillOpacity={1}
+                            fill="url(#colorRevenue)"
+                            strokeWidth={2}
+                          />
+                        </AreaChart>
                       </ResponsiveContainer>
                     </ChartContainer>
                   </CardContent>
@@ -581,10 +584,84 @@ export default function AdminDashboard() {
                             ))}
                           </Pie>
                           <ChartTooltip content={<ChartTooltipContent />} />
-                          <Legend />
+                          <Legend iconType="circle" wrapperStyle={{ fontSize: '10px' }} />
                         </PieChart>
                       </ResponsiveContainer>
                     </ChartContainer>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Advanced Insights Row */}
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* LGA Performance Bar Chart */}
+                <Card>
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm font-bold">LGA Revenue Performance (Top 5)</CardTitle>
+                    <CardDescription className="text-[10px]">Revenue distribution by Local Government Area</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[250px]">
+                    <ChartContainer
+                      config={{
+                        revenue: {
+                          label: "Revenue",
+                          color: "hsl(var(--primary))",
+                        },
+                      }}
+                      className="h-full w-full"
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={lgaPerformance} layout="vertical" margin={{ left: 40, right: 30 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#88888820" />
+                          <XAxis type="number" hide />
+                          <YAxis
+                            dataKey="name"
+                            type="category"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 10, fontWeight: 500 }}
+                          />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar
+                            dataKey="revenue"
+                            fill="hsl(var(--primary))"
+                            radius={[0, 4, 4, 0]}
+                            barSize={20}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Top Enumerators Table */}
+                <Card>
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm font-bold">Top Performing Staff</CardTitle>
+                    <CardDescription className="text-[10px]">Most verified property registrations</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {topEnumerators.map((en, i) => (
+                        <div key={en.name} className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                              {i + 1}
+                            </div>
+                            <span className="text-sm font-medium">{en.name}</span>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <span className="text-sm font-bold">{en.count}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">Properties</span>
+                          </div>
+                        </div>
+                      ))}
+                      {topEnumerators.length === 0 && (
+                        <div className="py-8 text-center text-muted-foreground text-sm italic">
+                          No performance data recorded yet
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
