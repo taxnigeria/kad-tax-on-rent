@@ -232,9 +232,7 @@ export function AddPropertyForClientModal({ open, onOpenChange, onSuccess, clien
         return true
     }
 
-    const validateImages = (): boolean => {
-        return true // Images are now optional
-    }
+
 
     function handleBack() {
         if (currentStep > 1) {
@@ -304,12 +302,6 @@ export function AddPropertyForClientModal({ open, onOpenChange, onSuccess, clien
         if (currentStep < 3 && !validateStep(currentStep)) {
             toast.error("Missing Information", {
                 description: `Please fill in all required fields.`,
-            })
-            return
-        }
-        if (currentStep === 3 && !validateImages()) {
-            toast.error("Missing Images", {
-                description: "Please upload property facade and address number images.",
             })
             return
         }

@@ -40,45 +40,28 @@ function AssignManagerDialog({ open, onOpenChange, property, onSuccess }: Assign
   }, [open, property])
 
   async function searchManagers(query: string) {
-    if (!property?.owner_id) return
-
     setSearching(true)
     try {
-      // Get managers authorized for this property's owner
-      const { data: authorizations, error: authError } = await supabase
-        .from("manager_authorizations")
-        .select(
-          `
-          manager_id,
-          users!manager_authorizations_manager_id_fkey (
-            id,
-            first_name,
-            middle_name,
-            last_name,
-            email,
-            phone_number
-          )
-        `,
-        )
-        .eq("owner_id", property.owner_id)
-        .eq("is_active", true)
-
-      if (authError) throw authError
-
-      let results = authorizations?.map((auth: any) => auth.users) || []
+      // Get all property managers regardless of authorization
+      let managerQuery = supabase
+        .from("users")
+        .select("id, first_name, middle_name, last_name, email, phone_number")
+        .eq("role", "property_manager")
+        .order("first_name", { ascending: true })
+        .limit(50)
 
       // Filter by search query if provided
       if (query && query.length >= 2) {
-        const lowerQuery = query.toLowerCase()
-        results = results.filter(
-          (manager: any) =>
-            manager.first_name?.toLowerCase().includes(lowerQuery) ||
-            manager.last_name?.toLowerCase().includes(lowerQuery) ||
-            manager.email?.toLowerCase().includes(lowerQuery),
+        managerQuery = managerQuery.or(
+          `first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`
         )
       }
 
-      setManagers(results)
+      const { data, error } = await managerQuery
+
+      if (error) throw error
+
+      setManagers(data || [])
     } catch (error) {
       console.error("Error searching managers:", error)
       toast.error("Failed to search managers")
@@ -158,7 +141,7 @@ function AssignManagerDialog({ open, onOpenChange, property, onSuccess }: Assign
             {property?.has_property_manager ? "Change Property Manager" : "Assign Property Manager"}
           </DialogTitle>
           <DialogDescription>
-            Select a manager authorized to manage properties for this owner. Only authorized managers are shown.
+            Select a property manager to assign to this property.
           </DialogDescription>
         </DialogHeader>
 
@@ -185,7 +168,7 @@ function AssignManagerDialog({ open, onOpenChange, property, onSuccess }: Assign
 
           {/* Search Managers */}
           <div className="space-y-2">
-            <Label htmlFor="search">Search Authorized Managers</Label>
+            <Label htmlFor="search">Search Property Managers</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -213,9 +196,8 @@ function AssignManagerDialog({ open, onOpenChange, property, onSuccess }: Assign
               {managers.map((manager) => (
                 <button
                   key={manager.id}
-                  className={`w-full p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-b-0 ${
-                    selectedManager?.id === manager.id ? "bg-primary/10" : ""
-                  }`}
+                  className={`w-full p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-b-0 ${selectedManager?.id === manager.id ? "bg-primary/10" : ""
+                    }`}
                   onClick={() => setSelectedManager(manager)}
                 >
                   <div className="font-medium">
@@ -231,9 +213,9 @@ function AssignManagerDialog({ open, onOpenChange, property, onSuccess }: Assign
               <CardContent className="flex flex-col items-center justify-center py-6">
                 <UserCog className="h-12 w-12 text-muted-foreground/50 mb-2" />
                 <p className="text-sm text-muted-foreground text-center">
-                  No authorized managers found for this owner.
+                  No property managers found.
                   <br />
-                  Please create a manager authorization first.
+                  Please create a property manager account first.
                 </p>
               </CardContent>
             </Card>

@@ -12,6 +12,7 @@ import {
   BarChart3,
   Shield,
   MapPin,
+  Bell,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -94,6 +95,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             url: "/admin/invoices/overdue",
           },
         ],
+      },
+      {
+        title: "Notifications",
+        url: "/admin/notifications",
+        icon: Bell,
+        isActive: pathname === "/admin/notifications",
+        items: [
+          {
+            title: "Broadcasts",
+            url: "/admin/notifications",
+          },
+        ]
       },
       {
         title: "Payments",

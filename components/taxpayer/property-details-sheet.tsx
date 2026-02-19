@@ -22,7 +22,6 @@ import {
   Calendar,
   DollarSign,
   Home,
-  Download,
   Printer,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -92,6 +91,7 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
           invoices (
             id,
             invoice_number,
+            bill_reference,
             total_amount,
             balance_due,
             payment_status,
@@ -146,6 +146,7 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
           invoices (
             id,
             invoice_number,
+            bill_reference,
             payment_status,
             total_amount,
             balance_due,
@@ -174,33 +175,12 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
     }
   }
 
-  function handleDownloadInvoice(e: React.MouseEvent, calc: any) {
-    e.stopPropagation()
-    const invoice = calc.invoices?.[0]
-    if (invoice) {
-      toast({
-        title: "Downloading Invoice",
-        description: `Downloading invoice ${invoice.invoice_number}...`,
-      })
-      // TODO: Implement actual download logic
-    } else {
-      toast({
-        title: "No Invoice",
-        description: "This calculation doesn't have an associated invoice yet.",
-        variant: "destructive",
-      })
-    }
-  }
-
   function handlePrintInvoice(e: React.MouseEvent, calc: any) {
     e.stopPropagation()
     const invoice = calc.invoices?.[0]
     if (invoice) {
-      toast({
-        title: "Printing Invoice",
-        description: `Preparing to print invoice ${invoice.invoice_number}...`,
-      })
-      // TODO: Implement actual print logic
+      setSelectedTaxCalcId(calc.id)
+      setTaxBillSheetOpen(true)
     } else {
       toast({
         title: "No Invoice",
@@ -449,7 +429,7 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
                     </div>
                     <div className="space-y-1">
                       <div className="text-xs font-medium text-muted-foreground">Area Office</div>
-                      <div>{property.area_office_id || "—"}</div>
+                      <div>{property.area_offices?.office_name || "—"}</div>
                     </div>
                   </div>
                 ) : (
@@ -565,7 +545,7 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
                               </TableCell>
                               <TableCell className="hidden sm:table-cell">
                                 {invoice ? (
-                                  <span className="font-mono text-sm">{invoice.invoice_number}</span>
+                                  <span className="font-mono text-sm">{invoice.bill_reference || invoice.invoice_number}</span>
                                 ) : (
                                   <span className="text-muted-foreground text-sm">No invoice</span>
                                 )}
@@ -592,14 +572,6 @@ export function TaxpayerPropertyDetailsSheet({ open, onOpenChange, propertyId }:
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={(e) => handleDownloadInvoice(e, calc)}
-                                  >
-                                    <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                                  </Button>
                                   <Button
                                     variant="ghost"
                                     size="icon"
