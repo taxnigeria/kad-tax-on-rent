@@ -430,9 +430,9 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
     }
   }
 
-  // validate images
+  // validate images - making them optional
   const validateImages = (): boolean => {
-    return propertyFacadeImage !== null && addressNumberImage !== null
+    return true
   }
 
   // validate step and include image validation
@@ -1272,7 +1272,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                     {/* Property Facade Image */}
                     <div className="space-y-2">
                       <Label htmlFor="facade-input">
-                        Property Facade Image <span className="text-destructive">*</span>
+                        Property Facade Image (Optional)
                       </Label>
                       <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
                         <input
@@ -1315,7 +1315,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                     {/* Address Number Image */}
                     <div className="space-y-2">
                       <Label htmlFor="address-input">
-                        Address Number Image <span className="text-destructive">*</span>
+                        Address Number Image (Optional)
                       </Label>
                       <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
                         <input
@@ -1417,7 +1417,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                   {/* Property Facade Image */}
                   <div className="mb-6">
                     <label className="block text-sm font-medium mb-2">
-                      Property Facade Image <span className="text-destructive">*</span>
+                      Property Facade Image (Optional)
                     </label>
                     <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
                       <input
@@ -1461,7 +1461,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                   {/* Address Number Image */}
                   <div>
                     <label className="block text-sm font-medium mb-2">
-                      Address Number Image <span className="text-destructive">*</span>
+                      Address Number Image (Optional)
                     </label>
                     <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
                       <input
@@ -1535,7 +1535,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
                   <Button
                     onClick={handleSubmit}
                     disabled={
-                      loading || uploading || !validateImages() // ensure images are validated before final submission
+                      loading || uploading // removed !validateImages() check
                     }
                   >
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

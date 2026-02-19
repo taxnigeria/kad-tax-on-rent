@@ -84,6 +84,7 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
             id,
             gender,
             address_line1,
+            residential_address,
             lga_id,
             industry_id,
             user_type,
@@ -102,7 +103,7 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
 
       setTaxpayerData(userData)
 
-      const profile = userData.taxpayer_profiles
+      const profile = userData.taxpayer_profiles?.[0] || null
 
       const [lgasResult, industriesResult] = await Promise.all([
         supabase.from("lgas").select("id, name").order("name"),
@@ -120,7 +121,7 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
         email: userData.email || "",
         phoneNumber: userData.phone_number || "",
         gender: profile?.gender || "",
-        addressLine1: profile?.address_line1 || "",
+        addressLine1: profile?.residential_address || profile?.address_line1 || "",
         lgaId: profile?.lga_id?.toString() || "",
         industryId: profile?.industry_id?.toString() || "",
         userType: profile?.user_type || "Individual",
@@ -174,7 +175,9 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
         }
       }
 
-      const profile = taxpayerData.taxpayer_profiles
+      const profile = Array.isArray(taxpayerData.taxpayer_profiles)
+        ? taxpayerData.taxpayer_profiles[0]
+        : taxpayerData.taxpayer_profiles
 
       const profileUpdates = {
         user_id: taxpayerId,
@@ -271,16 +274,16 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
       }
 
       const responseData = await response.json()
+      // n8n sometimes returns an array
+      const data = Array.isArray(responseData) ? responseData[0] : responseData
 
-      if (responseData.success === true) {
-        // Success: KADIRS ID generated
-        const kadirsId = responseData?.userRegistration?.tpui
+      console.log("[v0] KADIRS API response data:", data)
 
-        if (!kadirsId) {
-          console.error("[v0] KADIRS ID not found in response:", responseData)
-          throw new Error("KADIRS ID not found in API response")
-        }
+      // Check for various response formats
+      const kadirsId = data?.userRegistration?.tpui || data?.tpui || data?.search_result?.tpui
 
+      if (kadirsId) {
+        // Success: KADIRS ID generated or found
         // Update taxpayer profile with KADIRS ID
         const { error: updateKadirsError } = await supabase
           .from("taxpayer_profiles")
@@ -294,28 +297,22 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
         toast.success(`KADIRS ID generated successfully: ${kadirsId}`)
         onSuccess()
         onOpenChange(false)
-      } else if (responseData.success === false && responseData.search_result) {
+      } else if (data.success === false && data.search_result) {
         // Existing user found - show confirmation modal
         const searchResult = {
-          ...responseData.search_result,
+          ...data.search_result,
           // Use tpui as kadirs_id since that's what n8n returns for search results
-          kadirs_id: responseData.search_result.tpui,
+          kadirs_id: data.search_result.tpui,
         }
         setExistingUserData(searchResult)
         setShowExistingUserModal(true)
-      } else if (responseData.success === false && responseData.error) {
+      } else if (data.success === false && data.error) {
         // Error occurred - show error modal
-        setErrorData(responseData.error)
+        setErrorData(data.error)
         setShowErrorModal(true)
-      } else if (responseData.tpui) {
-        const searchResult = {
-          ...responseData,
-          kadirs_id: responseData.tpui,
-        }
-        setExistingUserData(searchResult)
-        setShowExistingUserModal(true)
       } else {
         // Unexpected response format
+        console.error("[v0] Unexpected KADIRS API response format:", responseData)
         throw new Error("Unexpected API response format")
       }
     } catch (error: any) {

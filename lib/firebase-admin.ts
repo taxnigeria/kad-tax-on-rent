@@ -268,6 +268,31 @@ export async function checkFirebaseUserExists(email?: string | null, phoneNumber
   }
 }
 
+export async function updateFirebaseUser(uid: string, data: {
+  emailVerified?: boolean
+  phoneNumber?: string
+  disabled?: boolean
+  displayName?: string
+}) {
+  if (!firebaseAdminAvailable) {
+    return { success: false, error: "Firebase Admin not available" }
+  }
+
+  const { auth } = await getFirebaseAdmin()
+
+  if (!auth) {
+    return { success: false, error: "Firebase Admin not configured" }
+  }
+
+  try {
+    const userRecord = await auth.updateUser(uid, data)
+    return { success: true, uid: userRecord.uid }
+  } catch (error: any) {
+    console.error("[Firebase Admin] Error updating user:", error)
+    return { success: false, error: error.message }
+  }
+}
+
 export async function deleteFirebaseUser(uid: string) {
   if (!firebaseAdminAvailable) {
     return { success: false, error: "Firebase Admin not available in this environment" }

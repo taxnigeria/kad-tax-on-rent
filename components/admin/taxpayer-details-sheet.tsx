@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { getTaxpayerById } from "@/app/actions/taxpayers"
+import { getTaxpayerById, verifyTaxpayerEmail, verifyTaxpayerPhone, updateTaxpayerVerificationStatus } from "@/app/actions/taxpayers"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +13,6 @@ import { toast } from "sonner"
 import {
   Building2,
   DollarSign,
-  CheckCircle,
   Loader2,
   Mail,
   Pencil,
@@ -23,7 +22,17 @@ import {
   X,
   CheckCircle2,
   KeyRound,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  ExternalLink,
 } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { EditTaxpayerModal } from "./edit-taxpayer-modal"
 import { PropertyDetailsSheet } from "./property-details-sheet"
 import { InvoiceDetailsSheet } from "./invoice-details-sheet"
@@ -86,6 +95,8 @@ type TaxpayerDetails = {
     area_offices: { office_name: string }
     registration_source: string
     onboarded_by_id: string | null
+    verification_status: 'pending' | 'verified' | 'rejected'
+    phone_verified: boolean
   }
   properties: any[]
   invoices: any[]
@@ -181,6 +192,57 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
   function handleEditUpdate() {
     fetchTaxpayerDetails()
     onUpdate()
+  }
+
+  async function handleVerifyEmail() {
+    if (!taxpayer) return
+    const promise = verifyTaxpayerEmail(taxpayer.id).then((res) => {
+      if (!res.success) throw new Error(res.error)
+      return res
+    })
+    toast.promise(promise, {
+      loading: "Verifying email...",
+      success: () => {
+        fetchTaxpayerDetails()
+        onUpdate()
+        return "Email verified successfully"
+      },
+      error: (err) => err.message || "Failed to verify email"
+    })
+  }
+
+  async function handleVerifyPhone() {
+    if (!taxpayer) return
+    const promise = verifyTaxpayerPhone(taxpayer.id).then((res) => {
+      if (!res.success) throw new Error(res.error)
+      return res
+    })
+    toast.promise(promise, {
+      loading: "Verifying phone...",
+      success: () => {
+        fetchTaxpayerDetails()
+        onUpdate()
+        return "Phone verified successfully"
+      },
+      error: (err) => err.message || "Failed to verify phone"
+    })
+  }
+
+  async function handleUpdateVerificationStatus(status: 'verified' | 'rejected' | 'pending') {
+    if (!taxpayer) return
+    const promise = updateTaxpayerVerificationStatus(taxpayer.id, status).then((res) => {
+      if (!res.success) throw new Error(res.error)
+      return res
+    })
+    toast.promise(promise, {
+      loading: `Updating status to ${status}...`,
+      success: () => {
+        fetchTaxpayerDetails()
+        onUpdate()
+        return `Profile verification status updated to ${status}`
+      },
+      error: (err) => err.message || `Failed to update status to ${status}`
+    })
   }
 
   function handleAddProperty() {
@@ -283,104 +345,135 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
             </div>
           ) : taxpayer ? (
             <>
-              <div className="pb-6 pl-6 border-b sticky top-0 bg-background z-10 pt-4">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-sm font-semibold text-primary">
-                          {taxpayer.first_name?.[0]}
-                          {taxpayer.last_name?.[0]}
-                        </span>
-                      </div>
-                      <SheetTitle className="text-xl">
-                        {taxpayer.first_name} {taxpayer.last_name}
-                      </SheetTitle>
-                      {taxpayer.is_active ? (
-                        <Badge className="bg-green-500">Active</Badge>
-                      ) : (
-                        <Badge variant="destructive">Inactive</Badge>
-                      )}
-                      <Badge variant="outline" className="capitalize">
-                        {taxpayer.taxpayer_profiles?.user_type?.replace("_", " ") || "No User Type"}
-                      </Badge>
+              <div className="px-6 py-4 border-b sticky top-0 bg-background z-20">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex-shrink-0 flex items-center justify-center border-2 border-primary/5">
+                      <span className="text-lg font-bold text-primary">
+                        {taxpayer.first_name?.[0]}
+                        {taxpayer.last_name?.[0]}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {taxpayer.taxpayer_profiles?.kadirs_id ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">KADIRS:</span>
-                          <span className="font-mono text-sm font-semibold">
-                            {taxpayer.taxpayer_profiles.kadirs_id}
-                          </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <SheetTitle className="text-xl font-bold truncate leading-tight">
+                          {taxpayer.first_name} {taxpayer.last_name}
+                        </SheetTitle>
+                        <div className="flex items-center gap-1.5">
+                          <Badge className={taxpayer.is_active ? "bg-emerald-500 hover:bg-emerald-600" : "bg-slate-400"}>
+                            {taxpayer.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                          <Badge variant="secondary" className="font-normal text-[10px] uppercase tracking-wider h-5">
+                            {taxpayer.taxpayer_profiles?.user_type?.replace("_", " ") || "No User Type"}
+                          </Badge>
                         </div>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 text-xs bg-transparent"
-                          onClick={handleGenerateKadirsId}
-                        >
-                          Generate KADIRS ID
-                        </Button>
-                      )}
+                      </div>
 
-                      {taxpayer.firebase_uid ? (
-                        <>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-500/10 text-green-500 border border-green-500/20">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Login Account Active
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 text-xs bg-transparent"
-                            onClick={async () => {
-                              try {
-                                toast.loading("Sending password reset email...")
-                                const { resetUserPassword } = await import("@/app/actions/auth")
-                                const result = await resetUserPassword(taxpayer.email)
-                                if (result.success) {
-                                  toast.success("Password reset email sent to " + taxpayer.email)
-                                } else {
-                                  toast.error(result.error || "Failed to send password reset email")
-                                }
-                              } catch (error: any) {
-                                toast.error("Error sending password reset email")
-                              }
-                            }}
-                          >
-                            <KeyRound className="h-3 w-3 mr-1" />
-                            Reset Password
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 text-xs bg-transparent"
-                          onClick={() => setShowFirebaseCreateModal(true)}
-                        >
-                          Create Firebase Account
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-3 mt-1.5">
+                        {taxpayer.taxpayer_profiles?.verification_status && (
+                          <div className="flex items-center bg-muted/50 rounded-md border p-0.5 px-2 gap-2">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase opacity-70">Status:</span>
+                            <span className={`text-[11px] font-bold uppercase ${taxpayer.taxpayer_profiles.verification_status === "verified" ? "text-emerald-600" :
+                              taxpayer.taxpayer_profiles.verification_status === "rejected" ? "text-red-600" : "text-amber-600"
+                              }`}>
+                              {taxpayer.taxpayer_profiles.verification_status}
+                            </span>
+
+                            {userRole === "admin" && (
+                              <div className="flex items-center gap-1 ml-1 pl-1 border-l border-muted-foreground/20">
+                                {taxpayer.taxpayer_profiles.verification_status !== "verified" && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="sm" variant="ghost" className="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                          onClick={() => handleUpdateVerificationStatus('verified')}
+                                        >
+                                          <CheckCircle className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">Verify now</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                                {taxpayer.taxpayer_profiles.verification_status !== "rejected" && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                          onClick={() => handleUpdateVerificationStatus('rejected')}
+                                        >
+                                          <XCircle className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">Reject</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-2 bg-transparent"
-                      onClick={() => setEditModalOpen(true)}
-                    >
-                      <Pencil className="h-4 w-4" />
+
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <Button size="sm" variant="outline" className="h-9 gap-2 shadow-sm" onClick={() => setEditModalOpen(true)}>
+                      <Pencil className="h-3.5 w-3.5" />
                       Edit
                     </Button>
                     <SheetClose asChild>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                      <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full">
                         <X className="h-4 w-4" />
                       </Button>
                     </SheetClose>
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2 mt-4 flex-wrap">
+                  {taxpayer.taxpayer_profiles?.kadirs_id ? (
+                    <Badge variant="outline" className="h-7 px-3 bg-muted/30 font-mono text-[11px] border-emerald-200/50">
+                      ID: {taxpayer.taxpayer_profiles.kadirs_id}
+                    </Badge>
+                  ) : (
+                    <Button variant="outline" size="sm" className="h-7 text-[11px] px-3 bg-primary/5 border-primary/20 text-primary hover:bg-primary/10" onClick={handleGenerateKadirsId}>
+                      Generate KADIRS ID
+                    </Button>
+                  )}
+
+                  {taxpayer.firebase_uid ? (
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="h-7 px-3 bg-green-50/50 text-emerald-600 border-emerald-200 text-[11px]">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Account Active
+                      </Badge>
+                      <Button
+                        variant="ghost" size="sm" className="h-7 text-[11px] px-2 text-muted-foreground hover:text-primary"
+                        onClick={async () => {
+                          try {
+                            toast.loading("Sending password reset email...")
+                            const { resetUserPassword } = await import("@/app/actions/auth")
+                            const result = await resetUserPassword(taxpayer.email)
+                            if (result.success) {
+                              toast.success("Password reset email sent to " + taxpayer.email)
+                            } else {
+                              toast.error(result.error || "Failed to send password reset email")
+                            }
+                          } catch (error: any) {
+                            toast.error("Error sending password reset email")
+                          }
+                        }}
+                      >
+                        Reset Password
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button variant="outline" size="sm" className="h-7 text-[11px] px-3 bg-indigo-50/50 border-indigo-200 text-indigo-700 hover:bg-indigo-100/50" onClick={() => setShowFirebaseCreateModal(true)}>
+                      Create Account
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -435,32 +528,51 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                   <CardContent>
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          Email
-                          {taxpayer.email_verified ? (
-                            <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                          ) : (
-                            <ShieldX className="h-3.5 w-3.5 text-red-500" />
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <a href={`mailto:${taxpayer.email}`} className="text-sm text-primary hover:underline truncate">
+                            {taxpayer.email}
+                          </a>
+                          {userRole === "admin" && !taxpayer.email_verified && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm" variant="ghost" className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-full"
+                                    onClick={handleVerifyEmail}
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">Verify now</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
-                        </p>
-                        <a href={`mailto:${taxpayer.email}`} className="text-sm text-primary hover:underline">
-                          {taxpayer.email}
-                        </a>
+                        </div>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          Phone
-                          {taxpayer.phone_number &&
-                            (taxpayer.phone_verified ? (
-                              <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                            ) : (
-                              <ShieldX className="h-3.5 w-3.5 text-red-500" />
-                            ))}
-                        </p>
+                        <p className="text-sm text-muted-foreground">Phone</p>
                         {taxpayer.phone_number ? (
-                          <a href={`tel:${taxpayer.phone_number}`} className="text-sm text-primary hover:underline">
-                            {taxpayer.phone_number}
-                          </a>
+                          <div className="flex items-center justify-between gap-2">
+                            <a href={`tel:${taxpayer.phone_number}`} className="text-sm text-primary hover:underline font-mono">
+                              {taxpayer.phone_number}
+                            </a>
+                            {userRole === "admin" && !taxpayer.phone_verified && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm" variant="ghost" className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-full"
+                                      onClick={handleVerifyPhone}
+                                    >
+                                      <CheckCircle className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">Verify now</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         ) : (
                           <p className="text-sm">—</p>
                         )}
@@ -743,19 +855,22 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
                 </div>
               </div>
             </>
-          ) : null}
-        </SheetContent>
-      </Sheet>
+          ) : null
+          }
+        </SheetContent >
+      </Sheet >
 
       {/* Property Selection Modal */}
-      {showPropertySelectionModal && (
-        <PropertySelectionModal
-          open={showPropertySelectionModal}
-          onOpenChange={setShowPropertySelectionModal}
-          properties={taxpayer?.properties || []}
-          onSelect={handlePropertySelected}
-        />
-      )}
+      {
+        showPropertySelectionModal && (
+          <PropertySelectionModal
+            open={showPropertySelectionModal}
+            onOpenChange={setShowPropertySelectionModal}
+            properties={taxpayer?.properties || []}
+            onSelect={handlePropertySelected}
+          />
+        )
+      }
 
       {/* Add PropertyDetailsSheet component */}
       <PropertyDetailsSheet
@@ -795,48 +910,56 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
       />
 
       {/* CalculateTaxDialog for creating invoices */}
-      {taxpayer?.properties && taxpayer.properties.length > 0 && (
-        <CalculateTaxDialog
-          open={showCalculateTaxDialog}
-          onOpenChange={setShowCalculateTaxDialog}
-          property={taxpayer.properties[0]}
-          onSuccess={() => {
-            setShowCalculateTaxDialog(false)
-            fetchTaxpayerDetails()
-            onUpdate()
-          }}
-        />
-      )}
+      {
+        taxpayer?.properties && taxpayer.properties.length > 0 && (
+          <CalculateTaxDialog
+            open={showCalculateTaxDialog}
+            onOpenChange={setShowCalculateTaxDialog}
+            property={taxpayer.properties[0]}
+            onSuccess={() => {
+              setShowCalculateTaxDialog(false)
+              fetchTaxpayerDetails()
+              onUpdate()
+            }}
+          />
+        )
+      }
 
       {/* Generate KADIRS ID Modal */}
-      {taxpayer && (
-        <GenerateKadirsIdModal
-          open={generateKadirsModalOpen}
-          onOpenChange={setGenerateKadirsModalOpen}
-          taxpayerId={taxpayer.id}
-          onSuccess={handleKadirsIdGenerated}
-        />
-      )}
+      {
+        taxpayer && (
+          <GenerateKadirsIdModal
+            open={generateKadirsModalOpen}
+            onOpenChange={setGenerateKadirsModalOpen}
+            taxpayerId={taxpayer.id}
+            onSuccess={handleKadirsIdGenerated}
+          />
+        )
+      }
 
       {/* Create Firebase Account Modal */}
-      {taxpayer && (
-        <CreateFirebaseAccountModal
-          open={showFirebaseCreateModal}
-          onOpenChange={setShowFirebaseCreateModal}
-          taxpayer={taxpayer}
-          onSuccess={handleFirebaseAccountCreated}
-        />
-      )}
+      {
+        taxpayer && (
+          <CreateFirebaseAccountModal
+            open={showFirebaseCreateModal}
+            onOpenChange={setShowFirebaseCreateModal}
+            taxpayer={taxpayer}
+            onSuccess={handleFirebaseAccountCreated}
+          />
+        )
+      }
 
       {/* Tax Calculation Details Sheet */}
-      {showTaxCalculationDetails && (
-        <TaxCalculationDetailsSheet
-          open={showTaxCalculationDetails}
-          onOpenChange={setShowTaxCalculationDetails}
-          taxCalculationId={selectedTaxCalculationId}
-          onUpdate={fetchTaxpayerDetails}
-        />
-      )}
+      {
+        showTaxCalculationDetails && (
+          <TaxCalculationDetailsSheet
+            open={showTaxCalculationDetails}
+            onOpenChange={setShowTaxCalculationDetails}
+            taxCalculationId={selectedTaxCalculationId}
+            onUpdate={fetchTaxpayerDetails}
+          />
+        )
+      }
     </>
   )
 }

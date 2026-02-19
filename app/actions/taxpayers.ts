@@ -6,7 +6,7 @@ import { createUserAccount } from "@/lib/auth/create-user-account"
 import { createUserProfile } from "@/lib/auth/create-user-profile"
 import { logAudit } from "./audit"
 import { getAuthToken } from "./get-auth-token"
-import { checkFirebaseUserExists } from "@/lib/firebase-admin"
+import { checkFirebaseUserExists, updateFirebaseUser } from "@/lib/firebase-admin"
 import { verifyExistingKadirsID } from "./verification"
 
 export type TaxpayerWithProfile = {
@@ -20,6 +20,7 @@ export type TaxpayerWithProfile = {
   role: string
   is_active: boolean
   email_verified: boolean
+  phone_verified: boolean
   created_at: string
   updated_at: string
   last_login: string | null
@@ -58,6 +59,8 @@ export type TaxpayerWithProfile = {
     years_of_experience: number | null
     registration_source: string
     onboarded_by_id: string | null
+    verification_status: 'pending' | 'verified' | 'rejected'
+    phone_verified: boolean
   } | null
   property_count?: number
   invoice_count?: number
@@ -941,5 +944,159 @@ export async function bulkGenerateKadirsIds(taxpayerIds: string[]) {
   } catch (error: any) {
     console.error("Error in bulkGenerateKadirsIds:", error)
     return { success: false, error: error.message || "Failed to bulk generate IDs" }
+  }
+}
+
+export async function verifyTaxpayerEmail(taxpayerId: string) {
+  try {
+    const adminSupabase = createAdminClient()
+
+
+    // 1. Update verification
+    const { data: updatedData, error } = await adminSupabase
+      .from("users")
+      .update({ email_verified: true })
+      .eq("id", taxpayerId)
+      .select()
+
+    if (error) throw error
+    if (!updatedData || updatedData.length === 0) {
+      throw new Error(`User with ID ${taxpayerId} not found in users table`)
+    }
+
+    const user = updatedData[0]
+
+    // 2. Sync with Firebase if available
+    if (user.firebase_uid) {
+      await updateFirebaseUser(user.firebase_uid, { emailVerified: true })
+    }
+
+    // 3. Audit log
+    await logAudit({
+      action: "verify",
+      entityType: "taxpayer",
+      entityId: taxpayerId,
+      changeSummary: `Admin manually verified taxpayer email for user ID: ${taxpayerId}`
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error verifying taxpayer email:", error)
+    return { success: false, error: error.message || "Failed to verify email" }
+  }
+}
+
+export async function verifyTaxpayerPhone(taxpayerId: string) {
+  try {
+    const adminSupabase = createAdminClient()
+
+
+    // 1. Update verification in BOTH users and profiles
+    const [userUpdate, profileUpdate] = await Promise.all([
+      adminSupabase
+        .from("users")
+        .update({ phone_verified: true })
+        .eq("id", taxpayerId)
+        .select(),
+      adminSupabase
+        .from("taxpayer_profiles")
+        .update({ phone_verified: true })
+        .eq("user_id", taxpayerId)
+        .select()
+    ])
+
+    if (userUpdate.error) throw userUpdate.error
+    if (profileUpdate.error) throw profileUpdate.error
+
+    if (!userUpdate.data || userUpdate.data.length === 0) {
+      throw new Error(`User with ID ${taxpayerId} not found in users table`)
+    }
+
+    const user = userUpdate.data[0]
+
+    // 3. Sync with Firebase if available (Firebase doesn't have phoneVerified natively in Admin SDK updateUser, but we can update phoneNumber if needed)
+    // For now, we mainly sync email verification.
+
+    // 4. Audit log
+    await logAudit({
+      action: "verify",
+      entityType: "taxpayer",
+      entityId: taxpayerId,
+      changeSummary: `Admin manually verified taxpayer phone for user ID: ${taxpayerId}`
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error verifying taxpayer phone:", error)
+    return { success: false, error: error.message || "Failed to verify phone" }
+  }
+}
+
+export async function updateTaxpayerVerificationStatus(taxpayerId: string, status: 'verified' | 'rejected' | 'pending') {
+  try {
+    const adminSupabase = createAdminClient()
+
+
+    // 1. Perform updates
+    if (status === 'verified') {
+      // Cascading verification: Verify email and phone as well
+      const [userUpdate, profileUpdate] = await Promise.all([
+        adminSupabase
+          .from("users")
+          .update({
+            email_verified: true,
+            phone_verified: true
+          })
+          .eq("id", taxpayerId)
+          .select(),
+        adminSupabase
+          .from("taxpayer_profiles")
+          .update({
+            verification_status: status,
+            phone_verified: true
+          })
+          .eq("user_id", taxpayerId)
+          .select()
+      ])
+
+      if (userUpdate.error) throw userUpdate.error
+      if (profileUpdate.error) throw profileUpdate.error
+
+      if (!userUpdate.data || userUpdate.data.length === 0) {
+        throw new Error(`User with ID ${taxpayerId} not found in users table`)
+      }
+
+      const user = userUpdate.data[0]
+
+      // Sync with Firebase if available
+      if (user.firebase_uid) {
+        await updateFirebaseUser(user.firebase_uid, { emailVerified: true })
+      }
+    } else {
+      // Just update status
+      const { data, error } = await adminSupabase
+        .from("taxpayer_profiles")
+        .update({ verification_status: status })
+        .eq("user_id", taxpayerId)
+        .select()
+
+      if (error) throw error
+      if (!data || data.length === 0) {
+        throw new Error(`Taxpayer profile for user ID ${taxpayerId} not found`)
+      }
+    }
+
+    // 2. Audit log
+    await logAudit({
+      action: "verify",
+      entityType: "taxpayer",
+      entityId: taxpayerId,
+      changeSummary: `Admin updated taxpayer verification status to ${status} (Cascading verification: ${status === 'verified' ? 'YES' : 'NO'}) for user ID: ${taxpayerId}`
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error updating verification status:", error)
+    return { success: false, error: error.message || "Failed to update status" }
   }
 }

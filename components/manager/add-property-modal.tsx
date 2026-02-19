@@ -233,7 +233,7 @@ export function AddPropertyForClientModal({ open, onOpenChange, onSuccess, clien
     }
 
     const validateImages = (): boolean => {
-        return propertyFacadeImage !== null && addressNumberImage !== null
+        return true // Images are now optional
     }
 
     function handleBack() {
@@ -583,7 +583,7 @@ export function AddPropertyForClientModal({ open, onOpenChange, onSuccess, clien
                         {currentStep === 3 && (
                             <div className="space-y-6">
                                 <div className="space-y-2">
-                                    <Label>Property Facade Image <span className="text-destructive">*</span></Label>
+                                    <Label>Property Facade Image (Optional)</Label>
                                     <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
                                         <input
                                             type="file"
@@ -601,7 +601,7 @@ export function AddPropertyForClientModal({ open, onOpenChange, onSuccess, clien
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Address Number Image <span className="text-destructive">*</span></Label>
+                                    <Label>Address Number Image (Optional)</Label>
                                     <div className="border-2 border-dashed border-muted-foreground rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
                                         <input
                                             type="file"

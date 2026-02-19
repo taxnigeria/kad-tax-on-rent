@@ -295,7 +295,7 @@ export async function generatePayKadunaInvoice(invoiceId: string) {
         ),
         taxpayer:users!invoices_taxpayer_id_fkey(
           *,
-          profile:taxpayer_profiles(*)
+          profile:taxpayer_profiles!taxpayer_profiles_user_id_fkey(*)
         )
       `,
       )
@@ -432,7 +432,7 @@ export async function createPayKadunaInvoice(invoiceData: {
       .select(
         `
         *,
-        profile:taxpayer_profiles(*)
+        profile:taxpayer_profiles!taxpayer_profiles_user_id_fkey(*)
       `,
       )
       .eq("id", invoiceData.taxpayerId)
@@ -551,16 +551,15 @@ export async function createInvoiceFromTaxCalculation(taxCalculationId: string) 
   try {
     const supabase = await createClient()
 
-    // Get tax calculation with related data
+    // Get tax calculation with property (to resolve owner/taxpayer)
     const { data: calculation, error: calcError } = await supabase
       .from("tax_calculations")
       .select(
         `
         *,
-        property:properties(id),
-        taxpayer:users!tax_calculations_taxpayer_id_fkey(
+        property:properties(
           id,
-          taxpayer_profiles(kadirs_id)
+          owner_id
         )
       `,
       )
@@ -570,6 +569,13 @@ export async function createInvoiceFromTaxCalculation(taxCalculationId: string) 
     if (calcError || !calculation) {
       console.error("[v0] Error fetching tax calculation:", calcError)
       return { success: false, error: "Tax calculation not found" }
+    }
+
+    // Resolve taxpayer_id from the property's owner_id
+    const taxpayerId = calculation.property?.owner_id
+    if (!taxpayerId) {
+      console.error("[v0] No owner_id found on property for tax calculation:", taxCalculationId)
+      return { success: false, error: "Property owner not found" }
     }
 
     // Check if invoice already exists
@@ -583,22 +589,22 @@ export async function createInvoiceFromTaxCalculation(taxCalculationId: string) 
       return { success: false, error: "Invoice already exists for this tax calculation" }
     }
 
-    // Create invoice record
+    // Create invoice record (using correct column names from tax_calculations table)
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
       .insert({
         tax_calculation_id: taxCalculationId,
         property_id: calculation.property_id,
-        taxpayer_id: calculation.taxpayer_id,
+        taxpayer_id: taxpayerId,
         tax_year: calculation.tax_year,
-        base_amount: calculation.base_tax || 0,
+        base_amount: calculation.base_tax_amount || 0,
         stamp_duty: calculation.stamp_duty || 0,
-        penalty: calculation.penalty || 0,
-        interest: calculation.interest || 0,
+        penalty: calculation.penalty_amount || 0,
+        interest: calculation.interest_amount || 0,
         discount: calculation.discount || 0,
-        total_amount: calculation.total_tax || 0,
+        total_amount: calculation.total_tax_due || 0,
         amount_paid: 0,
-        balance_due: calculation.total_tax || 0,
+        balance_due: calculation.total_tax_due || 0,
         payment_status: "unpaid",
         issue_date: new Date().toISOString().split("T")[0],
         due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
