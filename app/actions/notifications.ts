@@ -23,7 +23,7 @@ export async function fetchNotifications(firebaseUid: string, page = 1, limit = 
     // Get User details for targeting and resolving internal ID
     const { data: dbUser, error: userError } = await supabase
         .from("users")
-        .select("id, role, lga_id")
+        .select("id, role")
         .eq("firebase_uid", firebaseUid)
         .single()
 
@@ -33,6 +33,15 @@ export async function fetchNotifications(firebaseUid: string, page = 1, limit = 
     }
 
     const internalUserId = dbUser.id
+
+    // Get LGA from taxpayer_profiles (lga_id lives there, not on users)
+    const { data: profile } = await supabase
+        .from("taxpayer_profiles")
+        .select("lga_id")
+        .eq("user_id", internalUserId)
+        .maybeSingle()
+
+    const userLgaId = profile?.lga_id || null
 
     // 1. Fetch Transactional Notifications
     const { data: transactional, error: transError } = await supabase
@@ -58,19 +67,12 @@ export async function fetchNotifications(firebaseUid: string, page = 1, limit = 
         throw new Error("Failed to fetch notifications")
     }
 
-    // 2. Fetch Broadcast Notifications
+    // 2. Fetch Broadcast Notifications (plain — no join trick for read status)
     const { data: broadcasts, error: castError } = await supabase
         .from("notifications_broadcast")
-        .select(`
-      *,
-      notification_broadcast_reads (
-        read_at
-      )
-    `)
-        .filter("notification_broadcast_reads.user_id", "eq", internalUserId)
+        .select("*")
         .eq("status", "active")
         .lte("scheduled_for", new Date().toISOString())
-        .gt("expires_at", new Date().toISOString()) // Only active
         .order("scheduled_for", { ascending: false })
         .limit(limit)
 
@@ -78,12 +80,30 @@ export async function fetchNotifications(firebaseUid: string, page = 1, limit = 
         console.error("Error fetching broadcasts:", castError)
     }
 
-    // 3. Merge and Filter Broadcasts
+    // 2b. Fetch which broadcasts the user has already read (separate, reliable query)
+    const broadcastIds = (broadcasts || []).map((b: any) => b.id)
+    let readBroadcastIds = new Set<string>()
+    if (broadcastIds.length > 0) {
+        const { data: readRecords } = await supabase
+            .from("notification_broadcast_reads")
+            .select("broadcast_id")
+            .eq("user_id", internalUserId)
+            .in("broadcast_id", broadcastIds)
+        if (readRecords) {
+            readBroadcastIds = new Set(readRecords.map((r: any) => r.broadcast_id))
+        }
+    }
+
+    // 3. Filter and map Broadcasts
+    const now = new Date().toISOString()
     const relevantBroadcasts = (broadcasts || []).filter((b: any) => {
+        // Filter out expired broadcasts (but keep ones with no expiry)
+        if (b.expires_at && b.expires_at < now) return false
+
         // Check Targeting
         if (b.target_type === 'ALL') return true
         if (b.target_type === 'ROLE' && b.target_value === dbUser.role) return true
-        if (b.target_type === 'LGA' && b.target_value === dbUser.lga_id) return true
+        if (b.target_type === 'LGA' && userLgaId && b.target_value === userLgaId) return true
         if (b.target_type === 'USER' && (b.target_value === internalUserId || b.target_value === firebaseUid)) return true
         return false
     }).map((b: any) => ({
@@ -92,7 +112,7 @@ export async function fetchNotifications(firebaseUid: string, page = 1, limit = 
         body: b.body,
         type: b.type,
         sourceType: "broadcast" as NotificationType,
-        isRead: b.notification_broadcast_reads?.length > 0,
+        isRead: readBroadcastIds.has(b.id),
         createdAt: b.created_at,
         payload: b.payload
     }))
@@ -145,17 +165,48 @@ export async function markAllAsRead(firebaseUid: string) {
     const supabase = await createClient()
 
     // Resolve internal ID
-    const { data: dbUser } = await supabase.from("users").select("id").eq("firebase_uid", firebaseUid).single()
+    const { data: dbUser } = await supabase.from("users").select("id, role").eq("firebase_uid", firebaseUid).single()
     if (!dbUser) return
+
+    const now = new Date().toISOString()
 
     // 1. Update all transactional rows
     await supabase
         .from("notification_recipients")
-        .update({ status: "read", read_at: new Date().toISOString() })
+        .update({ status: "read", read_at: now })
         .eq("recipient_user_id", dbUser.id)
         .eq("status", "unread")
 
-    // 2. For broadcasts, marking all as read is omitted for now as it's complex.
+    // 2. Fetch all active broadcasts visible to this user and mark as read
+    const { data: broadcasts } = await supabase
+        .from("notifications_broadcast")
+        .select("id, target_type, target_value, expires_at")
+        .eq("status", "active")
+        .lte("scheduled_for", now)
+
+    if (broadcasts && broadcasts.length > 0) {
+        const visibleBroadcastIds = broadcasts
+            .filter((b: any) => {
+                if (b.expires_at && b.expires_at < now) return false
+                if (b.target_type === 'ALL') return true
+                if (b.target_type === 'ROLE' && b.target_value === dbUser.role) return true
+                return false
+            })
+            .map((b: any) => b.id)
+
+        if (visibleBroadcastIds.length > 0) {
+            const readRows = visibleBroadcastIds.map((id: string) => ({
+                broadcast_id: id,
+                user_id: dbUser.id,
+                read_at: now
+            }))
+            await supabase
+                .from("notification_broadcast_reads")
+                .upsert(readRows, { onConflict: 'broadcast_id, user_id' })
+        }
+    }
+
+    revalidatePath("/taxpayer-dashboard/notifications")
 }
 
 // Send Transactional Notification
@@ -291,6 +342,65 @@ export async function getBroadcastHistory(limit = 20, status?: string, isSchedul
         return []
     }
     return broadcasts
+}
+
+// Delete a broadcast notification
+export async function deleteBroadcast(broadcastId: string) {
+    const supabase = await createClient()
+
+    // Delete read records first (foreign key constraint)
+    await supabase
+        .from("notification_broadcast_reads")
+        .delete()
+        .eq("broadcast_id", broadcastId)
+
+    const { error } = await supabase
+        .from("notifications_broadcast")
+        .delete()
+        .eq("id", broadcastId)
+
+    if (error) {
+        console.error("Error deleting broadcast:", error)
+        throw new Error("Failed to delete broadcast")
+    }
+
+    revalidatePath("/admin/notifications")
+    return { success: true }
+}
+
+// Cancel a scheduled broadcast (sets status to archived)
+export async function cancelScheduledBroadcast(broadcastId: string) {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+        .from("notifications_broadcast")
+        .update({ status: "archived" })
+        .eq("id", broadcastId)
+
+    if (error) {
+        console.error("Error canceling broadcast:", error)
+        throw new Error("Failed to cancel broadcast")
+    }
+
+    revalidatePath("/admin/notifications")
+    return { success: true }
+}
+
+// Get a single broadcast by ID
+export async function getBroadcastById(broadcastId: string) {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+        .from("notifications_broadcast")
+        .select("*")
+        .eq("id", broadcastId)
+        .single()
+
+    if (error) {
+        console.error("Error fetching broadcast:", error)
+        return null
+    }
+    return data
 }
 
 export async function getBroadcastStats() {

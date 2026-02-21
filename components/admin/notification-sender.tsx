@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Send, Save, Calendar, Plus } from "lucide-react"
+import { Loader2, Send, Save, Calendar, Plus, Link2 } from "lucide-react"
 import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
@@ -44,9 +44,10 @@ const formSchema = z.object({
     targetType: z.enum(["ALL", "ROLE", "LGA", "PROPERTY", "USER"]),
     targetValue: z.string().optional(),
     scheduledFor: z.string().optional(), // ISO string from datetime-local input
+    actionLink: z.string().optional(), // URL to navigate when notification is clicked
 })
 
-export function NotificationSender() {
+export function NotificationSender({ onSent }: { onSent?: () => void } = {}) {
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
 
@@ -59,6 +60,7 @@ export function NotificationSender() {
             targetType: "ALL",
             targetValue: "",
             scheduledFor: "",
+            actionLink: "",
         },
     })
 
@@ -82,13 +84,15 @@ export function NotificationSender() {
                 type: values.type,
                 targetType: values.targetType,
                 targetValue: values.targetValue,
-                scheduledFor: values.scheduledFor || undefined, // Send undefined if empty string
+                scheduledFor: values.scheduledFor || undefined,
+                payload: values.actionLink ? { url: values.actionLink } : undefined,
                 status: status
             })
 
             toast.success(status === 'draft' ? "Draft saved" : "Broadcast sent/scheduled")
             form.reset()
             setOpen(false)
+            onSent?.()
         } catch (error) {
             console.error(error)
             toast.error("Failed to process notification")
@@ -247,6 +251,24 @@ export function NotificationSender() {
                                     <FormControl>
                                         <Textarea placeholder="Type your message here..." className="min-h-[100px]" {...field} />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="actionLink"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="flex items-center gap-1.5">
+                                        <Link2 className="h-3.5 w-3.5" />
+                                        Action Link (Optional)
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="/taxpayer-dashboard/invoices" {...field} />
+                                    </FormControl>
+                                    <FormDescription>When users click the notification, they'll be taken to this page.</FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}

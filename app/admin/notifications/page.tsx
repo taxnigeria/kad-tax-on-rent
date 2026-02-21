@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getBroadcastHistory, getBroadcastStats } from "@/app/actions/notifications"
+import { getBroadcastHistory, getBroadcastStats, deleteBroadcast, cancelScheduledBroadcast } from "@/app/actions/notifications"
 import { NotificationSender } from "@/components/admin/notification-sender"
+import { BroadcastDetailsSheet } from "@/components/admin/broadcast-details-sheet"
 import {
     Table,
     TableBody,
@@ -29,11 +30,33 @@ import {
     Plus,
     History,
     MoreHorizontal,
-    ChevronRight
+    ChevronRight,
+    Eye,
+    Trash2,
+    XCircle,
+    Loader2,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
 
 export default function AdminNotificationsPage() {
     const [activeTab, setActiveTab] = useState("sent")
@@ -44,6 +67,14 @@ export default function AdminNotificationsPage() {
     const [sortField, setSortField] = useState("scheduled_for")
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
 
+    // Details Sheet
+    const [selectedBroadcast, setSelectedBroadcast] = useState<any | null>(null)
+    const [showDetails, setShowDetails] = useState(false)
+
+    // Inline delete/cancel confirm
+    const [confirmAction, setConfirmAction] = useState<{ type: "delete" | "cancel"; broadcast: any } | null>(null)
+    const [actionLoading, setActionLoading] = useState(false)
+
     useEffect(() => {
         fetchData()
     }, [activeTab, searchQuery, sortField, sortOrder])
@@ -51,11 +82,9 @@ export default function AdminNotificationsPage() {
     async function fetchData() {
         setLoading(true)
         try {
-            // 1. Fetch Stats in parallel once or on updates
             const statsData = await getBroadcastStats()
             setStats(statsData)
 
-            // 2. Fetch History based on tab
             let status: string | undefined = undefined
             let isScheduled: boolean | undefined = undefined
 
@@ -93,6 +122,40 @@ export default function AdminNotificationsPage() {
         return <span className="ml-1 text-primary">{sortOrder === "asc" ? "↑" : "↓"}</span>
     }
 
+    const handleViewDetails = (broadcast: any) => {
+        setSelectedBroadcast(broadcast)
+        setShowDetails(true)
+    }
+
+    const handleConfirmAction = async () => {
+        if (!confirmAction) return
+        setActionLoading(true)
+        try {
+            if (confirmAction.type === "delete") {
+                await deleteBroadcast(confirmAction.broadcast.id)
+                toast.success("Broadcast deleted successfully")
+            } else {
+                await cancelScheduledBroadcast(confirmAction.broadcast.id)
+                toast.success("Scheduled broadcast canceled")
+            }
+            fetchData()
+        } catch (error) {
+            toast.error(`Failed to ${confirmAction.type} broadcast`)
+        } finally {
+            setActionLoading(false)
+            setConfirmAction(null)
+        }
+    }
+
+    const getRowStatus = (b: any) => {
+        const now = new Date()
+        const scheduledDate = new Date(b.scheduled_for)
+        if (b.status === "draft") return "draft"
+        if (b.status === "archived") return "archived"
+        if (b.status === "active" && scheduledDate > now) return "scheduled"
+        return "sent"
+    }
+
     return (
         <SidebarProvider
             style={{
@@ -109,7 +172,7 @@ export default function AdminNotificationsPage() {
                         <div>
                             <h1 className="text-lg font-bold tracking-tight">Notification Center</h1>
                         </div>
-                        <NotificationSender />
+                        <NotificationSender onSent={fetchData} />
                     </div>
 
                     {/* Stats Grid */}
@@ -206,7 +269,7 @@ export default function AdminNotificationsPage() {
                                                 {activeTab === 'scheduled' ? 'Scheduled For' : 'Timestamp'} <SortIcon field="scheduled_for" />
                                             </TableHead>
                                             <TableHead className="text-[11px] uppercase tracking-wider">Status</TableHead>
-                                            <TableHead className="text-right text-[11px] uppercase tracking-wider">Actions</TableHead>
+                                            <TableHead className="text-right text-[11px] uppercase tracking-wider w-20">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -234,53 +297,90 @@ export default function AdminNotificationsPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            broadcasts.map((b, index) => (
-                                                <TableRow key={b.id} className="group hover:bg-muted/30 transition-colors h-16">
-                                                    <TableCell className="text-[11px] font-medium text-muted-foreground">
-                                                        {index + 1}
-                                                    </TableCell>
-                                                    <TableCell className="max-w-md">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-semibold">{b.title}</span>
-                                                            <span className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{b.body}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="text-[10px] font-mono h-5 bg-background border-muted/50">
-                                                            {b.target_type}
-                                                            {b.target_value ? `: ${b.target_value}` : ""}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-[11px] text-muted-foreground font-medium">
-                                                        {format(new Date(activeTab === 'scheduled' ? b.scheduled_for : b.created_at), "MMM d, yyyy")}
-                                                        <div className="text-[10px] text-muted-foreground/70 font-normal">
-                                                            {format(new Date(activeTab === 'scheduled' ? b.scheduled_for : b.created_at), "h:mm a")}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {activeTab === 'draft' && (
-                                                            <Badge className="bg-slate-500/10 text-slate-500 border-slate-500/20 hover:bg-slate-500/20 h-5 text-[10px]">
-                                                                <FileText className="w-3 h-3 mr-1" /> Draft
+                                            broadcasts.map((b, index) => {
+                                                const status = getRowStatus(b)
+                                                return (
+                                                    <TableRow
+                                                        key={b.id}
+                                                        className="group hover:bg-muted/30 transition-colors h-16 cursor-pointer"
+                                                        onClick={() => handleViewDetails(b)}
+                                                    >
+                                                        <TableCell className="text-[11px] font-medium text-muted-foreground">
+                                                            {index + 1}
+                                                        </TableCell>
+                                                        <TableCell className="max-w-md">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-semibold">{b.title}</span>
+                                                                <span className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{b.body}</span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className="text-[10px] font-mono h-5 bg-background border-muted/50">
+                                                                {b.target_type}
+                                                                {b.target_value ? `: ${b.target_value}` : ""}
                                                             </Badge>
-                                                        )}
-                                                        {activeTab === 'scheduled' && (
-                                                            <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20 h-5 text-[10px]">
-                                                                <Clock className="w-3 h-3 mr-1" /> Scheduled
-                                                            </Badge>
-                                                        )}
-                                                        {activeTab === 'sent' && (
-                                                            <Badge className="bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20 h-5 text-[10px]">
-                                                                <CheckCircle2 className="w-3 h-3 mr-1" /> Sent
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <ChevronRight className="h-4 w-4" />
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
+                                                        </TableCell>
+                                                        <TableCell className="text-[11px] text-muted-foreground font-medium">
+                                                            {format(new Date(activeTab === 'scheduled' ? b.scheduled_for : b.created_at), "MMM d, yyyy")}
+                                                            <div className="text-[10px] text-muted-foreground/70 font-normal">
+                                                                {format(new Date(activeTab === 'scheduled' ? b.scheduled_for : b.created_at), "h:mm a")}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {status === 'draft' && (
+                                                                <Badge className="bg-slate-500/10 text-slate-500 border-slate-500/20 hover:bg-slate-500/20 h-5 text-[10px]">
+                                                                    <FileText className="w-3 h-3 mr-1" /> Draft
+                                                                </Badge>
+                                                            )}
+                                                            {status === 'scheduled' && (
+                                                                <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20 h-5 text-[10px]">
+                                                                    <Clock className="w-3 h-3 mr-1" /> Scheduled
+                                                                </Badge>
+                                                            )}
+                                                            {status === 'sent' && (
+                                                                <Badge className="bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20 h-5 text-[10px]">
+                                                                    <CheckCircle2 className="w-3 h-3 mr-1" /> Sent
+                                                                </Badge>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end" className="w-48">
+                                                                    <DropdownMenuItem onClick={() => handleViewDetails(b)}>
+                                                                        <Eye className="h-4 w-4 mr-2" />
+                                                                        View Details
+                                                                    </DropdownMenuItem>
+                                                                    {status === 'scheduled' && (
+                                                                        <>
+                                                                            <DropdownMenuSeparator />
+                                                                            <DropdownMenuItem
+                                                                                className="text-amber-600 focus:text-amber-600"
+                                                                                onClick={() => setConfirmAction({ type: "cancel", broadcast: b })}
+                                                                            >
+                                                                                <XCircle className="h-4 w-4 mr-2" />
+                                                                                Cancel Schedule
+                                                                            </DropdownMenuItem>
+                                                                        </>
+                                                                    )}
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem
+                                                                        className="text-red-600 focus:text-red-600"
+                                                                        onClick={() => setConfirmAction({ type: "delete", broadcast: b })}
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                                        Delete
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })
                                         )}
                                     </TableBody>
                                 </Table>
@@ -289,6 +389,51 @@ export default function AdminNotificationsPage() {
                     </Card>
                 </div>
             </SidebarInset>
+
+            {/* Broadcast Details Sheet */}
+            <BroadcastDetailsSheet
+                open={showDetails}
+                onOpenChange={setShowDetails}
+                broadcast={selectedBroadcast}
+                onUpdate={fetchData}
+            />
+
+            {/* Confirm Action Dialog */}
+            <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {confirmAction?.type === "delete" ? "Delete Broadcast?" : "Cancel Scheduled Broadcast?"}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {confirmAction?.type === "delete" ? (
+                                <>
+                                    This will permanently delete <span className="font-semibold text-foreground">"{confirmAction?.broadcast?.title}"</span> and
+                                    all associated read records. This cannot be undone.
+                                </>
+                            ) : (
+                                <>
+                                    This will cancel the scheduled broadcast <span className="font-semibold text-foreground">"{confirmAction?.broadcast?.title}"</span>.
+                                    It will be archived and won't be sent to users.
+                                </>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={actionLoading}>
+                            {confirmAction?.type === "cancel" ? "Keep Scheduled" : "Cancel"}
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleConfirmAction}
+                            disabled={actionLoading}
+                            className={confirmAction?.type === "delete" ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}
+                        >
+                            {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            {confirmAction?.type === "delete" ? "Delete Permanently" : "Cancel Broadcast"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </SidebarProvider>
     )
 }

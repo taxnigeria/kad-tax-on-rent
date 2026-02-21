@@ -16,7 +16,10 @@ import { Home, Building2, FileText, CreditCard, Bell, Settings, HelpCircle, Moon
 import { Button } from "@/components/ui/button"
 import { useTheme } from "next-themes"
 import { useState } from "react"
-import { NotificationsPanel } from "@/components/taxpayer/notifications-panel"
+import { NotificationsPanel } from "@/components/notifications-panel"
+import { useNotifications } from "@/hooks/use-notifications"
+import { useAuth } from "@/contexts/auth-context"
+import { cn } from "@/lib/utils"
 
 const routeConfig: Record<string, { title: string; icon: any }> = {
   "/taxpayer-dashboard": { title: "Dashboard", icon: Home },
@@ -34,6 +37,8 @@ export function TaxpayerHeader() {
   const Icon = currentRoute?.icon
   const { theme, setTheme } = useTheme()
   const [showNotifications, setShowNotifications] = useState(false)
+  const { user } = useAuth()
+  const { unreadCount } = useNotifications(user?.uid)
 
   return (
     <>
@@ -78,10 +83,19 @@ export function TaxpayerHeader() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="h-9 w-9 relative"
+              onClick={() => setShowNotifications(true)}
+              className="h-9 w-9 relative group"
             >
-              <Bell className="h-4 w-4" />
+              <Bell className={cn(
+                "h-4 w-4 transition-transform duration-200 group-hover:scale-110",
+                unreadCount > 0 && "text-primary shadow-sm"
+              )} />
+              {unreadCount > 0 && (
+                <span className="absolute top-2.5 right-2 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+              )}
             </Button>
           </div>
         </div>
