@@ -206,8 +206,14 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                     <div className="relative flex flex-1 flex-col overflow-hidden bg-background">
                         <div className="flex items-center justify-between border-b px-6 py-4">
                             <div className="space-y-0.5">
-                                <h2 className="text-xl font-bold capitalize">{activeTab} Settings</h2>
-                                <p className="text-xs text-muted-foreground">Manage your application preferences and controls.</p>
+                                <DialogHeader className="p-0 space-y-0.5 text-left">
+                                    <DialogTitle className="text-xl font-bold capitalize">
+                                        {activeTab} Settings
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs text-muted-foreground">
+                                        Manage your application preferences and controls.
+                                    </DialogDescription>
+                                </DialogHeader>
                             </div>
                             <DialogClose asChild>
                                 <Button variant="ghost" size="icon" className="md:hidden">
@@ -230,7 +236,7 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                                 return s ? (
                                                     <Input
                                                         className="max-w-[250px]"
-                                                        value={s.setting_value}
+                                                        value={s.setting_value ?? ""}
                                                         onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
                                                     />
                                                 ) : <Skeleton className="h-9 w-[250px]" />
@@ -246,7 +252,7 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                                 return s ? (
                                                     <Input
                                                         className="w-full md:max-w-[350px]"
-                                                        value={s.setting_value}
+                                                        value={s.setting_value ?? ""}
                                                         onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
                                                     />
                                                 ) : <Skeleton className="h-9 w-[250px]" />
@@ -262,7 +268,7 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                                 return s ? (
                                                     <Input
                                                         className="w-full md:max-w-[350px]"
-                                                        value={s.setting_value}
+                                                        value={s.setting_value ?? ""}
                                                         onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
                                                     />
                                                 ) : <Skeleton className="h-9 w-[250px]" />
@@ -372,7 +378,7 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                                     <Input
                                                         className="w-full md:max-w-[350px]"
                                                         placeholder="We will be back soon..."
-                                                        value={s.setting_value}
+                                                        value={s.setting_value ?? ""}
                                                         onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
                                                     />
                                                 ) : <Skeleton className="h-9 w-[250px]" />
@@ -382,7 +388,6 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                         <SettingRow
                                             title="PayKaduna API Mode"
                                             description="Controls which PayKaduna environment is used for bill creation, KADIRS registration, and all payment API calls."
-                                            restricted={true}
                                         >
                                             {(() => {
                                                 const s = findSetting("system", "paykaduna_mode")
@@ -477,7 +482,7 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                                 return s ? (
                                                     <Input
                                                         className="w-full md:max-w-[350px]"
-                                                        value={s.setting_value}
+                                                        value={s.setting_value ?? ""}
                                                         onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
                                                     />
                                                 ) : <Skeleton className="h-9 w-[250px]" />
@@ -495,12 +500,12 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                                         <Input
                                                             type="color"
                                                             className="w-12 h-9 p-1 cursor-pointer"
-                                                            value={s.setting_value}
+                                                            value={s.setting_value ?? "#000000"}
                                                             onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
                                                         />
                                                         <Input
                                                             className="w-24 h-9 font-mono text-xs"
-                                                            value={s.setting_value}
+                                                            value={s.setting_value ?? ""}
                                                             onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
                                                         />
                                                     </div>
@@ -521,7 +526,7 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                                 return s ? (
                                                     <Input
                                                         className="w-full md:max-w-[350px]"
-                                                        value={s.setting_value}
+                                                        value={s.setting_value ?? ""}
                                                         onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
                                                     />
                                                 ) : <Skeleton className="h-9 w-[250px]" />
@@ -537,7 +542,7 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                                 return s ? (
                                                     <Input
                                                         className="w-full md:max-w-[350px]"
-                                                        value={s.setting_value}
+                                                        value={s.setting_value ?? ""}
                                                         onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
                                                     />
                                                 ) : <Skeleton className="h-9 w-[250px]" />

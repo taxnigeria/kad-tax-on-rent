@@ -1,7 +1,9 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { invalidateSettingsCache, getCachedSettings, getCachedSettingValue } from "@/lib/settings-cache"
 
 export type SystemSetting = {
   id: string
@@ -21,24 +23,10 @@ export type SettingsCategory = "general" | "ai_features" | "regional" | "brandin
  * Get all system settings or filter by category
  */
 export async function getSystemSettings(category?: SettingsCategory) {
-  const supabase = await createClient()
-
-  let query = supabase
-    .from("system_settings")
-    .select("*")
-    .eq("is_active", true)
-    .order("category", { ascending: true })
-    .order("setting_key", { ascending: true })
+  const data = await getCachedSettings()
 
   if (category) {
-    query = query.eq("category", category)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error("[v0] Error fetching system settings:", error)
-    throw new Error(`Failed to fetch system settings: ${error.message}`)
+    return data.filter(s => s.category === category) as SystemSetting[]
   }
 
   return data as SystemSetting[]
@@ -48,22 +36,7 @@ export async function getSystemSettings(category?: SettingsCategory) {
  * Get a specific setting value by category and key
  */
 export async function getSettingValue(category: SettingsCategory, key: string) {
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("system_settings")
-    .select("setting_value")
-    .eq("category", category)
-    .eq("setting_key", key)
-    .eq("is_active", true)
-    .single()
-
-  if (error) {
-    console.error(`[v0] Error fetching setting ${category}.${key}:`, error)
-    return null
-  }
-
-  return data?.setting_value
+  return getCachedSettingValue(category, key)
 }
 
 /**
@@ -75,8 +48,7 @@ export async function updateSystemSetting(id: string, settingValue: any, userId:
   const { data, error } = await supabase
     .from("system_settings")
     .update({
-      setting_value: settingValue,
-      updated_by: userId,
+      setting_value: settingValue ?? "",
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
@@ -92,6 +64,9 @@ export async function updateSystemSetting(id: string, settingValue: any, userId:
   revalidatePath("/admin/settings")
   revalidatePath("/dashboard")
 
+  // Invalidate Redis cache so next read fetches fresh data
+  await invalidateSettingsCache()
+
   return data as SystemSetting
 }
 
@@ -106,8 +81,7 @@ export async function bulkUpdateSettings(updates: Array<{ id: string; setting_va
       supabase
         .from("system_settings")
         .update({
-          setting_value: update.setting_value,
-          updated_by: userId,
+          setting_value: update.setting_value ?? "",
           updated_at: new Date().toISOString(),
         })
         .eq("id", update.id)
@@ -130,6 +104,9 @@ export async function bulkUpdateSettings(updates: Array<{ id: string; setting_va
   revalidatePath("/admin/settings")
   revalidatePath("/dashboard")
 
+  // Invalidate Redis cache so next read fetches fresh data
+  await invalidateSettingsCache()
+
   return results.map((r) => r.data) as SystemSetting[]
 }
 
@@ -137,7 +114,7 @@ export async function bulkUpdateSettings(updates: Array<{ id: string; setting_va
  * Ensures required settings exist in the database
  */
 export async function ensureDefaultSettings(userId: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const defaults = [
     { category: "system", key: "maintenance_mode", value: false, desc: "Global maintenance mode toggle" },
@@ -167,11 +144,12 @@ export async function ensureDefaultSettings(userId: string) {
         setting_key: item.key,
         setting_value: item.value,
         description: item.desc,
-        updated_by: userId,
       })
     }
   }
 
+  // If any new settings were inserted, clean the cache
+  await invalidateSettingsCache()
   revalidatePath("/admin/settings")
 }
 
@@ -194,7 +172,6 @@ export async function createSystemSetting(
       setting_key: settingKey,
       setting_value: settingValue,
       description,
-      updated_by: userId,
     })
     .select()
     .single()
