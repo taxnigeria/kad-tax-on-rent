@@ -149,6 +149,7 @@ export async function ensureDefaultSettings(userId: string) {
     { category: "branding", key: "primary_color", value: "#000000", desc: "Primary brand accent color" },
     { category: "regional", key: "state_name", value: "Kaduna", desc: "Name of the operating state" },
     { category: "regional", key: "tax_authority_name", value: "KADIRS", desc: "Name of the tax authority" },
+    { category: "system", key: "paykaduna_mode", value: "test", desc: "PayKaduna API mode: 'live' or 'test'. Controls which API endpoint and keys are used." },
   ]
 
   for (const item of defaults) {

@@ -273,6 +273,7 @@ export function EditTaxpayerModal({ open, onOpenChange, taxpayer, onSuccess }: E
       // Build profile update object
       const profileUpdate: Record<string, unknown> = {
         user_id: taxpayer.user_id,
+        kadirs_id: formData.kadirs_id || null,
         tin: formData.tin || null,
         tax_id_or_nin: formData.tax_id_or_nin || null,
         is_business: formData.is_business,
@@ -488,7 +489,17 @@ export function EditTaxpayerModal({ open, onOpenChange, taxpayer, onSuccess }: E
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="kadirs_id">KADIRS ID</Label>
+                <Input
+                  id="kadirs_id"
+                  value={formData.kadirs_id}
+                  onChange={(e) => setFormData({ ...formData, kadirs_id: e.target.value })}
+                  placeholder="KADIRS ID"
+                  disabled={isKadirsUser}
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="tin">TIN</Label>
                 <Input

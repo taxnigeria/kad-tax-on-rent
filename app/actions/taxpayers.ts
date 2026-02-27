@@ -4,10 +4,11 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createUserAccount } from "@/lib/auth/create-user-account"
 import { createUserProfile } from "@/lib/auth/create-user-profile"
-import { logAudit } from "./audit"
-import { getAuthToken } from "./get-auth-token"
 import { checkFirebaseUserExists, updateFirebaseUser } from "@/lib/firebase-admin"
+import { getAuthToken } from "./get-auth-token"
+import { logAudit } from "./audit"
 import { verifyExistingKadirsID } from "./verification"
+import { payKadunaClient } from "@/lib/paykaduna"
 
 export type TaxpayerWithProfile = {
   id: string
@@ -829,7 +830,8 @@ export async function bulkGenerateKadirsIds(taxpayerIds: string[]) {
       .maybeSingle()
 
     const stateId = settingsData?.state_id || 19 // Default to 19 (Kaduna)
-    const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
+    // OLD n8n approach (kept for rollback reference):
+    // const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
 
     let successCount = 0
     let failureCount = 0
@@ -884,23 +886,29 @@ export async function bulkGenerateKadirsIds(taxpayerIds: string[]) {
           identifier: "null",
         }
 
-        const response = await fetch(kadirsApiUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify(kadirsRequestBody),
+        const response = await payKadunaClient.registerTaxPayer({
+          firstName: userData.first_name,
+          middleName: userData.middle_name || "",
+          lastName: userData.last_name,
+          email: userData.email,
+          phoneNumber: userData.phone_number || "null",
+          password: `Taxpayer${new Date().getFullYear()}#`,
+          confirmPassword: `Taxpayer${new Date().getFullYear()}#`,
+          addressLine1: profile.address_line1,
+          genderId: profile.gender === "female" ? 1 : 2,
+          identifier: "null",
+          userType: (profile.user_type || "Individual") as "Individual" | "Corporate",
+          tin: profile.tin || "",
+          rcNumber: profile.rc_number || "",
+          industryId: profile.industry_id,
+          taxStationId: profile.area_offices?.paykaduna_tax_station_id || 1,
         })
 
-        if (!response.ok) {
-          throw new Error(`API returned status ${response.status}`)
-        }
+        // OLD n8n approach (kept for rollback reference):
+        // const response = await fetch(kadirsApiUrl, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` }, body: JSON.stringify(kadirsRequestBody) })
 
-        const responseData = await response.json()
-
-        if (responseData.success === true || responseData.tpui) {
-          const kadirsId = responseData?.userRegistration?.tpui || responseData.tpui
+        if (response?.userRegistration?.tpui) {
+          const kadirsId = response.userRegistration.tpui
 
           if (kadirsId) {
             // Update profile
@@ -921,7 +929,7 @@ export async function bulkGenerateKadirsIds(taxpayerIds: string[]) {
             throw new Error("KADIRS ID not found in response")
           }
         } else {
-          throw new Error(responseData.error || "Generation unsuccessful")
+          throw new Error("Generation unsuccessful")
         }
       } catch (err: any) {
         failureCount++
@@ -1098,5 +1106,104 @@ export async function updateTaxpayerVerificationStatus(taxpayerId: string, statu
   } catch (error: any) {
     console.error("Error updating verification status:", error)
     return { success: false, error: error.message || "Failed to update status" }
+  }
+}
+
+/**
+ * Admin server action to generate or find a KADIRS ID for a taxpayer.
+ * This replaces the client-side n8n calls in generate-kadirs-id-modal.tsx.
+ * Called from admin UI with the pre-filled form data.
+ */
+export async function adminGenerateKadirsId(data: {
+  taxpayerId: string
+  firstName: string
+  middleName: string
+  lastName: string
+  email: string
+  phoneNumber: string
+  gender: string
+  addressLine1: string
+  lgaId: string
+  industryId: string
+  userType: string
+  tin: string
+  rcNumber: string
+}) {
+  try {
+    const adminSupabase = createAdminClient()
+
+    // Get LGA data for PayKaduna lga_id
+    const { data: lgaData } = await adminSupabase
+      .from("lgas")
+      .select("lga_id")
+      .eq("id", data.lgaId)
+      .single()
+
+    // Get area office for the LGA
+    const { data: areaOfficeData } = await adminSupabase
+      .from("area_offices")
+      .select("area_office_id")
+      .eq("lga_id", data.lgaId)
+      .limit(1)
+      .maybeSingle()
+
+    // Get state ID from settings
+    const { data: settingsData } = await adminSupabase
+      .from("system_settings")
+      .select("state_id")
+      .eq("setting_key", "default_state")
+      .maybeSingle()
+
+    const stateId = settingsData?.state_id || 19
+
+    // Call PayKaduna API directly
+    const responseData = await payKadunaClient.registerTaxPayer({
+      firstName: data.firstName,
+      middleName: data.middleName || "",
+      lastName: data.lastName,
+      email: data.email,
+      phoneNumber: data.phoneNumber || "null",
+      password: `Taxpayer${new Date().getFullYear()}#`,
+      confirmPassword: `Taxpayer${new Date().getFullYear()}#`,
+      addressLine1: data.addressLine1,
+      genderId: data.gender === "female" ? 1 : 2,
+      identifier: "null",
+      userType: (data.userType || "Individual") as "Individual" | "Corporate",
+      tin: data.tin || "",
+      rcNumber: data.rcNumber || "",
+      industryId: Number.parseInt(data.industryId),
+      taxStationId: areaOfficeData?.area_office_id || 1,
+    })
+
+    console.log("[PayKaduna] Admin KADIRS registration response:", responseData)
+
+    const kadirsId = responseData?.userRegistration?.tpui
+
+    if (kadirsId) {
+      // Update taxpayer profile with KADIRS ID
+      const { error: updateError } = await adminSupabase
+        .from("taxpayer_profiles")
+        .update({ kadirs_id: kadirsId })
+        .eq("user_id", data.taxpayerId)
+
+      if (updateError) {
+        console.error("[PayKaduna] Error saving KADIRS ID:", updateError)
+        return { success: false, error: "Failed to save KADIRS ID" }
+      }
+
+      await logAudit({
+        action: "generate",
+        entityType: "taxpayer",
+        entityId: data.taxpayerId,
+        changeSummary: `Admin generated KADIRS ID: ${kadirsId}`
+      })
+
+      return { success: true, kadirsId }
+    }
+
+    return { success: false, error: "KADIRS ID not found in API response" }
+  } catch (error: any) {
+    console.error("[PayKaduna] Admin generate KADIRS ID error:", error)
+    return { success: false, error: error.message || "Failed to generate KADIRS ID" }
   }
 }

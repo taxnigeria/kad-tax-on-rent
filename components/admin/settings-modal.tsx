@@ -378,6 +378,39 @@ export function AdminSettingsModal({ open, onOpenChange }: AdminSettingsModalPro
                                                 ) : <Skeleton className="h-9 w-[250px]" />
                                             })()}
                                         </SettingRow>
+
+                                        <SettingRow
+                                            title="PayKaduna API Mode"
+                                            description="Controls which PayKaduna environment is used for bill creation, KADIRS registration, and all payment API calls."
+                                            restricted={true}
+                                        >
+                                            {(() => {
+                                                const s = findSetting("system", "paykaduna_mode")
+                                                return s ? (
+                                                    <div className="flex items-center gap-3">
+                                                        <select
+                                                            className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                                            value={s.setting_value}
+                                                            onChange={(e) => handleUpdateSetting(s.id, e.target.value)}
+                                                        >
+                                                            <option value="test">Test (Sandbox)</option>
+                                                            <option value="live">Live (Production)</option>
+                                                        </select>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn(
+                                                                "text-[10px] h-5",
+                                                                s.setting_value === "live"
+                                                                    ? "bg-red-500/10 text-red-600 border-red-500/20"
+                                                                    : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                                            )}
+                                                        >
+                                                            {s.setting_value === "live" ? "⚠ LIVE" : "✓ TEST"}
+                                                        </Badge>
+                                                    </div>
+                                                ) : <span>Setting not found</span>
+                                            })()}
+                                        </SettingRow>
                                     </div>
                                 )}
 

@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
-import { getAuthToken } from "@/app/actions/get-auth-token"
+import { adminGenerateKadirsId } from "@/app/actions/taxpayers"
 import { ExistingUserConfirmationModal } from "./existing-user-confirmation-modal"
 import { KadirsErrorModal } from "./kadirs-error-modal"
 
@@ -209,114 +209,39 @@ export function GenerateKadirsIdModal({ open, onOpenChange, taxpayerId, onSucces
         }
       }
 
-      // Get LGA data for PayKaduna lga_id
-      const { data: lgaData } = await supabase.from("lgas").select("lga_id").eq("id", formData.lgaId).single()
-
-      // Get area office for the LGA
-      const { data: areaOfficeData } = await supabase
-        .from("area_offices")
-        .select("area_office_id")
-        .eq("lga_id", formData.lgaId)
-        .limit(1)
-        .maybeSingle()
-
-      // Get state ID from settings
-      const { data: settingsData } = await supabase
-        .from("system_settings")
-        .select("state_id")
-        .eq("setting_key", "default_state")
-        .maybeSingle()
-
-      const stateId = settingsData?.state_id || 19
-
-      // Call KADIRS API to generate ID
-      const kadirsRequestBody = {
+      // Call server action to generate KADIRS ID (replaces client-side n8n calls)
+      const result = await adminGenerateKadirsId({
+        taxpayerId,
         firstName: formData.firstName,
-        middleName: formData.middleName || "",
+        middleName: formData.middleName,
         lastName: formData.lastName,
         email: formData.email,
-        phoneNumber: formData.phoneNumber || "null",
-        password: `Taxpayer${new Date().getFullYear()}#`,
-        confirmPassword: `Taxpayer${new Date().getFullYear()}#`,
+        phoneNumber: formData.phoneNumber,
+        gender: formData.gender,
         addressLine1: formData.addressLine1,
-        genderId: formData.gender === "female" ? 1 : 2,
-        lgaId: Number.parseInt(lgaData?.lga_id) || 2,
-        stateId: stateId,
-        taxStation: areaOfficeData?.area_office_id || 1,
-        industryId: Number.parseInt(formData.industryId),
+        lgaId: formData.lgaId,
+        industryId: formData.industryId,
         userType: formData.userType,
-        tin: formData.tin || "",
-        rcNumber: formData.rcNumber || "",
-        identifier: "null",
-      }
-
-      const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
-
-      const authToken = await getAuthToken()
-
-      if (!authToken) {
-        throw new Error("KADIRS API authentication not configured")
-      }
-
-      const response = await fetch(kadirsApiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(kadirsRequestBody),
+        tin: formData.tin,
+        rcNumber: formData.rcNumber,
       })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error("[v0] KADIRS API error:", errorText)
-        throw new Error("Failed to generate KADIRS ID from API")
-      }
+      // OLD n8n approach (kept for rollback reference):
+      // const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
+      // const authToken = await getAuthToken()
+      // const response = await fetch(kadirsApiUrl, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` }, body: JSON.stringify(kadirsRequestBody) })
 
-      const responseData = await response.json()
-      // n8n sometimes returns an array
-      const data = Array.isArray(responseData) ? responseData[0] : responseData
-
-      console.log("[v0] KADIRS API response data:", data)
-
-      // Check for various response formats
-      const kadirsId = data?.userRegistration?.tpui || data?.tpui || data?.search_result?.tpui
-
-      if (kadirsId) {
-        // Success: KADIRS ID generated or found
-        // Update taxpayer profile with KADIRS ID
-        const { error: updateKadirsError } = await supabase
-          .from("taxpayer_profiles")
-          .update({ kadirs_id: kadirsId })
-          .eq("user_id", taxpayerId)
-
-        if (updateKadirsError) {
-          throw new Error("Failed to save KADIRS ID")
-        }
-
-        toast.success(`KADIRS ID generated successfully: ${kadirsId}`)
+      if (result.success && result.kadirsId) {
+        toast.success(`KADIRS ID generated successfully: ${result.kadirsId}`)
         onSuccess()
         onOpenChange(false)
-      } else if (data.success === false && data.search_result) {
-        // Existing user found - show confirmation modal
-        const searchResult = {
-          ...data.search_result,
-          // Use tpui as kadirs_id since that's what n8n returns for search results
-          kadirs_id: data.search_result.tpui,
-        }
-        setExistingUserData(searchResult)
-        setShowExistingUserModal(true)
-      } else if (data.success === false && data.error) {
-        // Error occurred - show error modal
-        setErrorData(data.error)
-        setShowErrorModal(true)
       } else {
-        // Unexpected response format
-        console.error("[v0] Unexpected KADIRS API response format:", responseData)
-        throw new Error("Unexpected API response format")
+        // Show error modal
+        setErrorData(result.error || "Unknown error")
+        setShowErrorModal(true)
       }
     } catch (error: any) {
-      console.error("[v0] Generate KADIRS ID error:", error)
+      console.error("[PayKaduna] Generate KADIRS ID error:", error)
       toast.error(error.message || "Failed to generate KADIRS ID")
     } finally {
       setGeneratingId(false)

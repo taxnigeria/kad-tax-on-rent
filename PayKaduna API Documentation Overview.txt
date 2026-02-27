@@ -1,0 +1,1155 @@
+﻿(APPLICATION PROGRAMMING INTERFACE) FOR PAYKADUNA 3RD PARTY EXPERT SYSTEM INTEGRATIONS VERSION 8 PRESENTED BY PRIMEGUAGE SOLUTIONS
++2
+
+
+________________
+Document Revision History
+
+
+Date
+	Version
+	Reason for Change
+	Author
+	08/09/2025
+	08
+	1. An update to section 2.9 consists of the Year of Assessment endpoint.
+
+
+2. An addition of a generic endpoint for any TSP to include additional information in section 2.10.
+	Primeguage Solutions
+	02/04/2025
+	07
+	1. Update on section 2.4 Create a Payment Transaction.
+
+
+2. Update on section 2.8 Update Payment Redirect URL
+	Primeguage Solutions
+	10/1/2025
+	06
+	1. Update on sections 2.1 and 2.2.
+
+
+2. Update the bill creation endpoint to pass taxpayer name and details.
+	Primeguage Solutions
+	21/10/2024
+	05
+	1. Taxstationld is required and (Lgald no longer required) for TaxPayerRegistration Endpoint
+	Primeguage Solutions
+	26/09/2024
+	04
+	Update on Tax Offices
+	Primeguage Solutions
+	24/09/2024
+	03
+	1. Updated the GetinvoiceURL
+
+
+2. Updated for Remita Payment
+	Primeguage Solutions
+	11/09/2024
+	02
+	1. Updated Create Bill Endpoint: Now accepts the "TSP EngineCode" and allows the "Identifier" to be either the Taxpayer ID from the legacy system or the TPUI from PayKaduna.com. Both identifiers can be used interchangeably.
+
+
+2. Registration Endpoint: Adjusted to fit unique peculiarities of all TSPs, now only requiring "FirstName" and "LastName" fields for registration. Other fields have been relaxed.
+	Primeguage Solutions
+	20/06/2024
+	01
+	Initial Copy
+	Primeguage Solutions
+	
+
+
+
+
+
+	
+
+	
+
+	
+
+	________________
+1.0 INTRODUCTION
+
+
+1.1 OBJECTIVES
+
+
+The objective of this document is to define the interface between the PayKaduna Intelligent Billing System and third-party platforms for the purpose of carrying out specific functions. The communication mode is via REST web service and is accessible via the URL:
++1
+
+
+* Testing: https://testingapi.paykaduna.com/
+
+* Production: https://api.paykaduna.com/
+
+1.2 INTENDED AUDIENCE
+
+
+This document is intended to serve as specifications for the technical team of an integrating party to design and develop components to interface with PayKaduna IBS.
+
+
+1.3 SECURITY & ACCESS
+
+
+   * Step 1: Primeguage shares the API key with the integrating party
+
+   * Step 2: When the integrating party wants to make a request:
+
+      * For [POST] REQUESTS: Compute a HMAC SHA256 hash (Base64) of the JSON payload, using the API key as the secret key. This is your digital signature
+
+      * For [GET] requests: Compute a HMAC SHA256 hash (Base64) of the API path and query string, using the API key as the secret key. This is your digital signature e.g. if making a GET request to /api?param=23, you will hash /api?param=23
+
+         * N.B: for testing purposes only you may use an online tool like https://www.devglan.com/online-tools/hmac-sha256-online to create the hash, make sure the JSON payload is formatted to be single line, again for testing purposed only an online tool like https://www.text-utils.com/json-formatter/ can be used to achieve this. Take note of the JSON formatting when building your internal routines.
++1
+
+         * Step 3: Set the X-Api-Signature header to your digital signature
+
+         * Step 4: Attach the X-Api-Signature to your request
+
+         * Step 5: Start Consuming PayKaduna web services as described below
+
+         * N.B: The Api key will be reset periodically for routine maintenance during off peak times with advance notice and an automatic e-mail containing the new secret key will be sent to the TSP when this is done.
+
+________________
+2.0 SERVICE SPECIFICATION
+
+
+The service implements the following specifications:
+
+
+            1. Create a bill
+
+            2. Create multiple bills
+
+            3. Get bill information
+
+            4. Create a payment transaction
+
+            5. Register a tax payer
+
+            6. Get bill's invoice url
+
+            7. Search for a tax payer
+
+            8. Update payment redirect URL
+
+            9. Attach additional data to bill
+
+            10. Attach additional data to multiple bills
+
+2.1 CREATE A BILL
+
+
+
+
+2.1.1 API PATH /api/ESBills/CreateESBill
++1
+
+
+
+
+2.1.2 REQUEST BODY  | PROPERTY | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | engineCode | Engine code provided to the integrating party | String | Yes | | identifier | Unique taxpayer's identifier used in existing system of integrating party | String | Yes | | firstName | Names of the one paying the bill | String | Yes | | middleName | | String | Yes | | lastName | | String | Yes | | telephone | Phone number of the one paying the bill | String | Yes | | address | Address of the one paying the bill | String | Yes | | esBillDetailsDto | Details of the bill being created | Array of objects | Yes |
++1
+
+
+
+
+For each object within the esBillDetailsDto array:  | PROPERTY | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | amount | Total amount for the bill detail | Decimal | Yes | | mdasId | Id of the corresponding revenue head for the bill detail | Integer | Yes | | recommendedRate | (Optional) | Decimal | No | | narration | Description of bill detail | String | Yes |
++1
+
+
+
+
+Request JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "engineCode": "25477",
+ "identifier": "ABCD01234",
+ "firstName": "Yahya",
+ "middleName": "Umar",
+ "lastName": "Bindir",
+ "address": "PayKaduna HQ, Kaduna",
+ "telephone": "08010020300",
+ "esBillDetailsDto": [
+   {
+     "amount": 3400.50,
+     "mdasId": 138,
+     "narration": "Motor Vehicle Licenses"
+   },
+   {
+     "amount": 23750.99,
+     "mdasId": 125,
+     "narration": "PAYE Others"
+   }
+ ]
+}
+
+
+
+2.1.3 RESPONSE BODY  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | bill | Information of created bill | Object | | billItems | Bill details added to the bill | Array of objects | | failedBillItems | Bill details that were NOT added to the bill | Array of objects |
++1
+
+
+
+
+Within the bill object:  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | billReference | Reference of created bill | String | | payStatus | Bill's payment status. Will return 'Unpaid' | String | | narration | Description of the bill | String | | receipt | Receipt number. This will be blank as the bill is newly created | String |
++1
+
+
+
+
+Within each object within the billItems array:  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | billReference | Reference of bill the details is on | String | | mdaId | Unique identifier of the revenue head | Integer | | revenueCode | Unique code for the revenue head | String | | revenueName | Name of revenue head | String | | amount | Amount of the bill detail | Decimal | | engineCode | | String |
++1
+
+
+
+
+Within each object within the failedBillItems array:  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | billReference | Reference that bill detail failed to be added to | String | | mdasId | The revenue head that is not attached to the integrating party's engine code | String | | amount | | Decimal |
++1
+
+
+
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "bill": {
+   "billReference": "254770000215",
+   "payStatus": "Unpaid",
+   "narration": "FNKIR-24T-000015 MNKIR-24T-000015 LNKIR-24T-000015",
+   "receipt": "-"
+ },
+ "billItems": [
+   {
+     "billReference": "254770000215",
+     "mdaId": 138,
+     "revenueCode": "12020630",
+     "revenueHead": "Motor Vehicle Licences",
+     "amount": 3400.50,
+     "engineCode": null
+   }
+ ],
+ "failedBillItems": [
+   {
+     "billReference": "254770000215",
+     "mdasId": "PAYE Others",
+     "amount": 2375.90
+   }
+ ]
+}
+
+________________
+2.2 CREATE MULTIPLE BILLS
+
+
+
+
+2.2.1 API PATH /api/ESBills/CreateBulkESBill
++1
+
+
+
+
+2.2.2 REQUEST BODY  | PROPERTY | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | engineCode | Engine code provided to the integrating party | String | Yes | | esBillDtos | All the bills being created | Array of objects | Yes |
++1
+
+
+
+
+For each object within the esBillDtos array:  | PROPERTY | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | identifier | Unique taxpayer's identifier used in existing system of integrating party | String | Yes | | firstName | Names of the one paying the bill | String | Yes | | middleName | | String | Yes | | lastName | | String | Yes | | telephone | Phone number of the one paying the bill | String | Yes | | address | Address of the one paying the bill | String | Yes | | esBillDetailsDto | Details of the bill being created | Array of objects | Yes |
++1
+
+
+
+
+For each object within the esBillDetailsDtos array:  | PROPERTY | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | amount | Total amount for the bill detail | Decimal | Yes | | mdasId | Id of the corresponding revenue head for the bill detail | Integer | Yes | | recommendedRate | (Optional) | Decimal | No | | narration | Description of bill detail | String | Yes |
++1
+
+
+
+
+Request JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "engineCode": "25477",
+ "esBillDtos": [
+   {
+     "identifier": "<string>",
+     "firstName": "Yahya",
+     "middleName": "Umar",
+     "lastName": "Bindir",
+     "address": "PayKaduna HQ, Kaduna",
+     "telephone": "08010020300",
+     "esBillDetailsDto": [
+       {
+         "amount": 3400.50,
+         "mdasId": 138,
+         "narration": "Motor Vehicle Licenses"
+       }
+     ]
+   }
+ ]
+}
+
+
+
+2.2.3 RESPONSE BODY  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | (Unnamed) | Array of created bills | Array of objects |
++1
+
+
+
+
+For each object within the returned array:  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | bill | Information of created bill | Object | | billItems | Bill details added to the bill | Array of objects | | failedBillItems | Bill details that were NOT added to the bill | Array of objects |
++1
+
+
+Please see the response body of 2.1 CREATE A BILL to see what is contained within the bill, billItems and failedBillItems properties.
+
+
+
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+[
+ {
+   "bill": {
+     "billReference": "254770000216",
+     "payStatus": "Unpaid",
+     "narration": "FNKIR-24T-000015 MNKIR-24T-000015 LNKIR-24T-000015",
+     "receipt": "-"
+   },
+   "billItems": [
+     {
+       "billReference": "254770000216",
+       "mdaId": 138,
+       "revenueCode": "12020630",
+       "revenueHead": "Motor Vehicle Licences",
+       "amount": 23456,
+       "engineCode": null
+     }
+   ],
+   "failedBillItems": []
+ }
+]
+
+________________
+2.3 GET BILL INFORMATION
+
+
+
+
+2.3.1 API PATH /api/ESBills/GetBill?billreference=
++1
+
+
+
+
+2.3.2 REQUEST QUERY PARAMETERS  | PARAMETER | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | billreference | The reference number generated when the bill was created | String | Yes |
++1
+
+
+
+
+2.3.3 RESPONSE BODY  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | bill | Information of created bill | Object | | billItems | Bill details added to the bill | Array of objects |
++1
+
+
+Please see the response body of 2.1 CREATE A BILL to see what is contained within the bill and billItems properties.
+
+
+
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "bill": {
+   "billReference": "454770000004",
+   "payStatus": "Fully Paid",
+   "narration": "Yahya Tester",
+   "receipt": "00000152"
+ },
+ "billItems": [
+   {
+     "billReference": "454770000004",
+     "mdaId": 136,
+     "revenueCode": "12020033",
+     "revenueHead": "Learners Permit",
+     "amount": 2500,
+     "engineCode": "135477"
+   }
+ ]
+}
+
+________________
+2.4 CREATE A PAYMENT TRANSACTION
+
+
+
+
+2.4.1 API PATH /api/ESBills/CreateESTransaction
++1
+
+
+
+
+2.4.2 REQUEST BODY  | PROPERTY | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | tpui | A taxpayer's unique identifier. Used by PayKaduna | String | Yes | | billReference | The reference number of the bill being paid | String | Yes |
++1
+
+
+
+
+Request JSON:
++2
+
+
+
+
+JSON
+
+
+
+
+{
+ "tpui": "KIR-24KN-000001",
+ "billReference": "1354770000001"
+}
+
+
+
+2.4.3 RESPONSE BODY  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | checkoutUrl | URL to the PayKaduna payment page | String | | rawResponse | Any extra information required | Object |
++1
+
+
+
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "checkoutUrl": "https://testing.paykaduna.com/make_payment_tsp?ref=1354770000001",
+ "rawResponse": {}
+}
+
+________________
+2.5 REGISTER A TAX-PAYER
+
+
+
+
+2.5.1 API PATH /api/ESBills/RegisterTaxPayer
++1
+
+
+
+
+2.5.2 REQUEST BODY  | PROPERTY | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | firstName | | String | Yes | | lastName | | String | Yes | | tin | | String | Yes | | email | | String | Yes | | phoneNumber | | String | Yes | | genderId | | Integer | Yes | | addressLine1 | The address of the taxpayer | String | Yes | | identifier | Unique taxpayer's identifier used in existing system of integrating party | String | Yes | | userType | | String | Yes | | password | | String | Yes | | confirmPassword | | String | Yes | | middleName | | String | No | | rcNumber | | String | No | | industryId | | Integer | No | | numberOfStaff | Estimate of how many employees that have been employed | Integer | No | | officeName | | String | No | | officeEmail | | String | No | | officePhoneNumber | | String | No | | officeAddressLine1 | | String | No | | officeStateId | The state where the office's HQ stays | Integer | No | | officeLgaId | The LGA where the office's HQ stays | Integer | No | | taxStationId | The tax office for the registering tax payer | Integer | No |
++1
+
+
+Supported values for the userType property are: "Individual", "Corporate"  N.B. If using the "Corporate" userType, please fill in the rcNumber, industryId, numberOfStaff, officeName, officeEmail, officePhoneNumber, officeAddressLine1, officeStateId, officeLgaId properties
++1
+
+
+
+
+Request JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "firstName": "Yahya",
+ "lastName": "Bindir",
+ "middleName": "Testing",
+ "identifier": "ABCDEF-10001",
+ "tin": "0022345678",
+ "taxStationId": 3,
+ "genderId": 2,
+ "addressLine1": "Plot 3, House 4",
+ "email": "yahyatesting@email.com",
+ "phoneNumber": "08100764536",
+ "userType": "Individual",
+ "password": "ApiTest123",
+ "confirmPassword": "ApiTest123"
+}
+
+
+
+2.5.3 RESPONSE BODY  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | userRegistrationId | | String | | userRegistration | Details of the taxpayer's registration on PayKaduna | Object | | user | Basic info of taxpayer | Object | | userType | | String |
++1
+
+
+The objects in the response are mostly what has been entered for the taxpayer's registration. However, the important new information can be found within the userRegistration object
++1
+
+
+PROPERTY
+	DESCRIPTION
+	DATA TYPE
+	tpui
+	The taxpayer's unique identifier on PayKaduna
+	String
+	
+
+
+
+
+
+	
+
+	
+
+	
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "userRegistrationId": "11b0f11a-f39c-4b0f-9c1f-b404e6cd19a3",
+ "userRegistration": {
+   "id": "11b0f11a-f39c-4b0f-9c1f-b404e6cd19a3",
+   "userId": "3c957caa-5b91-4464-a2a8-af39d1bc6ee4",
+   "user": null,
+   "fullName": "Yahya Testing Bindir",
+   "tin": "0022345678",
+   "tpui": "KIR-24BG-000006",
+   "genderId": 2,
+   "gender": null,
+   "addressLine1": "Plot 3, House 4",
+   "stateId": 19,
+   "state": null,
+   "lgaId": 1,
+   "lga": null,
+   "createdAt": "2024-09-20T22:06:40.8068652",
+   "modifiedAt": "2024-09-20T22:06:40.8068652",
+   "rcNumber": "",
+   "industryId": 1,
+   "industry": null,
+   "officeName": "",
+   "officeEmail": "",
+   "officePhoneNumber": "",
+   "officeAddressLine1": "-"
+ }
+}
+
+________________
+2.6 GET BILL'S INVOICE URL
+
+
+
+
+2.6.1 API PATH /api/ESBills/GetInvoiceUrl
++1
+
+
+
+
+2.6.2 REQUEST PARAMETERS  | PARAMETER | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | billreference | The reference number generated when the bill was created | String | Yes |
++1
+
+
+
+
+2.6.3 RESPONSE BODY  | PARAMETER | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | invoiceUrl | Link to the PayKaduna page where the taxpayer can view their invoice | String |
++1
+
+
+
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "invoiceUrl": "https://testing.paykaduna.com/payment_summary?ref=154770000002&amount=500"
+}
+
+________________
+2.7 SEARCH TAX PAYER
+
+
+
+
+2.7.1 API PATH /api/ESBills/SearchTaxPayer?criteria=
++1
+
+
+
+
+2.7.2 REQUEST QUERY PARAMETERS  | PARAMETER | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | criteria | The search term, minimum of 4 characters. This searches taxpayers by: i. Name, ii. TPUI, iii. TIN, iv. NIN, v. Phone number, vi. Email | String | Yes |
++1
+
+
+
+
+2.7.3 RESPONSE BODY  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | (Unnamed) | An array of objects containing unpaginated search results that match the criteria provided | Array of objects | | (Unnamed) | Information of users | Object |
++1
+
+
+
+
+Each object in the array contains the following information of the tax payer:  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | fullName | | String | | tpui | | String | | tin | | String | | nin | | String | | phone | | String | | email | | String |
++1
+
+
+
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+[
+ {
+   "fullName": "25477 YahyaBindirTest",
+   "tpui": "KIR-24T-000019",
+   "tin": "TINKIR-24T-000019",
+   "nin": "",
+   "phone": "08030000000",
+   "email": "KIR-24T-000019@mail.com"
+ },
+ {
+   "fullName": "Yahya BINDIR",
+   "tpui": "KIR-24T-000020",
+   "tin": "TINKIR-24T-000020",
+   "nin": "",
+   "phone": "08030000001",
+   "email": "KIR-24T-000020@mail.com"
+ }
+]
+
+________________
+2.8 UPDATE PAYMENT REDIRECT URL
+
+
+
+
+2.8.1 API PATH /api/ESBills/UpdatePaymentRedirectUrl
++1
+
+
+
+
+2.8.2 REQUEST QUERY PARAMETERS  | PARAMETER | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | redirectUrl | This is the url taxpayers will be redirected to after payment has been made. | String | Yes |
++1
+
+
+
+
+Request JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "redirectUrl": "testing.paykaduna.com"
+}
+
+
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "statusCode": 200,
+ "message": "Update successful"
+}
+
+________________
+2.9 ATTACH ADDITIONAL DATA TO BILL
+
+
+
+
+2.9.1 API PATH /api/ESBills/AttachAdditionalDataToBill
++1
+
+
+
+
+2.9.2 REQUEST BODY  | PROPERTY | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | billReference | The PayKaduna bill reference | String | Yes | | additionalData | Additional data to be attached to the given bill | Object | Yes |
++1
+
+
+
+
+Note: The "additionalData" object has no set structure and is flexible for you to attach any custom attributes to the given bill.
+
+
+
+
+Request JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "billReference": "1354770000372",
+ "additionalData": {
+   "customAttribute": "attribute 1",
+   "hiddenCost": 1000
+ }
+}
+
+
+
+2.9.3 RESPONSE BODY  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | billReference | The PayKaduna bill reference | String | | tpui | The taxpayer's TPUI | String | | payStatus | Payment status of bill | String | | narration | Description of payment | String | | receipt | Receipt number (if paid) | String | | additionalData | Additional data that was attached | Object |
++1
+
+
+
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "billReference": "1354770000372",
+ "tpui": "KIR-25T-000114",
+ "payStatus": "Unpaid",
+ "narration": "Proxy Bill MDA User",
+ "receipt": "-",
+ "additionalData": {
+   "hiddenCost": 1000,
+   "customAttribute": "attribute 1"
+ }
+}
+
+________________
+2.10 ATTACH ADDITIONAL DATA TO MULTIPLE BILLS
+
+
+
+
+2.10.1 API PATH /api/ESBills/BulkAttachAdditionalDataToBill
++1
+
+
+
+
+2.10.2 REQUEST BODY  | PROPERTY | DESCRIPTION | DATA TYPE | REQUIRED | | :--- | :--- | :--- | :--- | | bills | The bills that will have additional data | Array of Objects | Yes |
++1
+
+
+
+
+Note: Each object in the bills array will have the same structure as described in 2.9.2
+
+
+
+
+Request JSON:
+
+
+
+
+JSON
+
+
+
+
+{
+ "bills": [
+   {
+     "billReference": "1354770000371",
+     "additionalData": {
+       "otherNames": "attribute 1"
+     }
+   },
+   {
+     "billReference": "1354770999999",
+     "additionalData": {
+       "hiddenCost": 2000
+     }
+   }
+ ]
+}
+
+
+
+2.10.3 RESPONSE BODY  | PROPERTY | DESCRIPTION | DATA TYPE | | :--- | :--- | :--- | | success | | Bool | | errors | List of error messages | Array of Strings | | bills | The bills that had attached | Array of Objects |
+
+
+
+
+Note: Each object in the bills array will have the same structure as described in 2.9.3
+
+
+
+
+Response JSON:
++1
+
+
+
+
+JSON
+
+
+
+
+{
+ "success": false,
+ "errors": [
+   "Bill not found using 1354770999999"
+ ],
+ "bills": [
+   {
+     "billReference": "1354770000371",
+     "tpui": "KIR-24CK-000003",
+     "payStatus": "Unpaid",
+     "narration": "Proxy Bill Tax Office User",
+     "receipt": "-",
+     "additionalData": {
+       "otherNames": "attribute 1"
+     }
+   }
+ ]
+}
+
+________________
+3.0 LOOKUP TABLES
+
+
+3.1 STATES
+
+
+ID
+	NAME
+	19
+	Kaduna
+	
+
+
+
+
+
+	
+
+	3.2 LGAS
+
+
+ID
+	NAME
+	1
+	Birnin Gwari
+	2
+	Chikun
+	3
+	Giwa
+	4
+	Igabi
+	5
+	Ikara
+	6
+	Jaba
+	7
+	Jema'a
+	8
+	Kachia
+	9
+	Kaduna North
+	10
+	Kaduna South
+	11
+	Kagarko
+	12
+	Kajuru
+	13
+	Kaura
+	14
+	Kauru
+	15
+	Kubau
+	16
+	Kudan
+	17
+	Lere
+	18
+	Makarfi
+	19
+	Sabon Gari
+	20
+	Sanga
+	21
+	Soba
+	22
+	Zangon Kataf
+	23
+	Zaria
+	
+
+
+
++1
+
+
+	
+
+	3.3 GENDERS
+
+
+ID
+	NAME
+	1
+	Female
+	2
+	Male
+	3
+	Not Specified
+	
+
+
+
+
+
+	
+
+	3.4 TAX STATIONS
+
+
+ID
+	NAME
+	2
+	Kakuri East
+	3
+	Tudun Wada
+	4
+	Kakuri West
+	5
+	Kafanchan
+	6
+	Zaria
+	7
+	Kawo
+	8
+	Doka East
+	9
+	Doka West
+	10
+	Samaru
+	11
+	Zonkwa
+	12
+	Kachia
+	13
+	Jere
+	14
+	Birnin Gwari
+	15
+	Turunku
+	16
+	Giwa
+	17
+	Makarfi
+	18
+	Ikara
+	19
+	Soba
+	20
+	Saminaka
+	21
+	Kaura
+	22
+	Kauru
+	23
+	Kudan
+	24
+	Kajuru
+	25
+	Kubau
+	26
+	Gwantu
+	27
+	Rigasa Mini
+	28
+	Sabo Mini
+	29
+	Oriakpata Mini
+	30
+	Sheikh Gumi Market
+	31
+	Kwoi
+	32
+	Sabon Gari
+	33
+	Abuja
+	34
+	CMR MLA
+	35
+	Obasanjo House MLA
+	36
+	FRSC MLA
+	
+
+
+
+
+
+	
+
+	3.5 INDUSTRIES
+
+
+ID
+	NAME
+	1
+	Agriculture
+	2
+	Oil and Gas
+	3
+	Banking and Finance
+	4
+	Telecommunications
+	5
+	Manufacturing
+	6
+	Real Estate
+	7
+	Construction
+	8
+	Healthcare
+	9
+	Information Technology (IT)
+	10
+	Education
+	11
+	Transportation and Logistics
+	12
+	Hospitality and Tourism
+	13
+	Retail and Wholesale
+	14
+	Renewable Energy
+	15
+	Mining and Quarrying
+	16
+	Media and Entertainment
+	17
+	Insurance
+	18
+	Textile and Garment Industry
+	19
+	Automobile Industry
+	
+
+
+
+
+
+	
+
+	________________
+Would you like me to help you format this into a downloadable .md text file, or is there a specific part of the integration you'd like to dive into next?
+Sources
+1. https://www.eduweb.com.ng/kaduna-state-lga-wards-and-new-polling-unit/
+2. https://www.eduweb.com.ng/kaduna-state-lga-wards-and-new-polling-unit/

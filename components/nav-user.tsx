@@ -87,7 +87,7 @@ export function NavUser() {
 
   const displayName = user.displayName || user.email?.split("@")[0] || "User"
   const userEmail = user.email || ""
-  const userAvatar = profilePhotoUrl || user.photoUrl || "https://cdn-icons-png.flaticon.com/512/2960/2960006.png"
+  const userAvatar = profilePhotoUrl || user.photoURL || "https://cdn-icons-png.flaticon.com/512/2960/2960006.png"
   const userInitials = getUserInitials(user.email, user.displayName)
 
   return (

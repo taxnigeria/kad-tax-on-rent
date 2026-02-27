@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase/server"
 import { put } from "@vercel/blob"
 import { normalizeNigerianPhone, isValidNigerianPhone } from "@/lib/utils/phone"
 import { logAudit } from "./audit"
+import { payKadunaClient } from "@/lib/paykaduna"
 
 export async function sendPhoneOTP(firebaseUid: string, phoneNumber: string) {
   try {
@@ -363,38 +364,36 @@ export async function generateKadirsID(firebaseUid: string) {
       identifier: "null",
     }
 
-    console.log("[v0] KADIRS API request body:", kadirsRequestBody)
+    console.log("[PayKaduna] KADIRS registration request body:", kadirsRequestBody)
 
-    const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
-    const authToken = process.env.N8N_WEBHOOK_AUTH_TOKEN
-
-    if (!authToken) {
-      console.error("[v0] N8N_WEBHOOK_AUTH_TOKEN not configured")
-      return { success: false, error: "KADIRS API authentication not configured" }
-    }
-
-    const response = await fetch(kadirsApiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify(kadirsRequestBody),
+    // Call PayKaduna API directly (replaces n8n webhook)
+    const responseData = await payKadunaClient.registerTaxPayer({
+      firstName: kadirsRequestBody.firstName,
+      lastName: kadirsRequestBody.lastName,
+      middleName: kadirsRequestBody.middleName,
+      tin: kadirsRequestBody.tin,
+      email: kadirsRequestBody.email,
+      phoneNumber: kadirsRequestBody.phoneNumber,
+      genderId: kadirsRequestBody.genderId,
+      addressLine1: kadirsRequestBody.addressLine1,
+      identifier: kadirsRequestBody.identifier,
+      userType: kadirsRequestBody.userType as "Individual" | "Corporate",
+      password: kadirsRequestBody.password,
+      confirmPassword: kadirsRequestBody.confirmPassword,
+      taxStationId: kadirsRequestBody.taxStation,
+      rcNumber: kadirsRequestBody.rcNumber,
+      industryId: kadirsRequestBody.industryId,
     })
+    console.log("[PayKaduna] KADIRS registration response:", responseData)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("[v0] KADIRS API error:", errorText)
-      return { success: false, error: "Failed to generate KADIRS ID from API" }
-    }
+    // OLD n8n approach (kept for rollback reference):
+    // const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/025e098d-9f68-439d-871f-9bcbb06b1b2b"
+    // const response = await fetch(kadirsApiUrl, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` }, body: JSON.stringify(kadirsRequestBody) })
 
-    const responseData = await response.json()
-    console.log("[v0] KADIRS API response:", responseData)
-
-    const kadirsId = responseData?.userRegistration?.tpui || responseData?.tpui
+    const kadirsId = responseData?.userRegistration?.tpui
 
     if (!kadirsId) {
-      console.error("[v0] KADIRS ID not found in response:", responseData)
+      console.error("[PayKaduna] KADIRS ID not found in response:", responseData)
       return { success: false, error: "KADIRS ID not found in API response" }
     }
 
@@ -405,7 +404,7 @@ export async function generateKadirsID(firebaseUid: string) {
       .eq("user_id", userData.id)
 
     if (updateError) {
-      console.error("[v0] Error updating KADIRS ID:", updateError)
+      console.error("[PayKaduna] Error updating KADIRS ID:", updateError)
       return { success: false, error: "Failed to save KADIRS ID" }
     }
 
@@ -420,7 +419,7 @@ export async function generateKadirsID(firebaseUid: string) {
 
     return { success: true, kadirsId }
   } catch (error: any) {
-    console.error("[v0] Generate KADIRS ID error:", error)
+    console.error("[PayKaduna] Generate KADIRS ID error:", error)
     return { success: false, error: error.message }
   }
 }
@@ -611,48 +610,34 @@ export async function getProfileCompletionStatus(firebaseUid: string) {
 
 export async function verifyExistingKadirsID(criteria: string) {
   try {
-    const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/3bf2c2e6-eb00-4630-9042-87a3e57abd58"
-    const authToken = process.env.N8N_WEBHOOK_AUTH_TOKEN
+    // Call PayKaduna API directly (replaces n8n webhook)
+    const results = await payKadunaClient.searchTaxPayer(criteria)
+    console.log("[PayKaduna] Search taxpayer response:", results)
 
-    if (!authToken) {
-      return { success: false, error: "KADIRS API authentication not configured" }
-    }
+    // OLD n8n approach (kept for rollback reference):
+    // const kadirsApiUrl = "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/3bf2c2e6-eb00-4630-9042-87a3e57abd58"
+    // const response = await fetch(kadirsApiUrl, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ criteria }) })
 
-    const response = await fetch(kadirsApiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({ criteria }),
-    })
+    // The API returns an array of results
+    const firstResult = Array.isArray(results) ? results[0] : null
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("[v0] KADIRS verification error:", errorText)
-      return { success: false, error: "Failed to verify KADIRS ID" }
-    }
-
-    const responseData = await response.json()
-    console.log("[v0] KADIRS verification response:", responseData)
-
-    if (!responseData || !responseData.tpui) {
+    if (!firstResult || !firstResult.tpui) {
       return { success: false, error: "KADIRS ID not found" }
     }
 
     return {
       success: true,
       data: {
-        fullName: responseData.fullName,
-        tpui: responseData.tpui,
-        tin: responseData.tin,
-        nin: responseData.nin,
-        phone: responseData.phone,
-        email: responseData.email,
+        fullName: firstResult.fullName,
+        tpui: firstResult.tpui,
+        tin: firstResult.tin,
+        nin: firstResult.nin,
+        phone: firstResult.phone,
+        email: firstResult.email,
       },
     }
   } catch (error: any) {
-    console.error("[v0] Verify existing KADIRS ID error:", error)
+    console.error("[PayKaduna] Verify existing KADIRS ID error:", error)
     return { success: false, error: error.message }
   }
 }

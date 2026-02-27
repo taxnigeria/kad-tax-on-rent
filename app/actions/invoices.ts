@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
+import { payKadunaClient, getPayKadunaConfig } from "@/lib/paykaduna"
 
 export interface Invoice {
   id: string
@@ -338,47 +339,36 @@ export async function generatePayKadunaInvoice(invoiceId: string) {
       narration: `Withholding Tax on Rent - ${invoice.tax_year}`,
     })
 
-    // Prepare request body
+    // Prepare request body using PayKaduna client (direct API)
+    const config = await getPayKadunaConfig()
     const requestBody = {
+      engineCode: config.engineCode,
       identifier: taxpayerProfile.kadirs_id,
-      engineCode: "65477",
-      firstname: invoice.taxpayer.first_name || "",
-      middlename: invoice.taxpayer.middle_name || "",
+      firstName: invoice.taxpayer.first_name || "",
+      middleName: invoice.taxpayer.middle_name || "",
       lastName: invoice.taxpayer.last_name || "",
       telephone: invoice.taxpayer.phone_number || "",
       address: invoice.property?.address?.street_address || invoice.property?.street_name || "",
       esBillDetailsDto: billItems,
     }
 
-    console.log("[v0] Calling PayKaduna API with:", JSON.stringify(requestBody, null, 2))
+    console.log("[PayKaduna] Creating bill with:", JSON.stringify(requestBody, null, 2))
 
-    // Call PayKaduna API
-    const response = await fetch(
-      "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/085cbdf3-a485-4ae2-8f03-6de83b5923be",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.N8N_WEBHOOK_AUTH_TOKEN}`,
-        },
-        body: JSON.stringify(requestBody),
-      },
-    )
+    // Call PayKaduna API directly (replaces n8n webhook)
+    const payKadunaResponse = await payKadunaClient.createBill(requestBody)
+    console.log("[PayKaduna] Response:", JSON.stringify(payKadunaResponse, null, 2))
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("[v0] PayKaduna API error:", errorText)
-      return { success: false, error: `PayKaduna API error: ${response.statusText}` }
-    }
-
-    const payKadunaResponse = await response.json()
-    console.log("[v0] PayKaduna response:", JSON.stringify(payKadunaResponse, null, 2))
+    // OLD n8n approach (kept for rollback reference):
+    // const response = await fetch(
+    //   "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/085cbdf3-a485-4ae2-8f03-6de83b5923be",
+    //   { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.N8N_WEBHOOK_AUTH_TOKEN}` }, body: JSON.stringify(requestBody) },
+    // )
 
     // Extract bill reference from response
     const billReference = payKadunaResponse.billItems?.[0]?.billReference
 
     if (!billReference) {
-      console.error("[v0] No bill reference in PayKaduna response")
+      console.error("[PayKaduna] No bill reference in response")
       return { success: false, error: "No bill reference received from PayKaduna" }
     }
 
@@ -392,7 +382,7 @@ export async function generatePayKadunaInvoice(invoiceId: string) {
       .eq("id", invoiceId)
 
     if (updateError) {
-      console.error("[v0] Error updating invoice with bill reference:", updateError)
+      console.error("[PayKaduna] Error updating invoice with bill reference:", updateError)
       return { success: false, error: "Failed to update invoice with bill reference" }
     }
 
@@ -490,47 +480,36 @@ export async function createPayKadunaInvoice(invoiceData: {
       narration: invoiceData.narration || `Withholding Tax on Rent - ${invoiceData.taxYear}`,
     })
 
-    // Prepare request body
+    // Prepare request body using PayKaduna client (direct API)
+    const config = await getPayKadunaConfig()
     const requestBody = {
+      engineCode: config.engineCode,
       identifier: taxpayerProfile.kadirs_id,
-      engineCode: "65477",
-      firstname: taxpayer.first_name || "",
-      middlename: taxpayer.middle_name || "",
+      firstName: taxpayer.first_name || "",
+      middleName: taxpayer.middle_name || "",
       lastName: taxpayer.last_name || "",
       telephone: taxpayer.phone_number || "",
       address: property.address?.street_address || property.street_name || "",
       esBillDetailsDto: billItems,
     }
 
-    console.log("[v0] Calling PayKaduna API with:", JSON.stringify(requestBody, null, 2))
+    console.log("[PayKaduna] Creating bill with:", JSON.stringify(requestBody, null, 2))
 
-    // Call PayKaduna API
-    const response = await fetch(
-      "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/085cbdf3-a485-4ae2-8f03-6de83b5923be",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.N8N_WEBHOOK_AUTH_TOKEN}`,
-        },
-        body: JSON.stringify(requestBody),
-      },
-    )
+    // Call PayKaduna API directly (replaces n8n webhook)
+    const payKadunaResponse = await payKadunaClient.createBill(requestBody)
+    console.log("[PayKaduna] Response:", JSON.stringify(payKadunaResponse, null, 2))
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("[v0] PayKaduna API error:", errorText)
-      return { success: false, error: `PayKaduna API error: ${response.statusText}` }
-    }
-
-    const payKadunaResponse = await response.json()
-    console.log("[v0] PayKaduna response:", JSON.stringify(payKadunaResponse, null, 2))
+    // OLD n8n approach (kept for rollback reference):
+    // const response = await fetch(
+    //   "https://tax-nigeria-n8n.vwc4mb.easypanel.host/webhook/085cbdf3-a485-4ae2-8f03-6de83b5923be",
+    //   { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.N8N_WEBHOOK_AUTH_TOKEN}` }, body: JSON.stringify(requestBody) },
+    // )
 
     // Extract bill reference from response
     const billReference = payKadunaResponse.billItems?.[0]?.billReference
 
     if (!billReference) {
-      console.error("[v0] No bill reference in PayKaduna response")
+      console.error("[PayKaduna] No bill reference in response")
       return { success: false, error: "No bill reference received from PayKaduna" }
     }
 
@@ -542,7 +521,7 @@ export async function createPayKadunaInvoice(invoiceData: {
       },
     }
   } catch (error) {
-    console.error("[v0] Error in createPayKadunaInvoice:", error)
+    console.error("[PayKaduna] Error in createPayKadunaInvoice:", error)
     return { success: false, error: "Failed to create PayKaduna invoice" }
   }
 }
