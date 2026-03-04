@@ -28,7 +28,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Kad Tax on Rent",
-  description: "Created with v0",
+  description: "Kaduna State Withholding Tax on Rent",
   generator: "v0.app",
   verification: {
     google: "6CbGiBi8WUtgkpuo5s1CaYkbNoZwtSD-td7ht9h_uCE",
