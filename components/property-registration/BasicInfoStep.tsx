@@ -14,6 +14,8 @@ interface BasicInfoStepProps {
     userRole: string | null
     authorizedOwners: any[]
     setCityDialogOpen: (open: boolean) => void
+    lgas: any[]
+    areaOffices: any[]
 }
 
 export function BasicInfoStep({
@@ -22,6 +24,8 @@ export function BasicInfoStep({
     userRole,
     authorizedOwners,
     setCityDialogOpen,
+    lgas,
+    areaOffices,
 }: BasicInfoStepProps) {
     const currentYear = new Date().getFullYear()
     const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => 1900 + i).reverse()
@@ -118,7 +122,7 @@ export function BasicInfoStep({
 
                 <div className="space-y-2">
                     <Label htmlFor="city">
-                        City <span className="text-destructive">*</span>
+                        City
                     </Label>
                     <Button
                         type="button"
@@ -135,26 +139,58 @@ export function BasicInfoStep({
                     <Label htmlFor="lga">
                         LGA <span className="text-destructive">*</span>
                     </Label>
-                    <Input
-                        id="lga"
-                        value={formData.lgaName}
-                        readOnly
-                        className="bg-emerald-50/50 border-emerald-50 text-emerald-800"
-                        placeholder="Select city first"
-                    />
+                    <Select
+                        value={formData.lgaId}
+                        onValueChange={(value) => {
+                            const lga = lgas.find((l) => l.id.toString() === value)
+                            setFormData({
+                                ...formData,
+                                lgaId: value,
+                                lgaName: lga?.name || "",
+                            })
+                        }}
+                        required
+                    >
+                        <SelectTrigger id="lga" className="border-emerald-100">
+                            <SelectValue placeholder="Select LGA" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {lgas.map((lga) => (
+                                <SelectItem key={lga.id} value={lga.id.toString()}>
+                                    {lga.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div className="space-y-2">
                     <Label htmlFor="area_office">
                         Area Office <span className="text-destructive">*</span>
                     </Label>
-                    <Input
-                        id="area_office"
-                        value={formData.areaOfficeName}
-                        readOnly
-                        className="bg-emerald-50/50 border-emerald-50 text-emerald-800"
-                        placeholder="Select city first"
-                    />
+                    <Select
+                        value={formData.areaOfficeId}
+                        onValueChange={(value) => {
+                            const office = areaOffices.find((a) => a.id.toString() === value)
+                            setFormData({
+                                ...formData,
+                                areaOfficeId: value,
+                                areaOfficeName: office?.office_name || "",
+                            })
+                        }}
+                        required
+                    >
+                        <SelectTrigger id="area_office" className="border-emerald-100">
+                            <SelectValue placeholder="Select Area Office" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {areaOffices.map((office) => (
+                                <SelectItem key={office.id} value={office.id.toString()}>
+                                    {office.office_name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div className="space-y-2">

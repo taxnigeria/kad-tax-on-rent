@@ -281,7 +281,7 @@ export function RegisterPropertyModal({
     const validateStep = (step: number) => {
         if (step === 1) {
             return !!(formData.propertyName && formData.propertyType && formData.propertyCategory &&
-                formData.houseNumber && formData.streetName && formData.cityId && formData.commencementYear)
+                formData.houseNumber && formData.streetName && formData.lgaId && formData.areaOfficeId && formData.commencementYear)
         }
         if (step === 2) {
             return !!(formData.totalUnits && formData.totalAnnualRent && formData.businessType)
@@ -353,6 +353,8 @@ export function RegisterPropertyModal({
                                 userRole={userRole}
                                 authorizedOwners={authorizedOwners}
                                 setCityDialogOpen={setCityDialogOpen}
+                                lgas={lgas}
+                                areaOffices={areaOffices}
                             />
                         )}
                         {currentStep === 2 && (
