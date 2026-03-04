@@ -110,6 +110,8 @@ export default function EnumeratePage() {
   const [showCityModal, setShowCityModal] = useState(false)
   const [selectedCity, setSelectedCity] = useState<City | null>(null)
   const [loadingCities, setLoadingCities] = useState(false)
+  const [lgas, setLgas] = useState<{ id: string; name: string }[]>([])
+  const [areaOffices, setAreaOffices] = useState<{ id: string; office_name: string }[]>([])
 
   // New taxpayer form
   const [newTaxpayer, setNewTaxpayer] = useState({
@@ -152,7 +154,9 @@ export default function EnumeratePage() {
     const fetchCities = async () => {
       setLoadingCities(true)
       const supabase = createClient()
-      const { data, error } = await supabase
+
+      // Fetch cities
+      const { data: citiesData, error: citiesError } = await supabase
         .from("cities")
         .select(`
           id,
@@ -165,9 +169,28 @@ export default function EnumeratePage() {
         `)
         .order("name")
 
-      if (!error && data) {
-        setCities(data as City[])
+      if (!citiesError && citiesData) {
+        setCities(citiesData as City[])
       }
+
+      // Fetch LGAs
+      const { data: lgasData, error: lgasError } = await supabase
+        .from("lgas")
+        .select("id, name")
+        .order("name")
+      if (!lgasError && lgasData) {
+        setLgas(lgasData)
+      }
+
+      // Fetch Area Offices
+      const { data: officesData, error: officesError } = await supabase
+        .from("area_offices")
+        .select("id, office_name")
+        .order("office_name")
+      if (!officesError && officesData) {
+        setAreaOffices(officesData)
+      }
+
       setLoadingCities(false)
     }
     fetchCities()
@@ -430,8 +453,11 @@ export default function EnumeratePage() {
     if (!propertyData.streetName.trim()) {
       errors.streetName = "Street name is required"
     }
-    if (!selectedCity) {
-      errors.city = "City is required"
+    if (!propertyData.lga) {
+      errors.lga = "LGA is required"
+    }
+    if (!propertyData.areaOfficeId) {
+      errors.areaOfficeId = "Area office is required"
     }
     if (!latitude || !longitude) {
       errors.gps = "GPS coordinates are required"
@@ -855,7 +881,7 @@ export default function EnumeratePage() {
 
             {/* City Selector */}
             <div className="space-y-2">
-              <Label>City *</Label>
+              <Label>City</Label>
               <Button
                 variant="outline"
                 className={`w-full justify-between bg-transparent ${validationErrors.city ? "border-destructive" : ""}`}
@@ -874,17 +900,58 @@ export default function EnumeratePage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>LGA</Label>
-                <Input value={propertyData.lga} readOnly placeholder="Auto-filled from city" className="bg-muted" />
+                <Label>LGA *</Label>
+                <Select
+                  value={propertyData.lga}
+                  onValueChange={(value) => {
+                    setPropertyData({ ...propertyData, lga: value })
+                    setValidationErrors((prev) => ({ ...prev, lga: "" }))
+                  }}
+                >
+                  <SelectTrigger className={validationErrors.lga ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Select LGA" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lgas.map((lga) => (
+                      <SelectItem key={lga.id} value={lga.name}>
+                        {lga.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {validationErrors.lga && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.lga}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label>Area Office</Label>
-                <Input
-                  value={selectedCity?.area_offices?.office_name || ""}
-                  readOnly
-                  placeholder="Auto-filled from city"
-                  className="bg-muted"
-                />
+                <Label>Area Office *</Label>
+                <Select
+                  value={propertyData.areaOfficeId}
+                  onValueChange={(value) => {
+                    setPropertyData({ ...propertyData, areaOfficeId: value })
+                    setValidationErrors((prev) => ({ ...prev, areaOfficeId: "" }))
+                  }}
+                >
+                  <SelectTrigger className={validationErrors.areaOfficeId ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Select Area Office" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {areaOffices.map((office) => (
+                      <SelectItem key={office.id} value={office.id}>
+                        {office.office_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {validationErrors.areaOfficeId && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.areaOfficeId}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1074,11 +1141,11 @@ export default function EnumeratePage() {
                   {propertyData.houseNumber} {propertyData.streetName}
                 </span>
                 <span className="text-muted-foreground">City:</span>
-                <span>{selectedCity?.name || "-"}</span>
+                <span>{selectedCity?.name || propertyData.city || "-"}</span>
                 <span className="text-muted-foreground">LGA:</span>
                 <span>{propertyData.lga}</span>
                 <span className="text-muted-foreground">Area Office:</span>
-                <span>{selectedCity?.area_offices?.office_name || "-"}</span>
+                <span>{areaOffices.find(o => o.id === propertyData.areaOfficeId)?.office_name || "-"}</span>
                 <span className="text-muted-foreground">Annual Rent:</span>
                 <span>₦{propertyData.annualRent || "0"}</span>
                 <span className="text-muted-foreground">Rental Commencement Date:</span>
