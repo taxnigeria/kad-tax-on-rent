@@ -27,7 +27,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { createProperty } from "@/app/actions/create-property"
 import { createClient } from "@/utils/supabase/client"
 import { Progress } from "@/components/ui/progress"
-import { getProfileCompletionStatus, getUserRole } from "@/app/actions/verification"
+import { getProfileCompletionStatus } from "@/app/actions/verification"
 
 import { PropertyFormData } from "./types"
 import { BasicInfoStep } from "./BasicInfoStep"
@@ -169,7 +169,7 @@ export function RegisterPropertyModal({
         setCheckingValidation(true)
         try {
             const result = await getProfileCompletionStatus(user.uid)
-            if (result.success) {
+            if (result.success && result.items) {
                 const { items } = result
                 const missingItems: string[] = []
 
