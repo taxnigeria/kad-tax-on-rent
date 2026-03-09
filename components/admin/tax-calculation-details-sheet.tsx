@@ -77,63 +77,65 @@ export function TaxCalculationDetailsSheet({
       const { data, error } = await supabase
         .from('tax_calculations')
         .select(`
-    *,
-    property:properties!inner(
-      id,
-      property_reference,
-      registered_property_name,
-      property_type,
-      property_category,
-      total_annual_rent,
-      rental_commencement_date,
-      area_office_id,
-      owner_id,
-      owner:users!properties_owner_id_fkey(
-        id,
-        first_name,
-        middle_name,
-        last_name,
-        email,
-        phone_number,
-        taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey(
-          kadirs_id,
-          tax_id_or_nin
-        )
-      ),
-      area_office:area_offices!properties_area_office_id_fkey(
-        id,
-        office_name,
-        area_officer_id,
-        area_officer:users!area_offices_area_officer_id_fkey(
-          first_name,
-          last_name
-        )
-      ),
-      addresses(
-        street_address,
-        city,
-        state,
-        lga
-      )
-    ),
-    invoices(
-      id,
-      invoice_number,
-      bill_reference,
-      total_amount,
-      base_amount,
-      penalty,
-      interest,
-      discount,
-      stamp_duty,
-      balance_due,
-      amount_paid,
-      payment_status,
-      issue_date,
-      due_date,
-      created_at
-    )
-  `)
+          *,
+          property:properties!inner(
+            id,
+            property_reference,
+            registered_property_name,
+            street_name,
+            house_number,
+            property_type,
+            property_category,
+            total_annual_rent,
+            rental_commencement_date,
+            area_office_id,
+            owner_id,
+            owner:users!properties_owner_id_fkey(
+              id,
+              first_name,
+              middle_name,
+              last_name,
+              email,
+              phone_number,
+              taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey(
+                kadirs_id,
+                tax_id_or_nin
+              )
+            ),
+            area_office:area_offices!properties_area_office_id_fkey(
+              id,
+              office_name,
+              area_officer_id,
+              area_officer:users!area_offices_area_officer_id_fkey(
+                first_name,
+                last_name
+              )
+            ),
+            address:addresses(
+              street_address,
+              city,
+              state,
+              lga
+            )
+          ),
+          invoices(
+            id,
+            invoice_number,
+            bill_reference,
+            total_amount,
+            base_amount,
+            penalty,
+            interest,
+            discount,
+            stamp_duty,
+            balance_due,
+            amount_paid,
+            payment_status,
+            issue_date,
+            due_date,
+            created_at
+          )
+        `)
         .eq('id', actualCalculationId)
         .maybeSingle();
 
@@ -263,12 +265,24 @@ export function TaxCalculationDetailsSheet({
         areaOffice:
           calculation.property?.area_office?.office_name || "Headquarters",
 
-        recipientAddress: calculation.property?.addresses?.[0]
-          ? `${calculation.property.addresses[0].street_address || ""}, ${calculation.property.addresses[0].city || ""
-            }, ${calculation.property.addresses[0].state || ""}`.trim()
-          : "—",
+        recipientAddress: (calculation.property?.street_name || calculation.property?.house_number)
+          ? [
+            `${calculation.property.house_number || ""} ${calculation.property.street_name || ""}`.trim(),
+            "Kaduna"
+            // calculation.property.address?.city,
+            // calculation.property.address?.lga
+          ].filter(Boolean).join(", ")
+          : calculation.property?.address
+            ? [
+              calculation.property.address.street_address,
+              "Kaduna"
+              // calculation.property.address.city,
+              // calculation.property.address.lga
+            ].filter(Boolean).join(", ")
+            : "—",
 
         assessmentYear: calculation.tax_year,
+        taxYears: (calculation.backlog_years || 0) + 1,
 
         actualAmount: calculation.base_tax_amount || 0,
         arrears: calculation.backlog_tax_amount || 0,

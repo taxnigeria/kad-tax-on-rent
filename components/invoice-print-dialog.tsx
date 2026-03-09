@@ -23,6 +23,7 @@ interface InvoicePrintDialogProps {
     areaOffice: string
     recipientAddress: string
     assessmentYear: string
+    taxYears: number
     actualAmount: number
     arrears: number
     stampDuty: number
@@ -123,10 +124,11 @@ export function InvoicePrintDialog({ open, onOpenChange, invoiceData }: InvoiceP
 
   const demandNoticeComponent = (
     <DemandNoticeTemplate
-      recipientName={invoiceData.clientName}
+      recipientName={invoiceData.propertyName}
       recipientAddress={invoiceData.recipientAddress}
       date={invoiceData.date}
       assessmentYear={invoiceData.assessmentYear}
+      taxYears={invoiceData.taxYears}
       actualAmount={invoiceData.actualAmount}
       arrears={invoiceData.arrears}
       stampDuty={invoiceData.stampDuty}
@@ -135,6 +137,7 @@ export function InvoicePrintDialog({ open, onOpenChange, invoiceData }: InvoiceP
       totalOutstanding={invoiceData.totalOutstanding}
       officerName={invoiceData.officerName}
       areaOffice={invoiceData.areaOffice}
+      areaOfficeAddress={invoiceData.recipientAddress}
     />
   )
 
@@ -142,8 +145,8 @@ export function InvoicePrintDialog({ open, onOpenChange, invoiceData }: InvoiceP
     <InvoiceTemplate
       invoiceNumber={invoiceData.invoiceNumber}
       date={invoiceData.date}
-      clientName={invoiceData.clientName}
-      propertyName={invoiceData.propertyName}
+      clientName={invoiceData.propertyName}
+      propertyName={invoiceData.recipientAddress}
       clientPhone={invoiceData.clientPhone}
       areaOffice={invoiceData.areaOffice}
       areaOfficeAddress={invoiceData.recipientAddress}

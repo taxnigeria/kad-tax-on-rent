@@ -93,13 +93,13 @@ export function InvoiceTemplate({
 
           {/* Client Info */}
           <div>
-            <p className="text-xs font-bold mb-2">Client Information</p>
+            <p className="text-xs font-bold mb-2">Property Information</p>
             <div className="space-y-1">
               <p className="text-xs">
-                <span className="text-gray-500">Name:</span> <span className="capitalize">{clientName}</span>
+                <span className="text-gray-500">Property Name:</span> <span className="capitalize">{clientName}</span>
               </p>
               <p className="text-xs">
-                <span className="text-gray-500">Property Name:</span> <span className="capitalize">{propertyName}</span>
+                <span className="text-gray-500">Property Address:</span> <span className="capitalize">{propertyName}</span>
               </p>
               <p className="text-xs">
                 <span className="text-gray-500">Phone:</span> {clientPhone}

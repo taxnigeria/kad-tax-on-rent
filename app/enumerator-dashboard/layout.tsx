@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { PWAPrompt } from "@/components/enumerator/pwa-prompt"
 import { ServiceWorkerRegister } from "@/components/enumerator/service-worker-register"
 
+export const maxDuration = 60;
 export const metadata: Metadata = {
   title: "KADIRS Enumerator",
   description: "KADIRS Tax Enumeration App for Field Agents",

@@ -26,6 +26,7 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 })
 
+export const maxDuration = 60;
 export const metadata: Metadata = {
   title: "Kad Tax on Rent",
   description: "Kaduna State Withholding Tax on Rent",

@@ -605,7 +605,7 @@ export async function createInvoiceFromTaxCalculation(taxCalculationId: string) 
     if (!billRefResult.success) {
       // Delete the invoice if bill reference generation fails
       await supabase.from("invoices").delete().eq("id", invoice.id)
-      return billRefResult
+      return { success: false, error: billRefResult.error || "Failed to generate bill reference" }
     }
 
     revalidatePath("/admin/tax-calculations")
