@@ -88,6 +88,14 @@ export default function EnumeratePage() {
   const [selectedTaxpayer, setSelectedTaxpayer] = useState<Taxpayer | null>(null)
   const [isOnline, setIsOnline] = useState(true)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [debugInfo, setDebugInfo] = useState<{
+    requestTime?: string;
+    payloadSize?: string;
+    responseStatus?: string;
+    errorMessage?: string;
+    rawData?: any;
+    lastAction?: string;
+  } | null>(null)
 
   // GPS coordinates
   const [gpsLoading, setGpsLoading] = useState(false)
@@ -366,6 +374,20 @@ export default function EnumeratePage() {
     }
 
     setLoading(true)
+    setDebugInfo({
+      requestTime: new Date().toISOString(),
+      lastAction: "Submit Property",
+      rawData: {
+        taxpayerId: selectedTaxpayer.id,
+        propertyName: propertyData.propertyName,
+        propertyType: propertyData.propertyType,
+        facadePhotoSize: facadePhoto.size,
+        addressPhotoSize: addressNumberPhoto?.size || 0,
+        latitude,
+        longitude
+      }
+    })
+
     try {
       const formData = new FormData()
       formData.append("taxpayerId", selectedTaxpayer.id)
@@ -389,7 +411,16 @@ export default function EnumeratePage() {
         formData.append("addressPhoto", addressNumberPhoto)
       }
 
+      console.log("[Debug] Submitting property registration...")
       const result = await enumerateProperty(formData)
+      console.log("[Debug] Server Response:", result)
+
+      setDebugInfo(prev => ({
+        ...prev,
+        responseStatus: result.success ? "Success" : "Failed",
+        errorMessage: result.error,
+        rawData: result
+      }))
 
       if (result.success) {
         sonnerToast.success("Property registered successfully!")
@@ -418,11 +449,22 @@ export default function EnumeratePage() {
         setLatitude("")
         setLongitude("")
         setSelectedCity(null)
+        setDebugInfo(null) // Clear on success? Maybe keep for a second?
       } else {
         throw new Error(result.error || "Failed to register property")
       }
     } catch (error: any) {
-      sonnerToast.error(error.message || "Failed to register property")
+      console.error("[Debug] Catch Error:", error)
+      const errorMsg = error.message || "An unknown error occurred"
+
+      setDebugInfo(prev => ({
+        ...prev,
+        responseStatus: "Critical Error / Exception",
+        errorMessage: errorMsg,
+        rawData: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error
+      }))
+
+      sonnerToast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -662,7 +704,7 @@ export default function EnumeratePage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Email (Optional)</Label>
+              <Label>Email</Label>
               <Input
                 type="email"
                 value={newTaxpayer.email}
@@ -1192,6 +1234,61 @@ export default function EnumeratePage() {
                 Submit
               </Button>
             </div>
+
+            {/* Debug Info Section */}
+            {(debugInfo || loading) && (
+              <div className="mt-6 p-4 bg-slate-900 text-slate-100 rounded-lg overflow-x-auto text-[10px] font-mono border border-slate-700 shadow-xl">
+                <div className="flex justify-between items-center mb-2 border-b border-slate-800 pb-2">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">Debug Diagnostic Panel</span>
+                  <div className="flex gap-2">
+                    {loading && (
+                      <span className="flex items-center gap-1 text-cyan-400">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        PROCESSING...
+                      </span>
+                    )}
+                    <button
+                      onClick={() => navigator.clipboard.writeText(JSON.stringify(debugInfo, null, 2))}
+                      className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 rounded text-[9px]"
+                      type="button"
+                    >
+                      COPY LOG
+                    </button>
+                    <button
+                      onClick={() => setDebugInfo(null)}
+                      className="px-2 py-0.5 bg-red-900/50 hover:bg-red-800/50 rounded text-[9px]"
+                      type="button"
+                    >
+                      CLEAR
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p><span className="text-slate-500">REQUEST AT:</span> {debugInfo?.requestTime || "Initializing..."}</p>
+                  <p><span className="text-slate-500">ACTION:</span> {debugInfo?.lastAction || "None"}</p>
+                  <p><span className="text-slate-500">STATUS:</span>
+                    <span className={debugInfo?.responseStatus === "Success" ? "text-green-400" : "text-red-400"}>
+                      {debugInfo?.responseStatus || (loading ? "Waiting for Server Response..." : "Idle")}
+                    </span>
+                  </p>
+
+                  {debugInfo?.errorMessage && (
+                    <div className="p-2 bg-red-950/30 border border-red-900/50 rounded mt-1">
+                      <p className="text-red-400 font-bold mb-1">ERROR DETAILS:</p>
+                      <p className="whitespace-pre-wrap">{debugInfo.errorMessage}</p>
+                    </div>
+                  )}
+
+                  <div className="mt-2">
+                    <p className="text-slate-500 mb-1">RAW PAYLOAD/RESPONSE:</p>
+                    <pre className="max-h-40 overflow-y-auto bg-slate-950 p-2 rounded border border-slate-800 scrollbar-thin scrollbar-thumb-slate-800">
+                      {JSON.stringify(debugInfo?.rawData, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
