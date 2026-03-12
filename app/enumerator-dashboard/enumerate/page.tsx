@@ -178,7 +178,13 @@ export default function EnumeratePage() {
         .order("name")
 
       if (!citiesError && citiesData) {
-        setCities(citiesData as City[])
+        // Map data to handle Supabase returning arrays for joined tables
+        const mappedCities = (citiesData as any[]).map(city => ({
+          ...city,
+          lgas: Array.isArray(city.lgas) ? city.lgas[0] : city.lgas,
+          area_offices: Array.isArray(city.area_offices) ? city.area_offices[0] : city.area_offices
+        }))
+        setCities(mappedCities as City[])
       }
 
       // Fetch LGAs

@@ -21,6 +21,7 @@ interface InvoicePrintDialogProps {
     propertyName: string
     clientPhone: string
     areaOffice: string
+    areaOfficeAddress: string
     recipientAddress: string
     assessmentYear: string
     taxYears: number
@@ -67,7 +68,7 @@ export function InvoicePrintDialog({ open, onOpenChange, invoiceData }: InvoiceP
         @media print {
           @page {
             size: auto;
-            margin: 0mm;
+            margin: 11mm;
           }
           body {
             background-color: white !important;
@@ -137,7 +138,7 @@ export function InvoicePrintDialog({ open, onOpenChange, invoiceData }: InvoiceP
       totalOutstanding={invoiceData.totalOutstanding}
       officerName={invoiceData.officerName}
       areaOffice={invoiceData.areaOffice}
-      areaOfficeAddress={invoiceData.recipientAddress}
+      areaOfficeAddress={invoiceData.areaOfficeAddress}
     />
   )
 
@@ -149,7 +150,7 @@ export function InvoicePrintDialog({ open, onOpenChange, invoiceData }: InvoiceP
       propertyName={invoiceData.recipientAddress}
       clientPhone={invoiceData.clientPhone}
       areaOffice={invoiceData.areaOffice}
-      areaOfficeAddress={invoiceData.recipientAddress}
+      areaOfficeAddress={invoiceData.areaOfficeAddress}
       baseAmount={invoiceData.actualAmount}
       stampDuty={invoiceData.stampDuty}
       interest={invoiceData.interest}

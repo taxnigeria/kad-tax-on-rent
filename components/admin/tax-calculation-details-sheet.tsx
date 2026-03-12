@@ -105,6 +105,7 @@ export function TaxCalculationDetailsSheet({
             area_office:area_offices!properties_area_office_id_fkey(
               id,
               office_name,
+              address,
               area_officer_id,
               area_officer:users!area_offices_area_officer_id_fkey(
                 first_name,
@@ -264,6 +265,9 @@ export function TaxCalculationDetailsSheet({
 
         areaOffice:
           calculation.property?.area_office?.office_name || "Headquarters",
+
+        areaOfficeAddress:
+          calculation.property?.area_office?.address || "",
 
         recipientAddress: (calculation.property?.street_name || calculation.property?.house_number)
           ? [

@@ -65,6 +65,10 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
               state,
               lga
             ),
+            area_offices (
+              office_name,
+              address
+            ),
             owner:users!owner_id (
               first_name,
               middle_name,
@@ -233,7 +237,8 @@ export function TaxBillDetailsSheet({ open, onOpenChange, calculationId, onUpdat
         clientName: `${owner?.first_name || ""} ${owner?.middle_name || ""} ${owner?.last_name || ""}`.trim(),
         propertyName: property?.registered_property_name || "Unnamed Property",
         clientPhone: owner?.email || "—",
-        areaOffice: "Kaduna State Internal Revenue Service",
+        areaOffice: property?.area_offices?.[0]?.office_name || "Kaduna State Internal Revenue Service",
+        areaOfficeAddress: property?.area_offices?.[0]?.address || "",
         recipientAddress: property?.addresses?.[0]
           ? `${property.street_name || ""} ${property.house_number || ""}, ${property.addresses[0].city || ""}, ${property.addresses[0].state || ""}`.trim()
           : "—",
