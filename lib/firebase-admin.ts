@@ -4,8 +4,14 @@ let adminFirestore: any = null
 let firebaseAdminAvailable = true
 let initializationAttempted = false
 
-async function getFirebaseAdmin() {
+// For legacy code that expects a 'db' or 'auth' object at the module level
+export let db: any = null
+export let auth: any = null
+
+export async function getFirebaseAdmin() {
   if (adminApp && adminAuth && adminFirestore) {
+    db = adminFirestore
+    auth = adminAuth
     return { app: adminApp, auth: adminAuth, firestore: adminFirestore }
   }
 
@@ -26,53 +32,13 @@ async function getFirebaseAdmin() {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
   const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY
 
-  console.log("[Firebase Admin] Environment check:", {
-    hasProjectId: !!projectId,
-    hasClientEmail: !!clientEmail,
-    hasPrivateKey: !!privateKeyRaw,
-    projectIdType: typeof projectId,
-    clientEmailType: typeof clientEmail,
-    privateKeyType: typeof privateKeyRaw,
-  })
-
-  if (!projectId || typeof projectId !== "string") {
-    console.warn("[Firebase Admin] Missing or invalid NEXT_PUBLIC_FIREBASE_PROJECT_ID")
+  if (!projectId || !clientEmail || !privateKeyRaw) {
+    console.warn("[Firebase Admin] Missing required environment variables")
     firebaseAdminAvailable = false
     return { app: null, auth: null, firestore: null }
   }
 
-  if (!clientEmail || typeof clientEmail !== "string") {
-    console.warn("[Firebase Admin] Missing or invalid FIREBASE_CLIENT_EMAIL")
-    firebaseAdminAvailable = false
-    return { app: null, auth: null, firestore: null }
-  }
-
-  if (!privateKeyRaw || typeof privateKeyRaw !== "string") {
-    console.warn("[Firebase Admin] Missing or invalid FIREBASE_PRIVATE_KEY")
-    firebaseAdminAvailable = false
-    return { app: null, auth: null, firestore: null }
-  }
-
-  let privateKey = privateKeyRaw
-  try {
-    // If it looks like JSON, try to parse it
-    if (privateKeyRaw.startsWith("{") || privateKeyRaw.startsWith('"')) {
-      privateKey = JSON.parse(privateKeyRaw)
-    }
-    // Convert escaped newlines to actual newlines
-    if (typeof privateKey === "string") {
-      privateKey = privateKey.replace(/\\n/g, "\n")
-    }
-  } catch {
-    // If JSON parsing fails, just use the raw value with newline replacement
-    privateKey = privateKeyRaw.replace(/\\n/g, "\n")
-  }
-
-  if (typeof privateKey !== "string") {
-    console.warn("[Firebase Admin] FIREBASE_PRIVATE_KEY is not a valid string")
-    firebaseAdminAvailable = false
-    return { app: null, auth: null, firestore: null }
-  }
+  let privateKey = privateKeyRaw.replace(/\\n/g, "\n")
 
   try {
     const { initializeApp, getApps, cert } = await import("firebase-admin/app")
@@ -92,13 +58,23 @@ async function getFirebaseAdmin() {
     }
     adminAuth = getAuth(adminApp)
     adminFirestore = getFirestore(adminApp)
+    
+    // Set exported variables
+    db = adminFirestore
+    auth = adminAuth
+    
     return { app: adminApp, auth: adminAuth, firestore: adminFirestore }
   } catch (error: any) {
-    const errorMessage = error?.message || String(error) || "Unknown error"
-    console.error("[Firebase Admin] Failed to initialize:", errorMessage)
+    console.error("[Firebase Admin] Failed to initialize:", error?.message || error)
     firebaseAdminAvailable = false
     return { app: null, auth: null, firestore: null }
   }
+}
+
+// Helper to get initialize if needed and return firestore
+export async function getDb() {
+  const { firestore } = await getFirebaseAdmin()
+  return firestore
 }
 
 export interface FirestoreUserData {
@@ -163,34 +139,216 @@ export async function getFirestoreUserRoles(): Promise<Map<string, string | null
   return rolesMap
 }
 
-export async function listFirebaseUsers(maxResults = 1000) {
+export interface MergedFirebaseUser {
+  uid: string;
+  email: string | null;
+  emailVerified: boolean;
+  displayName: string | null;
+  phoneNumber: string | null;
+  photoURL: string | null;
+  disabled: boolean;
+  kadirs_id: string | null;
+  role: string | null;
+  address: string | null;
+  enumerator: string | null;
+  properties: any[] | null;
+  customClaims: { [key: string]: any } | null;
+  creationTime: string;
+  lastSignInTime: string;
+  metadata: {
+    creationTime: string;
+    lastSignInTime: string;
+  };
+}
+
+export async function listFirebaseUsers(
+  maxResults = 20, 
+  pageToken?: string, 
+  searchQuery?: string,
+  sortField: string = 'displayName',
+  sortOrder: 'asc' | 'desc' = 'asc'
+) {
   if (!firebaseAdminAvailable) {
     return { users: [], error: "Firebase Admin not available in this environment" }
   }
 
-  const { auth } = await getFirebaseAdmin()
+  const { auth, firestore } = await getFirebaseAdmin()
 
-  if (!auth) {
+  if (!auth || !firestore) {
     return { users: [], error: "Firebase Admin not configured" }
   }
 
   try {
-    const listResult = await auth.listUsers(maxResults)
-    return {
-      users: listResult.users.map((user: any) => ({
-        uid: user.uid,
-        email: user.email || null,
-        emailVerified: user.emailVerified,
-        displayName: user.displayName || null,
-        phoneNumber: user.phoneNumber || null,
-        photoURL: user.photoURL || null,
-        disabled: user.disabled,
-        customClaims: user.customClaims || null,
-        creationTime: user.metadata.creationTime,
-        lastSignInTime: user.metadata.lastSignInTime,
-      })),
-      error: null,
+    let mergedUsers: MergedFirebaseUser[] = []
+    let nextPageToken: string | undefined = undefined
+
+    if (searchQuery) {
+      // If searching, we search Firestore 'users' collection first as it supports prefix search better
+      // than Auth listUsers (which doesn't support prefix search)
+      const firestoreUsersSnapshot = await firestore.collection('users')
+        .orderBy('display_name')
+        .startAt(searchQuery)
+        .endAt(searchQuery + "\uf8ff")
+        .limit(maxResults)
+        .get()
+
+      const uids = firestoreUsersSnapshot.docs.map((doc: any) => doc.id)
+      
+      if (uids.length > 0) {
+        // Fetch auth records for these UIDs
+        const getUsersResult = await auth.getUsers(uids.map((uid: string) => ({ uid })))
+        const authMap = new Map(getUsersResult.users.map((u: any) => [u.uid, u]))
+
+        mergedUsers = firestoreUsersSnapshot.docs.map((doc: any) => {
+          const dbUser = doc.data()
+          const user = authMap.get(doc.id) || ({} as any)
+          
+          let displayName: string | null = user.displayName || dbUser.display_name || null
+          if (!displayName && (dbUser.firstname || dbUser.lastname)) {
+            displayName = [dbUser.firstname, dbUser.lastname].filter(Boolean).join(" ")
+          }
+
+          return {
+            uid: doc.id,
+            email: user.email || dbUser.email || null,
+            emailVerified: user.emailVerified || false,
+            displayName: displayName,
+            phoneNumber: user.phoneNumber || dbUser.phoneNumber || dbUser.phone_number || dbUser.phone || null,
+            photoURL: user.photoURL || dbUser.photoURL || null,
+            disabled: user.disabled || false,
+            kadirs_id: dbUser.kadirs_id || null,
+            role: dbUser.role || null,
+            address: dbUser.address || null,
+            enumerator: dbUser.enumerator || null,
+            properties: dbUser.properties || null,
+            customClaims: user.customClaims || null,
+            creationTime: user.metadata?.creationTime || dbUser.created_time || null,
+            lastSignInTime: user.metadata?.lastSignInTime || null,
+            metadata: {
+              creationTime: user.metadata?.creationTime || dbUser.created_time || null,
+              lastSignInTime: user.metadata?.lastSignInTime || null,
+            },
+          }
+        })
+      }
+    } else {
+      // If no search query, we can try to list primarily from Firestore to support sorting.
+      // However, to ensure we get all Auth users, we'll check if we should list via Auth or Firestore.
+      // For legacy data, usually the Firestore 'users' collection is the source of truth for display data.
+      
+      let uids: string[] = []
+      let firestoreUsers: any[] = []
+      
+      // Map sortField to Firestore field
+      const fsSortField = sortField === 'displayName' ? 'display_name' : 
+                          sortField === 'creationTime' ? 'created_time' : 
+                          sortField === 'kadirs_id' ? 'kadirs_id' : 
+                          sortField === 'tin' ? 'tin' :
+                          sortField === 'user_type' ? 'user_type' :
+                          sortField === 'email' ? 'email' : sortField
+      
+      const firestoreQuery = firestore.collection('users')
+        .orderBy(fsSortField, sortOrder)
+        .limit(maxResults)
+      
+      // If we had a pageToken (for Firestore), we'd use it here, but Auth tokens aren't compatible.
+      // For now, simple limit. If pagination is needed for large lists without search, we'll need a different token strategy.
+      
+      const firestoreUsersSnapshot = await firestoreQuery.get()
+      firestoreUsers = firestoreUsersSnapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
+      uids = firestoreUsers.map(u => u.id)
+      
+      // Fetch auth records for these UIDs to get email/phone status
+      const authMap = new Map()
+      if (uids.length > 0) {
+        try {
+          const getUsersResult = await auth.getUsers(uids.map(uid => ({ uid })))
+          getUsersResult.users.forEach((u: any) => authMap.set(u.uid, u))
+        } catch (e) {
+          console.warn("Error fetching auth records for Firestore users:", e)
+        }
+      }
+
+      mergedUsers = firestoreUsers.map((dbUser: any) => {
+        const user = authMap.get(dbUser.id) || ({} as any)
+        
+        let displayName: string | null = dbUser.display_name || user.displayName || null
+        if (!displayName && (dbUser.firstname || dbUser.lastname)) {
+          displayName = [dbUser.firstname, dbUser.lastname].filter(Boolean).join(" ")
+        }
+
+        return {
+          uid: dbUser.id,
+          email: dbUser.email || user.email || null,
+          emailVerified: user.emailVerified || false,
+          displayName: displayName,
+          phoneNumber: dbUser.phone_number || dbUser.phoneNumber || dbUser.phone || user.phoneNumber || null,
+          photoURL: dbUser.photoURL || user.photoURL || null,
+          disabled: user.disabled || false,
+          kadirs_id: dbUser.kadirs_id || dbUser.kadirsId || null,
+          role: dbUser.role || null,
+          address: dbUser.address || null,
+          enumerator: dbUser.enumerator || null,
+          properties: dbUser.properties || null,
+          tin: dbUser.tin || dbUser.taxpayer_id || null,
+          user_type: dbUser.user_type || dbUser.userType || dbUser.category || null,
+          customClaims: user.customClaims || null,
+          creationTime: dbUser.created_time || user.metadata?.creationTime || null,
+          lastSignInTime: user.metadata?.lastSignInTime || null,
+          metadata: {
+            creationTime: dbUser.created_time || user.metadata?.creationTime || null,
+            lastSignInTime: user.metadata?.lastSignInTime || null,
+          },
+        }
+      })
+      
+      // Only if we didn't get results from Firestore, fallback to Auth listUsers
+      if (mergedUsers.length === 0) {
+        const listUsersResult = await auth.listUsers(maxResults, pageToken)
+        nextPageToken = listUsersResult.pageToken
+        
+        const listUids = listUsersResult.users.map((u: any) => u.uid)
+        const fsData: Record<string, any> = {}
+        if (listUids.length > 0) {
+          const snapshot = await firestore.collection('users').where('__name__', 'in', listUids).get()
+          snapshot.docs.forEach((doc: any) => fsData[doc.id] = doc.data())
+        }
+
+        mergedUsers = listUsersResult.users.map((user: any) => {
+          const dbUser = fsData[user.uid] || {}
+          let displayName = user.displayName || dbUser.display_name || null
+          if (!displayName && (dbUser.firstname || dbUser.lastname)) {
+            displayName = [dbUser.firstname, dbUser.lastname].filter(Boolean).join(" ")
+          }
+
+          return {
+            uid: user.uid,
+            email: user.email || dbUser.email || null,
+            emailVerified: user.emailVerified,
+            displayName: displayName,
+            phoneNumber: user.phoneNumber || dbUser.phoneNumber || dbUser.phone_number || dbUser.phone || null,
+            photoURL: user.photoURL || dbUser.photoURL || null,
+            disabled: user.disabled,
+            kadirs_id: dbUser.kadirs_id || dbUser.kadirsId || null,
+            role: dbUser.role || null,
+            address: dbUser.address || null,
+            enumerator: dbUser.enumerator || null,
+            properties: dbUser.properties || null,
+            tin: dbUser.tin || dbUser.taxpayer_id || null,
+            user_type: dbUser.user_type || dbUser.userType || dbUser.category || null,
+            customClaims: user.customClaims || null,
+            creationTime: user.metadata.creationTime,
+            lastSignInTime: user.metadata.lastSignInTime,
+            metadata: {
+              creationTime: user.metadata.creationTime,
+              lastSignInTime: user.metadata.lastSignInTime,
+            },
+          }
+        })
+      }
     }
+
+    return { users: mergedUsers, nextPageToken, error: null }
   } catch (error) {
     console.error("[Firebase Admin] Error listing users:", error)
     return { users: [], error: "Failed to list Firebase users" }
@@ -202,23 +360,41 @@ export async function getFirebaseUser(uid: string) {
     return { user: null, error: "Firebase Admin not available in this environment" }
   }
 
-  const { auth } = await getFirebaseAdmin()
+  const { auth, firestore } = await getFirebaseAdmin()
 
-  if (!auth) {
+  if (!auth || !firestore) {
     return { user: null, error: "Firebase Admin not configured" }
   }
 
   try {
     const user = await auth.getUser(uid)
+    const dbUserDoc = await firestore.collection('users').doc(uid).get()
+    const dbUser = dbUserDoc.exists ? dbUserDoc.data() || {} : {}
+
+    // Combine display name logic
+    let displayName: string | null = user.displayName || null
+    if (!displayName && (dbUser.display_name || dbUser.firstname || dbUser.lastname)) {
+      if (dbUser.display_name) {
+        displayName = dbUser.display_name
+      } else if (dbUser.firstname || dbUser.lastname) {
+        displayName = [dbUser.firstname, dbUser.lastname].filter(Boolean).join(" ")
+      }
+    }
+
     return {
       user: {
         uid: user.uid,
-        email: user.email || null,
+        email: user.email || dbUser.email || null,
         emailVerified: user.emailVerified,
-        displayName: user.displayName || null,
-        phoneNumber: user.phoneNumber || null,
-        photoURL: user.photoURL || null,
+        displayName: displayName,
+        phoneNumber: user.phoneNumber || dbUser.phoneNumber || dbUser.phone_number || dbUser.phone || null,
+        photoURL: user.photoURL || dbUser.photoURL || null,
         disabled: user.disabled,
+        kadirs_id: dbUser.kadirs_id || null,
+        role: dbUser.role || null,
+        address: dbUser.address || null,
+        enumerator: dbUser.enumerator || null,
+        properties: dbUser.properties || null,
         customClaims: user.customClaims || null,
         creationTime: user.metadata.creationTime,
         lastSignInTime: user.metadata.lastSignInTime,
@@ -371,5 +547,115 @@ export async function sendPasswordResetEmail(email: string) {
   } catch (error: any) {
     console.error("[Firebase Admin] Error generating password reset link:", error)
     return { success: false, error: error.message || "Failed to generate password reset link", resetLink: null }
+  }
+}
+
+export async function getLegacyEnumerations(
+  lastDocId?: string, 
+  pageSize: number = 20, 
+  sortField: string = 'date_created', 
+  sortOrder: 'asc' | 'desc' = 'desc',
+  filterField?: string,
+  filterValue?: any,
+  searchQuery?: string
+) {
+  if (!firebaseAdminAvailable) {
+    return { enumerations: [], error: "Firebase Admin not available" }
+  }
+
+  const { firestore } = await getFirebaseAdmin()
+  if (!firestore) {
+    return { enumerations: [], error: "Firebase Admin not configured" }
+  }
+
+  try {
+    let query: any = firestore.collection("enumerations")
+
+    if (filterField && filterValue !== undefined) {
+      query = query.where(filterField, "==", filterValue)
+    }
+
+    if (searchQuery) {
+      // Prefix search requires ordering by the search field
+      query = query.orderBy("registered_property_name")
+        .startAt(searchQuery)
+        .endAt(searchQuery + "\uf8ff")
+    } else {
+      query = query.orderBy(sortField, sortOrder)
+    }
+
+    if (lastDocId) {
+      const lastDoc = await firestore.collection("enumerations").doc(lastDocId).get()
+      if (lastDoc.exists) {
+        query = query.startAfter(lastDoc)
+      } else {
+        console.warn(`[Firebase Admin] lastDocId '${lastDocId}' not found for enumerations. Fetching from start.`)
+      }
+    }
+
+    const snapshot = await query.limit(pageSize).get()
+    const enumerations = snapshot.docs.map((doc: any) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+    return { enumerations, error: null }
+  } catch (error: any) {
+    console.error("[Firebase Admin] Error fetching legacy enumerations:", error)
+    return { enumerations: [], error: error.message }
+  }
+}
+
+export async function getLegacyInvoices(
+  lastDocId?: string, 
+  pageSize: number = 20, 
+  sortField: string = 'dateCreated', 
+  sortOrder: 'asc' | 'desc' = 'desc',
+  filterField?: string,
+  filterValue?: any,
+  searchQuery?: string
+) {
+  if (!firebaseAdminAvailable) {
+    return { invoices: [], error: "Firebase Admin not available" }
+  }
+
+  const { firestore } = await getFirebaseAdmin()
+  if (!firestore) {
+    return { invoices: [], error: "Firebase Admin not configured" }
+  }
+
+  try {
+    let query: any = firestore.collection("invoice_bills")
+
+    if (filterField && filterValue !== undefined) {
+      query = query.where(filterField, "==", filterValue)
+    }
+
+    if (searchQuery) {
+      // Search by billReference prefix
+      query = query.orderBy("billReference")
+        .startAt(searchQuery)
+        .endAt(searchQuery + "\uf8ff")
+    } else {
+      query = query.orderBy(sortField, sortOrder)
+    }
+
+    if (lastDocId) {
+      const lastDoc = await firestore.collection("invoice_bills").doc(lastDocId).get()
+      if (lastDoc.exists) {
+        query = query.startAfter(lastDoc)
+      } else {
+        console.warn(`[Firebase Admin] lastDocId '${lastDocId}' not found for invoices. Fetching from start.`)
+      }
+    }
+
+    const snapshot = await query.limit(pageSize).get()
+    const invoices = snapshot.docs.map((doc: any) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+    return { invoices, error: null }
+  } catch (error: any) {
+    console.error("[Firebase Admin] Error fetching legacy invoices:", error)
+    return { invoices: [], error: error.message }
   }
 }

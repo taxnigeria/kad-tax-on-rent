@@ -1,0 +1,102 @@
+USER Example: /users
+
+address:"19 Musa Yaro Road K/Mashi Kaduna" (string)
+created_time: 21 February 2025 at 17:46:40 UTC+1 (timestamp)
+display_name: "frank moses" (string)
+email: "frankmoses.a1g4r@gmail.com" (string)
+enumerator: /users/HEmLhpj9X1SLxiVICh7RqsTVHb52 (reference)
+firstname: "frank" (string)
+gender: "Male" (string)
+isActive: true (boolean)
+kadirs_id: "KIR-25T-012639" (string)
+lastname: "moses" (string)
+middlename: "false" (string)
+phone: "0803 256 4158" (string)
+phone_number: "08032564158" (string)
+properties: (array)
+0: /enumerations/9QuHe6WXA2AES3htzUHI (reference)
+rc_number: "" (string)
+role: "taxpayer" (string)
+user_identifier: "02c7a3c7-0b9a-416b-82e6-bdc3de8535c2" (string)
+user_type: "Individual" (string)
+(string)
+
+
+
+ENUMERATION Example: /enumerations
+
+date_created: 17 September 2025 at 10:44:45 UTC+1 (timestamp)
+date_printed: 29 September 2025 at 18:07:21 UTC+1 (timestamp)
+enumerator: /users/xcOqBjcuhjYh6Gbak8KqURGim9s1 (reference)
+
+farm_school: (map)
+    rate: 1200000 (number)
+    units: 20 (number)
+
+house: (map)
+    number_of_flats: 20 (number)
+    is_delivered: false (boolean)
+    is_printed: true (boolean)
+    last_modified: 29 September 2025 at 18:04:11 UTC+1 (timestamp)
+
+others: (array)
+    owner_ref: /users/027JI4uI4xhxS2NEmRQvd6pqiTZ2 (reference)
+    printerRef: /users/ZlQEIRdOn3dufpCarDh9To6DJyP2 (reference)
+
+property_manager_info: (map)
+    email: "landlordcaretaker.lvv6j@gmail.com" (string)
+    fullname: "landlord caretaker" (string)
+    means_of_identification: "nin" (string)
+    phone_number: "" (string)
+    taxId_or_nin: "" (string)
+    user_role: "Owner" (string)
+
+means_of_identification: "nin" (string)
+phone_number: "" (string)
+taxId_or_nin: "" (string)
+user_role: "Owner" (string)
+
+property_owner_info: (map)
+area_office: "Doka East" (string)
+business_address: "No 12A Alkali Road Opposite Kinkino Road Kaduna " (string)
+business_registered_number: "" (string)
+business_type: "" (string)
+commencement_date: 7 July 2024 at 00:00:00 UTC+1 (timestamp)
+geolocation: [10.5420587° N, 7.4405168° E] (geopoint)
+kadirs_id: "KIR-25T-021207" (string)
+means_of_identification: "nin" (string)
+name_of_property_owner: "landlord caretaker" (string)
+nationality: "Nigerian" (string)
+nature_of_business: "" (string)
+phone_number: "0811 263 5827" (string)
+registered_property_name: "The Landlord " (string)
+taxId_or_nin: "" (string)
+type_of_rent: "Shop" (string)
+quality_assurance_ref: /users/ZlQEIRdOn3dufpCarDh9To6DJyP2 (reference)
+status: "accepted" (string)
+
+tenant_info: (map)
+full_name: "HAAIS Variety Store " (string)
+nin: "" (string)
+phone_number: "08066666689" (string)
+
+
+
+INVOICE Example: /invoice_bills
+
+amount: 1000000 (number)
+billReference: "654770002637" (string)
+dateCreated: 4 August 2025 at 00:53:26 UTC+1 (timestamp)
+discount: 0 (number)
+enumerationRef: /enumerations/0qjPtLZJGoVh0uQmAc92 (reference)
+interest: 0 (number)
+narration: "65477-KIR-25T-021207" (string)
+ownerRef: /users/027JI4uI4xhxS2NEmRQvd6pqiTZ2 (reference)
+payStatus: "Unpaid" (string)
+paymentAccessCode: "" (string)
+paymentURL: "" (string)
+penalty: 0 (number)
+printed: true (boolean)
+receipt: "-" (string)
+stampDuty: 10000 (number)
+year: "2025" (string)

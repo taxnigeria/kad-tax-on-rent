@@ -19,7 +19,7 @@ export function NavMain({
   items: {
     title: string
     url: string
-    icon?: Icon
+    icon?: any
     isActive?: boolean
   }[]
 }) {

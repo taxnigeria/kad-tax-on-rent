@@ -97,8 +97,10 @@ export async function getTaxpayers(params?: {
 
     let query = adminSupabase.from("users").select(
       `
-        *,
-        taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (*)
+        id, firebase_uid, email, first_name, last_name, phone_number, role, is_active, created_at,
+        taxpayer_profiles:taxpayer_profiles!taxpayer_profiles_user_id_fkey (
+          id, kadirs_id, registration_source, verification_status, business_name
+        )
       `,
       { count: "exact" },
     )
@@ -180,40 +182,39 @@ export async function getTaxpayerById(taxpayerId: string) {
       return { taxpayer: null, error: taxpayerError.message }
     }
 
-    // Get properties count
-    const { count: propertyCount } = await adminSupabase
-      .from("properties")
-      .select("*", { count: "exact", head: true })
-      .eq("owner_id", taxpayerId)
+    // Fetch related data in parallel
+    const [propertiesResult, invoicesResult, paymentsResult] = await Promise.all([
+      // Get properties with count
+      adminSupabase
+        .from("properties")
+        .select("*", { count: "exact" })
+        .eq("owner_id", taxpayerId)
+        .order("created_at", { ascending: false }),
 
-    // Get properties list
-    const { data: properties } = await adminSupabase
-      .from("properties")
-      .select("*")
-      .eq("owner_id", taxpayerId)
-      .order("created_at", { ascending: false })
+      // Get invoices with count
+      adminSupabase
+        .from("invoices")
+        .select("*", { count: "exact" })
+        .eq("taxpayer_id", taxpayerId)
+        .order("created_at", { ascending: false }),
 
-    // Get invoices
-    const { data: invoices, count: invoiceCount } = await adminSupabase
-      .from("invoices")
-      .select("*", { count: "exact" })
-      .eq("taxpayer_id", taxpayerId)
-      .order("created_at", { ascending: false })
+      // Get payments
+      adminSupabase
+        .from("payments")
+        .select(`
+          *,
+          invoices (
+            invoice_number,
+            taxpayer_id
+          )
+        `)
+        .eq("invoices.taxpayer_id", taxpayerId)
+        .order("created_at", { ascending: false })
+    ])
 
-    // Get payments
-    const { data: payments } = await adminSupabase
-      .from("payments")
-      .select(
-        `
-        *,
-        invoices (
-          invoice_number,
-          taxpayer_id
-        )
-      `,
-      )
-      .eq("invoices.taxpayer_id", taxpayerId)
-      .order("created_at", { ascending: false })
+    const { data: properties, count: propertyCount } = propertiesResult
+    const { data: invoices, count: invoiceCount } = invoicesResult
+    const { data: payments } = paymentsResult
 
     // Calculate totals
     const totalTaxOwed = invoices?.reduce((sum, inv) => sum + (Number(inv.balance_due) || 0), 0) || 0

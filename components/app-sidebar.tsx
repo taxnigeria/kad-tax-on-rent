@@ -13,6 +13,7 @@ import {
   Shield,
   MapPin,
   Bell,
+  History,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -208,6 +209,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           },
         ],
       },
+      {
+        title: "Legacy Data",
+        url: "/admin/legacy",
+        icon: History,
+        isActive: pathname?.startsWith("/admin/legacy"),
+        items: [
+          {
+            title: "Historical Records",
+            url: "/admin/legacy",
+          },
+        ],
+      },
     ],
   }
 
@@ -231,16 +244,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} pathname={pathname} />
+        <NavMain items={data.navMain as any} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser
-          user={{
-            name: user?.displayName || "Admin",
-            email: user?.email || "",
-            avatar: user?.photoURL || "",
-          }}
-        />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   )
