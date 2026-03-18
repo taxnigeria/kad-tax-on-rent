@@ -22,18 +22,22 @@ export async function getPayKadunaConfig(): Promise<PayKadunaConfig> {
 
     const isLive = mode === "live"
 
-    const apiKey = isLive
+    let apiKey = isLive
         ? process.env.PAYKADUNA_LIVE_API_KEY
         : process.env.PAYKADUNA_TEST_API_KEY
 
     if (!apiKey) {
         throw new Error(`PayKaduna ${mode} API key is not configured. Set PAYKADUNA_${mode.toUpperCase()}_API_KEY in .env.local`)
     }
+    
+    // Clean API key of any accidental quotes and whitespace
+    apiKey = apiKey.replace(/^["']|["']$/g, '').trim()
 
-    const engineCode = process.env.PAYKADUNA_ENGINE_CODE
+    let engineCode = process.env.PAYKADUNA_ENGINE_CODE
     if (!engineCode) {
         throw new Error("PAYKADUNA_ENGINE_CODE is not configured in .env.local")
     }
+    engineCode = engineCode.replace(/^["']|["']$/g, '').trim()
 
     const mdasId = process.env.PAYKADUNA_MDASID || "132"
 

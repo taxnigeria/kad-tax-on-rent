@@ -333,14 +333,15 @@ export async function generatePayKadunaInvoice(invoiceId: string) {
       Number(invoice.interest || 0) -
       Number(invoice.discount || 0)
 
+    const config = await getPayKadunaConfig()
+
     billItems.push({
       amount: mainTaxAmount,
-      mdasId: "132",
+      mdasId: Number(config.mdasId || 132),
       narration: `Withholding Tax on Rent - ${invoice.tax_year}`,
     })
 
     // Prepare request body using PayKaduna client (direct API)
-    const config = await getPayKadunaConfig()
     const requestBody = {
       engineCode: config.engineCode,
       identifier: taxpayerProfile.kadirs_id,
@@ -458,11 +459,14 @@ export async function createPayKadunaInvoice(invoiceData: {
     // Build bill items array
     const billItems = []
 
+    // Prepare request body using PayKaduna client (direct API)
+    const config = await getPayKadunaConfig()
+
     // Add stamp duty if present
     if (invoiceData.stampDuty && invoiceData.stampDuty > 0) {
       billItems.push({
         amount: Number(invoiceData.stampDuty),
-        mdasId: "132",
+        mdasId: Number(config.mdasId || 132),
         narration: "Stamp Duty",
       })
     }
@@ -476,12 +480,10 @@ export async function createPayKadunaInvoice(invoiceData: {
 
     billItems.push({
       amount: mainTaxAmount,
-      mdasId: "132",
+      mdasId: Number(config.mdasId || 132),
       narration: invoiceData.narration || `Withholding Tax on Rent - ${invoiceData.taxYear}`,
     })
 
-    // Prepare request body using PayKaduna client (direct API)
-    const config = await getPayKadunaConfig()
     const requestBody = {
       engineCode: config.engineCode,
       identifier: taxpayerProfile.kadirs_id,

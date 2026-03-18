@@ -42,6 +42,8 @@ type AddPropertyModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  preselectedTaxpayer?: Taxpayer | null
+  preselectedManager?: PropertyManager | null
 }
 
 type Taxpayer = {
@@ -84,7 +86,7 @@ type AreaOffice = {
   lga_id: string
 }
 
-export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyModalProps) {
+export function AddPropertyModal({ open, onOpenChange, onSuccess, preselectedTaxpayer, preselectedManager }: AddPropertyModalProps) {
   const router = useRouter()
 
   const [currentStep, setCurrentStep] = useState(1)
@@ -190,8 +192,19 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
   useEffect(() => {
     if (open) {
       resetForm()
+      if (preselectedTaxpayer) {
+        setFormData(prev => ({ ...prev, registrationType: "owner" }))
+        setSelectedTaxpayer(preselectedTaxpayer)
+        setTaxpayers([preselectedTaxpayer])
+        setTaxpayerSearch(preselectedTaxpayer.first_name || "")
+      } else if (preselectedManager) {
+        setFormData(prev => ({ ...prev, registrationType: "manager" }))
+        setSelectedManager(preselectedManager)
+        setManagers([preselectedManager])
+        setManagerSearch(preselectedManager.first_name || "")
+      }
     }
-  }, [open])
+  }, [open, preselectedTaxpayer, preselectedManager])
 
   useEffect(() => {
     if (currentStep === 3 && formData.registrationType === "owner" && taxpayerSearch.length >= 2) {
@@ -256,7 +269,7 @@ export function AddPropertyModal({ open, onOpenChange, onSuccess }: AddPropertyM
         .from("users")
         .select("id, first_name, last_name, email, phone_number")
         .or(`first_name.ilike.%${managerSearch}%,last_name.ilike.%${managerSearch}%,email.ilike.%${managerSearch}%`)
-        .eq("role", "taxpayer")
+        .eq("role", "property_manager")
         .limit(10)
 
       if (error) {
