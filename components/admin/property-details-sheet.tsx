@@ -265,16 +265,13 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
           `
           id,
           first_name,
-          middle_name,
           last_name,
           email,
           phone_number,
-          address,
-          profile_picture_url,
           role
         `,
         )
-        .eq("role", "taxpayer")
+        .in("role", ["taxpayer", "property_manager"])
         .or(
           `first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%,phone_number.ilike.%${query}%`,
         )
@@ -1000,7 +997,7 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
       </Sheet>
 
       <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle>Transfer Property Ownership</DialogTitle>
             <DialogDescription>
@@ -1045,23 +1042,33 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
 
             {/* Search Results */}
             {searchResults.length > 0 && (
-              <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg">
-                {searchResults.map((taxpayer) => (
-                  <button
-                    key={taxpayer.id}
-                    className={`w-full p-3 text-left hover:bg-muted/50 transition-colors border-b last:border-b-0 ${selectedNewOwner?.id === taxpayer.id ? "bg-primary/10" : ""
-                      }`}
-                    onClick={() => setSelectedNewOwner(taxpayer)}
-                  >
-                    <div className="font-medium">
-                      {taxpayer.first_name} {taxpayer.middle_name} {taxpayer.last_name}
-                    </div>
-                    <div className="text-sm text-muted-foreground">{taxpayer.email}</div>
-                    <div className="text-xs text-muted-foreground font-mono mt-1">
-                      {taxpayer.address || "No address"}
-                    </div>
-                  </button>
-                ))}
+              <div className="max-h-60 overflow-y-auto border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Contact</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {searchResults.map((taxpayer) => (
+                      <TableRow
+                        key={taxpayer.id}
+                        className={`cursor-pointer hover:bg-muted/50 ${selectedNewOwner?.id === taxpayer.id ? "bg-primary/10" : ""}`}
+                        onClick={() => setSelectedNewOwner(taxpayer)}
+                      >
+                        <TableCell className="font-medium">
+                          <div className="p-0 m-0 capitalize font-xs">{taxpayer.first_name} {taxpayer.last_name}</div>
+                          <div className="text-[9px] capitalize text-muted-foreground font-mono">{taxpayer.role?.replace("_", " ")}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs">{taxpayer.email || "—"}</div>
+                          <div className="text-[10px] text-muted-foreground font-mono">{taxpayer.phone_number || "—"}</div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
 
@@ -1069,14 +1076,17 @@ export function PropertyDetailsSheet({ open, onOpenChange, propertyId, onUpdate 
             {selectedNewOwner && (
               <div className="space-y-2">
                 <Label>New Owner (Selected)</Label>
-                <div className="p-3 border rounded-lg bg-primary/5">
-                  <div className="font-medium">
-                    {selectedNewOwner.first_name} {selectedNewOwner.middle_name} {selectedNewOwner.last_name}
+                <div className="p-3 border rounded-lg bg-primary/5 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold capitalize">
+                      {selectedNewOwner.first_name} {selectedNewOwner.last_name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{selectedNewOwner.email}</div>
+                    <div className="text-xs text-muted-foreground font-mono mt-1">
+                      {selectedNewOwner.phone_number || "No phone"}
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">{selectedNewOwner.email}</div>
-                  <div className="text-xs text-muted-foreground font-mono mt-1">
-                    {selectedNewOwner.address || "No address"}
-                  </div>
+                  <Badge variant="default" className="capitalize">{selectedNewOwner.role?.replace("_", " ")}</Badge>
                 </div>
               </div>
             )}
