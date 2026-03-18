@@ -398,7 +398,7 @@ export async function generatePayKadunaInvoice(invoiceId: string) {
     }
   } catch (error) {
     console.error("[v0] Error in generatePayKadunaInvoice:", error)
-    return { success: false, error: "Failed to generate PayKaduna invoice" }
+    return { success: false, error: error instanceof Error ? `Failed to generate PayKaduna invoice: ${error.message}` : "Failed to generate PayKaduna invoice" }
   }
 }
 
@@ -522,7 +522,7 @@ export async function createPayKadunaInvoice(invoiceData: {
     }
   } catch (error) {
     console.error("[PayKaduna] Error in createPayKadunaInvoice:", error)
-    return { success: false, error: "Failed to create PayKaduna invoice" }
+    return { success: false, error: error instanceof Error ? `Failed to create PayKaduna invoice: ${error.message}` : "Failed to create PayKaduna invoice" }
   }
 }
 
