@@ -901,25 +901,25 @@ export function TaxpayerDetailsSheet({ taxpayerId, open, onOpenChange, onUpdate 
         open={showAddPropertyModal}
         onOpenChange={setShowAddPropertyModal}
         preselectedTaxpayer={
-          taxpayer?.taxpayer_profiles?.user_type !== 'property_manager'
+          taxpayer && taxpayer.taxpayer_profiles?.user_type !== 'property_manager'
             ? {
-                id: taxpayer!.id,
-                first_name: taxpayer!.first_name,
-                last_name: taxpayer!.last_name,
-                email: taxpayer!.email,
-                phone_number: taxpayer!.phone_number,
-                taxpayer_profiles: taxpayer!.taxpayer_profiles ? [{ kadirs_id: taxpayer!.taxpayer_profiles.kadirs_id }] : []
+                id: taxpayer.id,
+                first_name: taxpayer.first_name,
+                last_name: taxpayer.last_name,
+                email: taxpayer.email,
+                phone_number: taxpayer.phone_number,
+                taxpayer_profiles: taxpayer.taxpayer_profiles ? [{ kadirs_id: taxpayer.taxpayer_profiles.kadirs_id }] : []
               } as any
             : null
         }
         preselectedManager={
-          taxpayer?.taxpayer_profiles?.user_type === 'property_manager'
+          taxpayer && taxpayer.taxpayer_profiles?.user_type === 'property_manager'
             ? {
-                id: taxpayer!.id,
-                first_name: taxpayer!.first_name,
-                last_name: taxpayer!.last_name,
-                email: taxpayer!.email,
-                phone_number: taxpayer!.phone_number,
+                id: taxpayer.id,
+                first_name: taxpayer.first_name,
+                last_name: taxpayer.last_name,
+                email: taxpayer.email,
+                phone_number: taxpayer.phone_number,
               }
             : null
         }
